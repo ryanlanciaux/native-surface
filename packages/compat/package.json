@@ -47,7 +47,9 @@
     "./image": "./src/image.tsx",
     "./linear-gradient": "./src/linear-gradient.tsx",
     "./blur": "./src/blur.tsx",
-    "./masked-view": "./src/masked-view.tsx"
+    "./masked-view": "./src/masked-view.tsx",
+    "./webview": "./src/webview.tsx",
+    "./pager-view": "./src/pager-view.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
