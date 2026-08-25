@@ -198,6 +198,8 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: 'expo-application', replacement: compat('expo.tsx') },
     { find: 'expo-splash-screen', replacement: compat('expo.tsx') },
     { find: 'expo-system-ui', replacement: compat('expo.tsx') },
+    // Before the bare 'expo' find, which would otherwise swallow the subpath.
+    { find: /^expo-modules-core(\/.*)?$/, replacement: compat('expo-modules-core.tsx') },
     { find: 'expo', replacement: compat('expo.tsx') },
     { find: 'reactotron-react-native-mmkv', replacement: compat('reactotron.tsx') },
     { find: 'reactotron-react-native', replacement: compat('reactotron.tsx') },

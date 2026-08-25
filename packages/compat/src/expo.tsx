@@ -11,6 +11,14 @@
 import * as React from 'react';
 import { initEngine } from 'native-surface';
 
+/**
+ * The `expo` package re-exports the whole expo-modules-core surface, and
+ * local native modules import `requireNativeModule` from EITHER entry point
+ * (observed in the wild importing from 'expo' directly). Both must carry it,
+ * so the registry lives in one module and is re-exported here.
+ */
+export * from './expo-modules-core';
+
 // ---------------------------------------------------------------------------
 // expo (core): registerRootComponent
 // ---------------------------------------------------------------------------
