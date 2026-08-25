@@ -144,6 +144,11 @@ export function retainImageEntry(entry: ImageEntry | null): void {
 const IMAGE_CACHE_MAX = 64;
 const imageCache = new Map<string, ImageEntry>();
 
+// URIs whose failure was already reported. The cache dedupes repeat loads,
+// but error entries can be evicted (LRU) and re-fetched — warn once per uri,
+// not once per attempt.
+const warnedImageUris = new Set<string>();
+
 /** Move-to-end on access; evict (and .delete()) least-recently-used settled entries. */
 function touchImageEntry(uri: string, entry: ImageEntry): void {
   imageCache.delete(uri);
@@ -168,17 +173,38 @@ export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): 
     return existing;
   }
   const promise = (async (): Promise<CKImage | null> => {
+    // Which stage failed (and what the server called the payload) drives the
+    // diagnostic below — neither survives into the Error we catch.
+    let stage: 'fetch' | 'read' | 'decode' = 'fetch';
+    let contentType: string | null = null;
     try {
       const res = await fetch(uri);
+      stage = 'read';
+      contentType = res.headers.get('content-type');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const bytes = await res.arrayBuffer();
       const eng = await ensureEngine();
+      stage = 'decode';
       const image = eng.ck.MakeImageFromEncoded(bytes);
       if (!image) throw new Error('unsupported image data');
       imageCache.set(uri, { status: 'loaded', image, refs: 0 });
       return image;
     } catch (err) {
-      imageCache.set(uri, { status: 'error', error: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      imageCache.set(uri, { status: 'error', error: message });
+      if (!warnedImageUris.has(uri)) {
+        warnedImageUris.add(uri);
+        let hint = '';
+        if (stage === 'fetch') {
+          // fetch() itself rejected: network failure or a missing CORS header.
+          hint =
+            ' If the host is cross-origin it must send Access-Control-Allow-Origin: Skia decodes raw bytes via fetch(), ' +
+            'not an <img> tag, so CORS blocks hosts an <img> would have displayed.';
+        } else if (stage === 'decode' && (/\.svg([?#]|$)/i.test(uri) || (contentType ?? '').toLowerCase().includes('image/svg+xml'))) {
+          hint = ' SVG is not a supported encoding (PNG/JPEG/WEBP/GIF only).';
+        }
+        console.warn(`native-surface: failed to load image ${uri}: ${message}.${hint}`);
+      }
       return null;
     }
   })();
