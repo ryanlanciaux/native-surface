@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "react-native": ["../native-surface/src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

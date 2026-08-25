@@ -1,0 +1,23 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter native-surface typecheck
+      - run: pnpm --filter @native-surface/compat typecheck
+      - run: pnpm --filter native-surface test
+      # The demo is the integration surface — a fresh-clone build here catches
+      # layout/resolution gaps the package tests cannot (e.g. hoisting).
+      - run: pnpm --filter embed-demo build

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+test-output/
+*.log
+*.local
+.DS_Store
+
+# Maintainer-local: design notes, findings, audit docs, spike workspaces
+docs/
+spikes/

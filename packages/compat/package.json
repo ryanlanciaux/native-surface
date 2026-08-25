@@ -1,0 +1,57 @@
+{
+  "name": "@native-surface/compat",
+  "version": "0.1.0-alpha.0",
+  "license": "MIT",
+  "description": "Compat shims for native-surface: high-level, boundary-general stand-ins for RN community packages (gesture-handler, safe-area, expo modules, ...) that need engine wiring.",
+  "keywords": [
+    "react-native",
+    "native-surface",
+    "compat",
+    "shims"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanlanciaux/native-surface.git",
+    "directory": "packages/compat"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    "./reanimated": "./src/reanimated.tsx",
+    "./gesture-handler": "./src/gesture-handler.tsx",
+    "./safe-area": "./src/safe-area.tsx",
+    "./screens": "./src/screens.tsx",
+    "./mmkv": "./src/mmkv.ts",
+    "./keyboard-controller": "./src/keyboard-controller.tsx",
+    "./edge-to-edge": "./src/edge-to-edge.tsx",
+    "./expo": "./src/expo.tsx",
+    "./reactotron": "./src/reactotron.tsx",
+    "./native-stack": "./src/native-stack.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "echo 'exercised by native-surface tests + embed-demo e2e'"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "@react-navigation/stack": "^7.0.0",
+    "native-surface": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@react-navigation/stack": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@react-navigation/stack": "^7.10.22",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

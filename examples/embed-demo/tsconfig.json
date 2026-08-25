@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["vite/client"],
+    "paths": {
+      "react-native": ["../../packages/native-surface/src/index.ts"],
+      "react-native-reanimated": ["../../packages/compat/src/reanimated.tsx"],
+      "react-native-gesture-handler": ["../../packages/compat/src/gesture-handler.tsx"],
+      "react-native-safe-area-context": ["../../packages/compat/src/safe-area.tsx"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

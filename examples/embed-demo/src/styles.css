@@ -1,0 +1,412 @@
+:root {
+  --ink: #10131c;
+  --body: #4a5163;
+  --muted: #858c9e;
+  --line: #e4e6ed;
+  --line-soft: #edeff4;
+  --card: #ffffff;
+  --bg: #f5f6fa;
+  --brand: #4f46e5;
+  --brand-soft: #eef0fe;
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--body);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 460px at 12% -12%, #e7e9fd 0%, rgba(231, 233, 253, 0) 62%),
+    radial-gradient(900px 420px at 92% -6%, #e2f2f4 0%, rgba(226, 242, 244, 0) 58%);
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  color: var(--ink);
+  background: #eef0f5;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.08em 0.34em;
+  white-space: nowrap;
+}
+
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+/* ---------------------------------------------------------------- hero --- */
+
+.eyebrow {
+  margin: 0 0 18px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.hero h1 {
+  margin: 0 0 22px;
+  max-width: 20ch;
+  font-size: clamp(2.1rem, 5vw, 3.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.033em;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lead {
+  margin: 0 0 16px;
+  max-width: 68ch;
+  font-size: 1.0625rem;
+  line-height: 1.68;
+}
+
+.lead strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.8125rem;
+  color: var(--body);
+}
+
+.chip b {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* --------------------------------------------------------------- proof --- */
+
+.proof {
+  margin: 40px 0 44px;
+  padding: 20px 22px;
+  border: 1px solid #d9dcf5;
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--brand-soft), rgba(238, 240, 254, 0.4));
+}
+
+.proof h2 {
+  margin: 0 0 8px;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.proof p {
+  margin: 0;
+  max-width: 74ch;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.proof code {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: #d9dcf5;
+}
+
+/* ------------------------------------------------------------- islands --- */
+
+.islands {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 22px;
+}
+
+.island {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgba(16, 19, 28, 0.04),
+    0 12px 28px -22px rgba(16, 19, 28, 0.35);
+}
+
+.island--wide {
+  grid-column: 1 / -1;
+}
+
+.island--wide__body {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+}
+
+/* the frame hugs its canvas — never stretched by a taller sibling */
+.island--wide__body > .surface-frame {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.island__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.island__name {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.island__meta {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.island__note {
+  margin: 14px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--body);
+}
+
+.island__note code {
+  font-size: 0.8125em;
+}
+
+/* The bordered surface: inside this box there is exactly one <canvas>. */
+.surface-frame {
+  width: max-content;
+  padding: 0;
+  border: 1px solid #dcdfe8;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.surface-frame canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* ----------------------------------------------------------- side note --- */
+
+.aside-note {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfbfd;
+}
+
+.aside-note h3 {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.aside-note p {
+  margin: 0 0 10px;
+  font-size: 0.875rem;
+  line-height: 1.62;
+}
+
+.aside-note p:last-child {
+  margin-bottom: 0;
+}
+
+.aside-note__sub {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.beats {
+  margin: 0;
+  padding-left: 1.25em;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.beats li {
+  margin-bottom: 6px;
+}
+
+.beats li::marker {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.beats b {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* ----------------------------------------------------------------- log --- */
+
+.log {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfbfd;
+}
+
+.log__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.log__title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.log__hint {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.log__empty {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.log__list {
+  flex: 1;
+  min-height: 0;
+  max-height: 88px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  /* the newest entries are on top; older ones fade out rather than cut off */
+  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+}
+
+.log__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.log__row:first-child .log__name {
+  color: var(--brand);
+}
+
+.log__name {
+  color: var(--ink);
+}
+
+.log__detail {
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------------- footer --- */
+
+.footer {
+  margin-top: 44px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.footer p {
+  margin: 0;
+  max-width: 76ch;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.footer code {
+  color: var(--body);
+}
+
+/* ---------------------------------------------------------- responsive --- */
+
+@media (max-width: 960px) {
+  .page {
+    padding: 44px 18px 72px;
+  }
+
+  .islands {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .island--wide__body {
+    flex-direction: column;
+  }
+
+  .island--wide__body > .surface-frame {
+    align-self: center;
+  }
+
+  .log__list {
+    max-height: 130px;
+  }
+}
+
+@media (max-width: 470px) {
+  .surface-frame {
+    overflow-x: auto;
+    width: 100%;
+  }
+}
