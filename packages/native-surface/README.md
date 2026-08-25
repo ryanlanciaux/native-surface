@@ -49,12 +49,15 @@ that includes your sources; `tsconfig.app.json` in the Vite React template):
 ```json
 {
   "compilerOptions": {
-    "paths": {
-      "react-native": ["./node_modules/native-surface/dist/index.d.ts"]
-    }
+    "types": ["vite/client", "native-surface/react-native-types"]
   }
 }
 ```
+
+(or an explicit `paths` mapping to
+`./node_modules/native-surface/dist/index.d.ts` — both recipes, and what
+happens when the real `react-native` is also installed, are covered in
+[TROUBLESHOOTING.md](./TROUBLESHOOTING.md).)
 
 The preset aliases `react-native` (and friends) to the engine, applies Metro's
 platform-extension and `react-native` exports-condition resolution, transforms
@@ -65,6 +68,10 @@ App-specific config stays yours: RN libraries that ship ESM and import
 `react-native` must be listed in `optimizeDeps.exclude` (see
 `examples/embed-demo/vite.config.ts` for a worked example with
 @gorhom/bottom-sheet and react-navigation).
+
+Something not working? [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) covers the
+common integration failures by symptom — blank canvas, SSR hosts, tsc errors,
+snapping transitions, missing images, WASM MIME types, and more.
 
 ## Driving it from tests / tools
 

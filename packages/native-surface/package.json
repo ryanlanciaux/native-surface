@@ -22,14 +22,19 @@
   "files": [
     "src",
     "dist",
+    "types",
     "assets",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "TROUBLESHOOTING.md"
   ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./vite": "./src/vite.ts",
+    "./react-native-types": {
+      "types": "./types/react-native.d.ts"
+    },
     "./assets/*": "./assets/*",
     "./package.json": "./package.json"
   },
@@ -74,6 +79,9 @@
       "./vite": {
         "types": "./dist/vite.d.ts",
         "default": "./dist/vite.mjs"
+      },
+      "./react-native-types": {
+        "types": "./types/react-native.d.ts"
       },
       "./assets/*": "./assets/*",
       "./package.json": "./package.json"
