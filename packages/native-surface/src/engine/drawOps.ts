@@ -179,7 +179,7 @@ function geometryPath(ck: CanvasKit, op: Exclude<DrawOp, GroupOp>): Path | null 
 }
 
 /** bounds is the geometry's fill bounds (stroke gradients reuse them too). */
-function makeGradientShader(ck: CanvasKit, g: GradientSpec, bounds: Float32Array): Shader | null {
+export function makeGradientShader(ck: CanvasKit, g: GradientSpec, bounds: Float32Array): Shader | null {
   const colors: Float32Array[] = [];
   const positions: number[] = [];
   for (const s of g.stops) {
