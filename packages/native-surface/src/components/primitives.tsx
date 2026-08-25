@@ -30,6 +30,19 @@ export function View(props: ViewProps): React.JSX.Element {
   return createElement(CnView, rest, children);
 }
 
+/**
+ * SafeAreaView — a plain View passthrough. RN's component is a View plus the
+ * OS chrome insets, and a canvas surface has no OS chrome: no notch, no status
+ * bar, no home indicator, so every inset is 0 and the passthrough is the
+ * FAITHFUL rendering, not a degraded one. Apps that want the embedding page's
+ * real insets (env(safe-area-inset-*) on a full-bleed web host) use the
+ * react-native-safe-area-context compat shim, which the preset aliases — this
+ * export exists so `import { SafeAreaView } from 'react-native'` links at all.
+ */
+export function SafeAreaView(props: ViewProps): React.JSX.Element {
+  return createElement(View, props);
+}
+
 export function Text(props: TextProps): React.JSX.Element {
   const { children, onPress, ...rest } = props;
   const pressProps = onPress

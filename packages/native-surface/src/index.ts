@@ -17,7 +17,10 @@ export {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
 } from './components/primitives';
+export { Switch } from './components/Switch';
+export type { SwitchProps } from './components/Switch';
 
 // Auxiliary RN surface for third-party libraries (see api/extras.tsx policy)
 export {
@@ -62,6 +65,8 @@ export { StyleSheet } from './api/StyleSheet';
 export { Platform, setPlatformOS } from './api/Platform';
 export { Dimensions, useWindowDimensions, PixelRatio } from './api/Dimensions';
 export { Animated, Easing, useAnimatedValue, AnimatedValue } from './api/Animated';
+export { Appearance } from './api/Appearance';
+export type { ColorSchemeName, AppearancePreferences } from './api/Appearance';
 export { processColor } from './engine/colors';
 
 // Types

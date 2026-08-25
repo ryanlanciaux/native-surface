@@ -11,7 +11,13 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { nativeSurface, nativeSurfaceAliases, rnCjsInteropPlugin, type NativeSurfaceAlias } from '../src/vite';
+import {
+  nativeSurface,
+  nativeSurfaceAliases,
+  rnCjsInteropPlugin,
+  rnRequirePlugin,
+  type NativeSurfaceAlias,
+} from '../src/vite';
 import type { NativeSurfacePresetOptions } from '../src/vite';
 
 const EMBED_ROOT = fileURLToPath(new URL('../../../examples/embed-demo', import.meta.url));
@@ -127,6 +133,71 @@ describe('alias set', () => {
   });
 });
 
+describe('rnRequirePlugin', () => {
+  const PAPER = '/x/node_modules/react-native-paper/lib/module/components/Appbar/AppbarBackIcon.js';
+  /** Call the transform with a chosen plugin context (Vite supplies one with
+   *  `resolve`; a bare call gets none, which must stay permissive). */
+  const transformWith = (
+    ctx: unknown,
+    code: string,
+    id: string
+  ): Promise<{ code: string; map: null } | null> =>
+    rnRequirePlugin().transform.call(ctx as never, code, id);
+  const importLines = (code: string): string[] => code.split('\n').filter((l) => l.startsWith('import '));
+
+  it('hoists a real require and ignores the identical-looking ones in comments', async () => {
+    // Paper ships all four shapes in one package: a render-time asset require,
+    // a JSDoc example naming a file that does not exist, a line comment, and
+    // strings/regexes carrying the characters a naive strip would trip on.
+    const code = [
+      '/**',
+      " * <Avatar.Image source={require('../assets/avatar.png')} />",
+      ' */',
+      "// source is a module, e.g. - require('image')",
+      "const slashes = /\\/\\/x/.test(s) || 'https://example.com//p';",
+      "const spec = { source: require('../../assets/back-chevron.png') };",
+    ].join('\n');
+    const out = await transformWith(undefined, code, PAPER);
+    expect(out).not.toBeNull();
+    expect(importLines(out!.code)).toEqual(['import __rnReq0 from "../../assets/back-chevron.png";']);
+    expect(out!.code).toContain('Object.freeze({ uri: __rnReq0, scale: 1 })');
+    // Comments and strings survive verbatim — only the real call was rewritten.
+    expect(out!.code).toContain("<Avatar.Image source={require('../assets/avatar.png')} />");
+    expect(out!.code).toContain("// source is a module, e.g. - require('image')");
+    expect(out!.code).toContain("'https://example.com//p'");
+  });
+
+  it('leaves an unresolvable bare require literal so the library try/catch still degrades', async () => {
+    // paper's icon loader try-requires three packages; hoisting an uninstalled
+    // one would turn its caught ReferenceError into a dead import — or, under
+    // a host that answers every bare id with a virtual not-bridged stub, into
+    // a poisoned first candidate that wins over the installed second.
+    const ctx = {
+      resolve: async (spec: string) =>
+        spec === '@expo/vector-icons/MaterialCommunityIcons'
+          ? { id: fileURLToPath(import.meta.url) } // a real file on disk
+          : { id: `\0ns-stub:${spec}` },
+    };
+    const code = [
+      "try { return require('@react-native-vector-icons/material-design-icons').default; }",
+      "catch (e) { return require('@expo/vector-icons/MaterialCommunityIcons').default; }",
+    ].join('\n');
+    const out = await transformWith(ctx, code, PAPER);
+    expect(out).not.toBeNull();
+    expect(out!.code).toContain("require('@react-native-vector-icons/material-design-icons')");
+    expect(importLines(out!.code)).toEqual([
+      'import * as __rnReq0 from "@expo/vector-icons/MaterialCommunityIcons";',
+    ]);
+    expect(out!.code).toContain('__rnReq0.default');
+  });
+
+  it('applies to react-native-paper by default and to no other node_modules package', async () => {
+    const code = "const x = require('./thing.png');";
+    expect(await transformWith(undefined, code, PAPER)).not.toBeNull();
+    expect(await transformWith(undefined, code, '/x/node_modules/some-lib/index.js')).toBeNull();
+  });
+});
+
 describe('standard-boundary optimizeDeps ownership', () => {
   it('excludes the ESM ecosystem packages unconditionally', () => {
     const { exclude } = runConfig({ resolveFrom: emptyRoot }).optimizeDeps;
@@ -141,6 +212,7 @@ describe('standard-boundary optimizeDeps ownership', () => {
       'react-native-safe-area-context',
       'react-native-gesture-handler',
       '@expo/vector-icons',
+      'react-native-paper',
     ]) {
       expect(exclude).toContain(pkg);
     }

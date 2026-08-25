@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { Text, View } from '../src/components/primitives';
 import { initEngine } from '../src/engine/init';
 import { loadAsync, isLoaded } from '../../compat/src/expo';
-import createIconSetDefault, { createIconSet } from '../../compat/src/vector-icons';
+import SubpathIcon, { createIconSet } from '../../compat/src/vector-icons';
 import { asImpl, createTestRoot, findNode, sleep } from './helpers';
 import type { NativeRoot } from '../src/types';
 
@@ -124,7 +124,23 @@ describe('react-native-vector-icons compat contract', () => {
     await expect(Icon.getImageSource('home')).resolves.toBeNull(); // warn-once stub
   });
 
-  it('the default export (subpath imports) throws render-time guidance toward @expo/vector-icons', () => {
-    expect(() => (createIconSetDefault as () => unknown)()).toThrow(/@expo\/vector-icons/);
+  it('the default export (subpath imports) warns once and paints a placeholder instead of throwing', async () => {
+    // Reached by libraries PROBING for an icon package (paper's icon loader
+    // require()s this one), so it must degrade, not crash the tree.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const root = createTestRoot(300, 100);
+    root.render(
+      <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'flex-start' }}>
+        <SubpathIcon name="home" size={40} color="#000000" />
+      </View>
+    );
+    await root.flush();
+    const node = findNode(root.getLayoutTree(), (n) => n.type === 'Text');
+    expect(node?.text).toBe('□');
+    expect(await paintedPixelsInTextFrame(root)).toBeGreaterThan(20);
+    expect(warn.mock.calls.flat().join(' ')).toMatch(/@expo\/vector-icons/);
+    await expect(SubpathIcon.getImageSource('home')).resolves.toBeNull();
+    root.unmount();
+    warn.mockRestore();
   });
 });

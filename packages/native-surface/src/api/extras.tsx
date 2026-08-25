@@ -9,6 +9,7 @@
  */
 import * as React from 'react';
 import { Pressable, View } from '../components/primitives';
+import { Appearance, type ColorSchemeName } from './Appearance';
 import { dismissKeyboard, setKeyboardEmitter } from '../engine/textInputState';
 import type { PressableProps, StyleProp, ViewStyle } from '../types';
 
@@ -142,9 +143,21 @@ export const NativeModules: Record<string, unknown> = new Proxy(
 );
 const warnedNativeModules = new Set<string>();
 
-/** Color scheme: the canvas host renders the embedding page; report light. */
-export function useColorScheme(): 'light' | 'dark' | null {
-  return 'light';
+/**
+ * Color scheme: RN's hook over the Appearance module, so a setColorScheme()
+ * override and the page's prefers-color-scheme reach hook consumers the same
+ * way they reach Appearance.getColorScheme() callers.
+ */
+export function useColorScheme(): ColorSchemeName {
+  const [scheme, setScheme] = React.useState<ColorSchemeName>(() => Appearance.getColorScheme());
+  React.useEffect(() => {
+    // Re-read on subscribe: the scheme can change between the initial render
+    // and the effect (a theme provider calling setColorScheme on mount).
+    setScheme(Appearance.getColorScheme());
+    const sub = Appearance.addChangeListener((preferences) => setScheme(preferences.colorScheme));
+    return () => sub.remove();
+  }, []);
+  return scheme;
 }
 
 /** No OS keyboard on a canvas host: behaves as a plain View (documented RN props accepted). */

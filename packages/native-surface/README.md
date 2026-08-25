@@ -6,9 +6,20 @@ custom React reconciler. This is **not react-native-web**: there is no
 translation to DOM components. Unmodified RN libraries run their actual native
 code paths — real `react-native-reanimated`, real `@gorhom/bottom-sheet`, real
 `react-navigation` (nested stack in bottom tabs, native-style headers and
-transitions), real `react-native-drawer-layout` — and whole apps have run
+transitions), real `@expo/vector-icons` (icon fonts through the engine's
+font registry), real `react-native-drawer-layout` — and whole apps have run
 byte-untouched (the engine's acceptance run was a full generated app from a
 popular community template, zero source deviations).
+
+The bridged surface also covers `react-native-svg` (Skia-native),
+`expo-image`/`fast-image` (Skia-backed, blurhash/thumbhash placeholders),
+`expo-linear-gradient`/`expo-blur` (real backdrop blur)/`masked-view`,
+`react-native-pager-view` (ScrollView `pagingEnabled` physics),
+`react-native-webview` (a DOM portal over the canvas), async-storage/mmkv,
+and a pack of device APIs (haptics, netinfo, clipboard, share, image-picker,
+device-info, constants, permissions, notifications-advisory). A component
+playground CLI (`npx native-surface playground`) serves stories from any
+existing RN codebase on the canvas.
 
 > [!WARNING]
 > **EXPERIMENTAL — AND HEAVILY AI-DRIVEN**
