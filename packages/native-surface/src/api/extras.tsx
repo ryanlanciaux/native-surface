@@ -11,7 +11,7 @@ import * as React from 'react';
 import { Pressable, View } from '../components/primitives';
 import { Appearance, type ColorSchemeName } from './Appearance';
 import { dismissKeyboard, setKeyboardEmitter } from '../engine/textInputState';
-import type { PressableProps, StyleProp, ViewStyle } from '../types';
+import type { PressableProps, StyleProp, ViewProps, ViewStyle } from '../types';
 
 interface Subscription {
   remove(): void;
@@ -98,6 +98,45 @@ export function TouchableHighlight(props: TouchableHighlightProps): React.JSX.El
       {children}
     </Pressable>
   );
+}
+
+/**
+ * requireNativeComponent — RN's escape hatch for a view implemented natively.
+ * There are no native views here, so the returned component degrades to an
+ * empty box: children still render, View-safe props still apply, and the first
+ * render warns once NAMING the component so the gap is findable.
+ *
+ * Degrading beats throwing for this one specifically. Libraries call it at
+ * module scope for views they may never render (a video surface, a map, an ad
+ * slot), and a throw would take out the importing module — the failure this
+ * whole surface exists to prevent. A missing native view should be an empty
+ * box in the layout, not a dead screen.
+ *
+ * Props are filtered rather than forwarded wholesale: native props (source,
+ * onNativeEvent, driver-specific config) mean nothing to a canvas node, so only
+ * layout/identity/accessibility props pass through.
+ */
+const VIEW_SAFE_PROPS = new Set(['ref', 'style', 'children', 'testID', 'pointerEvents', 'onLayout']);
+const warnedNativeComponents = new Set<string>();
+
+export function requireNativeComponent<P extends object>(name: string): React.ComponentType<P> {
+  const NativeViewFallback: React.FC<Record<string, unknown>> = (props) => {
+    if (!warnedNativeComponents.has(name)) {
+      warnedNativeComponents.add(name);
+      console.warn(
+        `native-surface: requireNativeComponent('${name}') — no native views exist on the canvas host; rendering an empty View in its place.`
+      );
+    }
+    const safe: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(props)) {
+      if (VIEW_SAFE_PROPS.has(key) || key === 'role' || key.startsWith('accessibility') || key.startsWith('aria-')) {
+        safe[key] = value;
+      }
+    }
+    return <View {...(safe as ViewProps)} />;
+  };
+  NativeViewFallback.displayName = `NativeView(${name})`;
+  return NativeViewFallback as React.ComponentType<P>;
 }
 
 function throwingComponent(name: string, why: string): React.ComponentType<Record<string, unknown>> {
