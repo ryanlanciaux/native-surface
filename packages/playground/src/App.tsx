@@ -1,7 +1,10 @@
-import { createElement, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { setPlatformOS } from 'native-surface';
-import { allStories, filterGroups, findStory, groups } from './registry';
+import { loadStoryIndex } from './registry';
+import type { StoryIndex } from './registry';
+import { composeStory, filterGroups, findStory } from './csf';
+import type { StoryEntry } from './csf';
 import { describeCall, describeValue, wrapActions } from './args';
 import { useHashSelection } from './useHashSelection';
 import { useStoryNav } from './useStoryNav';
@@ -13,6 +16,7 @@ import { Preview } from './ui/Preview';
 import { Controls } from './ui/Controls';
 import { Actions } from './ui/Actions';
 import type { ActionRecord } from './ui/Actions';
+import { Audit } from './ui/Audit';
 import type { Args, StoryContext, Theme } from './story-types';
 
 const MAX_ACTIONS = 200;
@@ -27,7 +31,41 @@ function useDevicePixelRatio(): number {
   return dpr;
 }
 
+/**
+ * Runs the story's render/decorator code during ITS OWN render — inside the
+ * surface, inside the preview boundary — so a throwing story (or an unbridged
+ * native import's proxy) breaks one story pane, never the whole playground.
+ */
+function StoryShell(props: { entry: StoryEntry; args: Args; context: StoryContext }): ReactElement {
+  return composeStory(props.entry, props.args, props.context);
+}
+
 export function App(): React.JSX.Element {
+  const [index, setIndex] = useState<StoryIndex | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    loadStoryIndex().then(
+      (loaded) => {
+        if (live) setIndex(loaded);
+      },
+      (error: unknown) => {
+        if (live) setLoadError(error instanceof Error ? error.message : String(error));
+      }
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (loadError) return <div className="app-message">Failed to load stories: {loadError}</div>;
+  if (!index) return <div className="app-message">Loading stories…</div>;
+  return <Playground index={index} />;
+}
+
+function Playground({ index }: { index: StoryIndex }): React.JSX.Element {
+  const { groups, allStories } = index;
   const [filter, setFilter] = useState('');
   const [selectedId, select] = useHashSelection(allStories[0]?.id ?? null);
   const [theme, setTheme] = useState<Theme>('ios');
@@ -39,14 +77,14 @@ export function App(): React.JSX.Element {
   const [actions, setActions] = useState<ActionRecord[]>([]);
   const actionKey = useRef(0);
 
-  const visibleGroups = useMemo(() => filterGroups(filter), [filter]);
+  const visibleGroups = useMemo(() => filterGroups(groups, filter), [groups, filter]);
   const visibleIds = useMemo(
     () => visibleGroups.flatMap((group) => group.stories.map((entry) => entry.id)),
     [visibleGroups]
   );
   useStoryNav(visibleIds, selectedId, select);
 
-  const entry = findStory(selectedId) ?? allStories[0] ?? null;
+  const entry = findStory(allStories, selectedId) ?? allStories[0] ?? null;
 
   // Runs before the surface's mount effect, so a remounted root sees the new OS.
   useLayoutEffect(() => {
@@ -89,17 +127,7 @@ export function App(): React.JSX.Element {
     if (!entry) return null;
     const args = wrapActions(mergedArgs, logArgCall);
     const context: StoryContext = { id: entry.id, title: entry.title, name: entry.name, args, theme };
-    const base = (): ReactElement => {
-      if (entry.story.render) return entry.story.render(args);
-      const component = entry.meta.component;
-      if (!component) throw new Error(`Story "${entry.id}" has no component and no render()`);
-      return createElement(component, args);
-    };
-    const decorators = [...(entry.story.decorators ?? []), ...(entry.meta.decorators ?? [])];
-    return decorators.reduce<() => ReactElement>(
-      (inner, decorator) => () => decorator(inner, context),
-      base
-    )();
+    return createElement(StoryShell, { entry, args, context });
   }, [entry, mergedArgs, logArgCall, theme]);
 
   const autoDpr = useDevicePixelRatio();
@@ -163,7 +191,9 @@ export function App(): React.JSX.Element {
           <main className="stage">
             <p className="empty">
               {groups.length === 0
-                ? 'No *.stories.tsx files found in src/stories.'
+                ? index.source === 'host'
+                  ? 'No story files matched. Add *.stories.tsx files, or point the CLI at them with --stories.'
+                  : 'No *.stories.tsx files found in src/stories.'
                 : 'Select a story from the sidebar.'}
             </p>
           </main>
@@ -186,6 +216,7 @@ export function App(): React.JSX.Element {
             </section>
           )}
           <Actions records={actions} onClear={() => setActions([])} />
+          <Audit />
         </div>
       </div>
     </div>
