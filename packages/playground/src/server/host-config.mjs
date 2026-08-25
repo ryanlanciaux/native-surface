@@ -8,9 +8,19 @@ import { pathToFileURL } from 'node:url';
 /**
  * `.native-surface/playground.config.{mjs,js}` in the host root. Shape (all
  * optional, default export):
- *   { stories?: string[], port?: number, decorators?: 'none' }
+ *   { stories?: string[], port?: number, decorators?: 'none',
+ *     optimizeDeps?: { include?: string[], exclude?: string[] },
+ *     aliases?: Record<string, string> }
  * `decorators: 'none'` is accepted for forward-compat (it will opt out of
  * auto-applied environment decorators once those exist); today it is a no-op.
+ * `optimizeDeps` merges into the Vite config — the escape hatch the engine
+ * preset's docs assign to the consumer config layer: exclude host UI kits
+ * that import the aliased 'react-native' (prebundling would freeze a private
+ * engine copy into their dep chunk), include their bare-CJS leaves.
+ * `aliases` maps exact import specifiers to replacements (paths resolve
+ * against the host root) and — unlike the host tsconfig's paths — takes
+ * priority over the engine preset's own aliases: the escape hatch for
+ * patching over a missing engine export until a real bridge ships.
  */
 export async function loadHostConfig(hostRoot) {
   for (const name of ['playground.config.mjs', 'playground.config.js']) {
@@ -37,6 +47,31 @@ export async function loadHostConfig(hostRoot) {
     }
     if (config.decorators !== undefined && config.decorators !== 'none') {
       warnings.push(`${path}: "decorators" only supports 'none' for now; ignoring`);
+    }
+    if (config.optimizeDeps !== undefined) {
+      const deps = config.optimizeDeps;
+      const stringList = (value) => value === undefined || (Array.isArray(value) && value.every((s) => typeof s === 'string'));
+      if (deps && typeof deps === 'object' && stringList(deps.include) && stringList(deps.exclude)) {
+        clean.optimizeDeps = {
+          ...(deps.include ? { include: deps.include } : {}),
+          ...(deps.exclude ? { exclude: deps.exclude } : {}),
+        };
+      } else {
+        warnings.push(`${path}: "optimizeDeps" must be { include?: string[], exclude?: string[] }; ignoring`);
+      }
+    }
+    if (config.aliases !== undefined) {
+      const aliases = config.aliases;
+      if (
+        aliases &&
+        typeof aliases === 'object' &&
+        !Array.isArray(aliases) &&
+        Object.entries(aliases).every(([k, v]) => typeof k === 'string' && typeof v === 'string')
+      ) {
+        clean.aliases = { ...aliases };
+      } else {
+        warnings.push(`${path}: "aliases" must be a { specifier: replacement } string map; ignoring`);
+      }
     }
     return { config: clean, configPath: path, warnings };
   }
