@@ -611,9 +611,17 @@ code {
 }
 
 @media (max-width: 470px) {
+  /* Canvases are a fixed 390 CSS px; on narrower phones scale them to fit
+     instead of clipping to the right. The engine maps pointer coordinates
+     through getBoundingClientRect, so hit-testing tracks the CSS scale.
+     !important because the component sets height inline. */
   .surface-frame {
-    overflow-x: auto;
     width: 100%;
+  }
+
+  .surface-frame canvas {
+    max-width: 100%;
+    height: auto !important;
   }
 
   /* no room to float beside the eyebrow — drop into the flow above it */
