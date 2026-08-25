@@ -2,9 +2,11 @@
  * React Navigation demo: bottom tabs hosting a stack navigator — the REAL
  * @react-navigation/native + bottom-tabs + stack packages, byte-untouched,
  * running on the canvas engine (Animated is the engine's implementation;
- * safe-area is a compat shim; react-native-screens is absent so the
- * navigators use their own plain-View fallbacks, exactly as upstream does
- * on web).
+ * safe-area and react-native-screens resolve to compat shims via the preset.
+ * At runtime these navigators probe screens through a CJS `require()` that
+ * throws in the browser's ESM graph, so they still take their maintained
+ * plain-View fallback path here, exactly as upstream does on web; the screens
+ * shim serves graphs that import the package statically).
  */
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

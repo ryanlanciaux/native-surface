@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/compat",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "license": "MIT",
   "description": "Compat shims for native-surface: high-level, boundary-general stand-ins for RN community packages (gesture-handler, safe-area, expo modules, ...) that need engine wiring.",
   "keywords": [
@@ -25,6 +25,7 @@
     "./gesture-handler": "./src/gesture-handler.tsx",
     "./safe-area": "./src/safe-area.tsx",
     "./screens": "./src/screens.tsx",
+    "./fabric": "./src/fabric.ts",
     "./mmkv": "./src/mmkv.ts",
     "./keyboard-controller": "./src/keyboard-controller.tsx",
     "./edge-to-edge": "./src/edge-to-edge.tsx",
