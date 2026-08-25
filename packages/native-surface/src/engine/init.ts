@@ -162,8 +162,116 @@ function touchImageEntry(uri: string, entry: ImageEntry): void {
     if (e.status === 'loading') continue; // never evict in-flight loads
     if (e.status === 'loaded' && e.refs > 0) continue; // still displayed by a node
     imageCache.delete(key);
+    // An evicted pixel key must be re-registered by its producer (loadImage
+    // would otherwise wait forever for an insert that is not coming).
+    pixelKeys.delete(key);
     if (e.status === 'loaded') e.image.delete();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Raw-pixel image registration (blurhash/thumbhash placeholders, generated
+// bitmaps). Entries live in the same cache under a synthetic uri key, with
+// the same refcount/eviction semantics as fetched entries.
+// ---------------------------------------------------------------------------
+
+// Keys claimed by putImagePixels. A synthetic key is not fetchable: loadImage
+// waits for the pixel insert instead of fetching it, and a fetch already in
+// flight when the claim lands must not clobber (or warn about) the pixel entry.
+const pixelKeys = new Set<string>();
+const pixelWaiters = new Map<string, { promise: Promise<void>; resolve: () => void }>();
+
+/** Resolves once the claimed key's insert has settled (loaded or error). */
+function waitForPixelInsert(key: string): Promise<void> {
+  const existing = pixelWaiters.get(key);
+  if (existing) return existing.promise;
+  const e = imageCache.get(key);
+  if (e && e.status !== 'loading') return Promise.resolve();
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => (resolve = r));
+  pixelWaiters.set(key, { promise, resolve });
+  return promise;
+}
+
+function settlePixelWaiters(key: string): void {
+  const w = pixelWaiters.get(key);
+  if (!w) return;
+  pixelWaiters.delete(key);
+  w.resolve();
+}
+
+/**
+ * True when `key` currently resolves to a decoded image in the cache — an
+ * Image mounted with that uri paints immediately, no load or decode needed.
+ * Useful to skip re-decoding before putImagePixels; false also after the LRU
+ * evicts an unreferenced entry, in which case the producer must re-register.
+ */
+export function hasImage(key: string): boolean {
+  return imageCache.get(key)?.status === 'loaded';
+}
+
+/**
+ * Register unpremultiplied sRGB RGBA pixels under `key`: any Image whose
+ * source uri equals the key paints them through the normal cache path.
+ *
+ * The key is an arbitrary synthetic uri chosen by the caller (compat layers
+ * use namespaced ones like `blurhash:<hash>@32x32`); it shares the fetched
+ * images' cache, so pick keys that cannot collide with real uris. The entry
+ * gets identical refcount/eviction semantics to a fetched entry: nodes
+ * displaying it hold refs, and once unreferenced it can be LRU-evicted —
+ * after which the key must be re-registered before its next use (a stale
+ * mount without re-registration degrades to the normal fetch-error path).
+ * Registering an already-registered key replaces the entry; nodes still
+ * painting the old pixels keep them until their source changes.
+ *
+ * Safe to call before the engine is ready (the insert queues on init, and a
+ * concurrent load of the key waits for it); callers that need a paint-ready
+ * guarantee should `await initEngine()` first — once the engine is up the
+ * insert is synchronous.
+ */
+export function putImagePixels(
+  key: string,
+  pixels: Uint8Array | Uint8ClampedArray,
+  width: number,
+  height: number
+): void {
+  pixelKeys.add(key); // claim synchronously: concurrent loadImage(key) must wait, not fetch
+  const insert = (eng: Engine) => {
+    const image = eng.ck.MakeImage(
+      {
+        width,
+        height,
+        colorType: eng.ck.ColorType.RGBA_8888,
+        alphaType: eng.ck.AlphaType.Unpremul,
+        colorSpace: eng.ck.ColorSpace.SRGB,
+      },
+      pixels,
+      width * 4
+    );
+    const prev = imageCache.get(key);
+    if (!image) {
+      imageCache.set(key, { status: 'error', error: 'MakeImage returned null' });
+      if (!warnedImageUris.has(key)) {
+        warnedImageUris.add(key);
+        console.warn(
+          `native-surface: putImagePixels(${key}): MakeImage returned null (${width}x${height} wants ${width * height * 4} RGBA bytes, got ${pixels.length}).`
+        );
+      }
+    } else {
+      touchImageEntry(key, { status: 'loaded', image, refs: 0 });
+    }
+    // Nodes still painting a replaced entry hold their own reference; the old
+    // image is deleted only once nothing displays it.
+    if (prev?.status === 'loaded' && prev.refs === 0) prev.image.delete();
+    settlePixelWaiters(key);
+  };
+  const eng = getEngineIfReady();
+  if (eng) insert(eng);
+  else
+    void ensureEngine().then(insert, () => {
+      imageCache.set(key, { status: 'error', error: 'engine init failed' });
+      settlePixelWaiters(key);
+    });
 }
 
 export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): ImageEntry {
@@ -174,6 +282,18 @@ export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): 
     // Settled cache hit: onLoad/onError must still fire (async, like a real load).
     else queueMicrotask(() => onSettled(existing));
     return existing;
+  }
+  if (pixelKeys.has(uri)) {
+    // Pixel-registered key whose insert hasn't landed yet (engine still
+    // initializing): wait for it instead of fetching a synthetic uri.
+    const promise = waitForPixelInsert(uri).then(() => {
+      const e = imageCache.get(uri);
+      return e?.status === 'loaded' ? e.image : null;
+    });
+    const entry: ImageEntry = { status: 'loading', promise };
+    touchImageEntry(uri, entry);
+    void promise.then(() => onSettled(imageCache.get(uri) ?? entry));
+    return entry;
   }
   const promise = (async (): Promise<CKImage | null> => {
     // Which stage failed (and what the server called the payload) drives the
@@ -190,9 +310,24 @@ export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): 
       stage = 'decode';
       const image = eng.ck.MakeImageFromEncoded(bytes);
       if (!image) throw new Error('unsupported image data');
+      if (pixelKeys.has(uri)) {
+        // putImagePixels claimed this key mid-fetch; it owns the cache slot.
+        image.delete();
+        await waitForPixelInsert(uri);
+        const e = imageCache.get(uri);
+        return e?.status === 'loaded' ? e.image : null;
+      }
       imageCache.set(uri, { status: 'loaded', image, refs: 0 });
       return image;
     } catch (err) {
+      if (pixelKeys.has(uri)) {
+        // putImagePixels claimed this key while the fetch was in flight: the
+        // synthetic uri was never fetchable — settle on the pixel entry
+        // instead of recording (and warning about) a bogus failure.
+        await waitForPixelInsert(uri);
+        const e = imageCache.get(uri);
+        return e?.status === 'loaded' ? e.image : null;
+      }
       const message = err instanceof Error ? err.message : String(err);
       imageCache.set(uri, { status: 'error', error: message });
       if (!warnedImageUris.has(uri)) {
