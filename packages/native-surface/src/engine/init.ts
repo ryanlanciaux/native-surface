@@ -46,6 +46,26 @@ async function resolveFontSpecs(specs: NonNullable<InitOptions['fonts']>): Promi
   return out;
 }
 
+/**
+ * Single registration path for every font, whenever it arrives (initial load
+ * or post-init, e.g. expo-font's lazy loadAsync). TextInput's DOM overlay
+ * renders in the page, not on the canvas — register the same bytes as a
+ * document font so the two match.
+ */
+function registerEngineFont(fontProvider: TypefaceFontProvider, families: Set<string>, f: LoadedFont): void {
+  if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
+    try {
+      const face = new FontFace(f.family, f.data.slice(0));
+      document.fonts.add(face);
+      void face.load().catch(() => {});
+    } catch {
+      /* overlay falls back to the CSS stack */
+    }
+  }
+  fontProvider.registerFont(f.data, f.family);
+  families.add(f.family);
+}
+
 let warnedYogaUrl = false;
 
 export function ensureEngine(opts?: InitOptions): Promise<Engine> {
@@ -62,10 +82,7 @@ export function ensureEngine(opts?: InitOptions): Promise<Engine> {
       const fonts = opts.fonts;
       return initPromise.then(async (eng) => {
         const extra = await resolveFontSpecs(fonts);
-        for (const f of extra) {
-          eng.fontProvider.registerFont(f.data, f.family);
-          eng.families.add(f.family);
-        }
+        for (const f of extra) registerEngineFont(eng.fontProvider, eng.families, f);
         return eng;
       });
     }
@@ -79,21 +96,7 @@ export function ensureEngine(opts?: InitOptions): Promise<Engine> {
     const fontProvider = ck.TypefaceFontProvider.Make();
     const families = new Set<string>();
     const registerAll = (fonts: LoadedFont[]) => {
-      for (const f of fonts) {
-        // TextInput's DOM overlay renders in the page, not on the canvas —
-        // register the same bytes as a document font so the two match.
-        if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
-          try {
-            const face = new FontFace(f.family, f.data.slice(0));
-            document.fonts.add(face);
-            void face.load().catch(() => {});
-          } catch {
-            /* overlay falls back to the CSS stack */
-          }
-        }
-        fontProvider.registerFont(f.data, f.family);
-        families.add(f.family);
-      }
+      for (const f of fonts) registerEngineFont(fontProvider, families, f);
     };
     registerAll(defaultFonts);
 

@@ -14,6 +14,9 @@ export default defineConfig({
     // stack's pure interpolators) against the engine, same as consumers do.
     alias: [
       { find: 'react-native', replacement: fileURLToPath(new URL('./src/index.ts', import.meta.url)) },
+      // Compat shims imported by tests (e.g. ../../compat/src/expo) import the
+      // engine by its package name, same as installed consumers.
+      { find: 'native-surface', replacement: fileURLToPath(new URL('./src/index.ts', import.meta.url)) },
       {
         find: '@rn-stack/CardStyleInterpolators',
         replacement: join(stackRoot, 'lib/module/TransitionConfigs/CardStyleInterpolators.js'),
