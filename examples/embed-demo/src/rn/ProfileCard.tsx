@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import type { ImageStyle, TextStyle, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 import { Button } from './Button';
 import { colors, radii } from './tokens';
-
-/** Remote, CORS-enabled avatar: fetched and decoded by CanvasKit, not by an <img>. */
-const AVATAR_URI =
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&h=160&fit=crop&crop=faces&auto=format';
 
 const stats = [
   { label: 'Followers', value: '12.4k' },
@@ -20,8 +16,9 @@ export function ProfileCard() {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        {/* backgroundColor shows through as a placeholder until the bytes decode */}
-        <Image source={{ uri: AVATAR_URI }} style={styles.avatar} resizeMode="cover" />
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>LI</Text>
+        </View>
         <View style={styles.identity}>
           <Text style={styles.name} numberOfLines={1}>
             Lorem Ipsum
@@ -63,7 +60,8 @@ export function ProfileCard() {
 const styles = StyleSheet.create<{
   root: ViewStyle;
   header: ViewStyle;
-  avatar: ImageStyle;
+  avatar: ViewStyle;
+  avatarText: TextStyle;
   identity: ViewStyle;
   name: TextStyle;
   handle: TextStyle;
@@ -80,8 +78,11 @@ const styles = StyleSheet.create<{
     width: 52,
     height: 52,
     borderRadius: radii.pill,
-    backgroundColor: colors.avatarPlaceholder,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  avatarText: { fontSize: 18, fontWeight: '700', color: colors.onBrand },
   identity: { flex: 1 },
   name: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   handle: { marginTop: 2, fontSize: 12, color: colors.muted },
