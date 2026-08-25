@@ -1,6 +1,9 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+// Type-only (erased at build): the preset must not import vite at runtime —
+// it resolves the consumer's own vite instance from their app root instead.
+import type { PluginOption } from 'vite';
 
 // Alias replacements are ABSOLUTE paths: Vite resolves a bare-specifier
 // replacement from the importing file, and files outside this workspace's
@@ -444,7 +447,7 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
  * (prebundling would freeze a private engine copy), dedupe entries for
  * libraries a nested app tree duplicates, and its own path aliases.
  */
-export function nativeSurface(opts: NativeSurfacePresetOptions = {}): unknown[] {
+export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOption[] {
   const reanimated = opts.reanimated ?? 'real';
   const configPlugin = {
     name: 'native-surface:config',
@@ -483,6 +486,9 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): unknown[] 
       };
     },
   };
+  // The plugin helpers type their hooks structurally (no vite value import),
+  // so they don't satisfy vite's Plugin interface nominally — but each is a
+  // valid plugin object at runtime.
   return [
     rnPlatformExtensionsPlugin({ platform: opts.platform ?? 'ios' }),
     rnLibJsxPlugin({ resolveFrom: opts.resolveFrom }),
@@ -492,7 +498,7 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): unknown[] 
     }),
     rnWorkletsPlugin({ resolveFrom: opts.resolveFrom }),
     configPlugin,
-  ];
+  ] as PluginOption[];
 }
 
 // ---------------------------------------------------------------------------

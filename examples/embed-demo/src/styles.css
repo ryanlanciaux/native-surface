@@ -55,6 +55,56 @@ code {
 
 /* ---------------------------------------------------------------- hero --- */
 
+.hero {
+  position: relative;
+}
+
+.hero__corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.badge-experimental {
+  display: inline-flex;
+  padding: 4px 10px;
+  border: 1px solid #f0d9a8;
+  border-radius: 999px;
+  background: #fdf6e3;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92600a;
+  cursor: help;
+}
+
+.corner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.corner-link svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.corner-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
 .eyebrow {
   margin: 0 0 18px;
   font-family: var(--mono);
@@ -223,6 +273,162 @@ code {
 .surface-frame canvas {
   display: block;
   touch-action: none;
+}
+
+/* ------------------------------------------------------- code toggle ----- */
+
+.is-hidden {
+  display: none;
+}
+
+.island__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f1f2f7;
+}
+
+.pill-tab {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pill-tab:hover {
+  color: var(--body);
+}
+
+.pill-tab--active,
+.pill-tab--active:hover {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(16, 19, 28, 0.1);
+}
+
+.code-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfbfd;
+  overflow: hidden;
+}
+
+.code-panel--loading {
+  padding: 16px 18px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.code-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.code-panel__file {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.code-panel__lang {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.code-panel__pre {
+  margin: 0;
+  padding: 14px 16px;
+  max-height: 520px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.65;
+  color: var(--body);
+  tab-size: 2;
+}
+
+.code-panel__pre code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+}
+
+/* Prism token palette, tuned to the page's light theme. */
+.code-panel .token.comment,
+.code-panel .token.prolog,
+.code-panel .token.doctype,
+.code-panel .token.cdata {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.code-panel .token.keyword,
+.code-panel .token.atrule,
+.code-panel .token.important {
+  color: #6d28d9;
+}
+
+.code-panel .token.string,
+.code-panel .token.char,
+.code-panel .token.attr-value,
+.code-panel .token.regex {
+  color: #0e9488;
+}
+
+.code-panel .token.function,
+.code-panel .token.function-variable {
+  color: #b45309;
+}
+
+.code-panel .token.number,
+.code-panel .token.boolean,
+.code-panel .token.constant,
+.code-panel .token.symbol {
+  color: #be185d;
+}
+
+.code-panel .token.tag,
+.code-panel .token.class-name,
+.code-panel .token.builtin,
+.code-panel .token.namespace {
+  color: #2563eb;
+}
+
+.code-panel .token.attr-name,
+.code-panel .token.property,
+.code-panel .token.variable {
+  color: #4f46e5;
+}
+
+.code-panel .token.punctuation,
+.code-panel .token.operator {
+  color: #858c9e;
 }
 
 /* ----------------------------------------------------------- side note --- */
@@ -408,5 +614,15 @@ code {
   .surface-frame {
     overflow-x: auto;
     width: 100%;
+  }
+
+  /* no room to float beside the eyebrow — drop into the flow above it */
+  .hero__corner {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 12px;
+    margin-bottom: 14px;
   }
 }

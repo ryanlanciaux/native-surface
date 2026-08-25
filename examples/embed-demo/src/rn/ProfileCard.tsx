@@ -24,17 +24,17 @@ export function ProfileCard() {
         <Image source={{ uri: AVATAR_URI }} style={styles.avatar} resizeMode="cover" />
         <View style={styles.identity}>
           <Text style={styles.name} numberOfLines={1}>
-            Ada Lovelace
+            Lorem Ipsum
           </Text>
           <Text style={styles.handle} numberOfLines={1}>
-            @ada · Analytical Engine, London
+            @lorem · Dolor Sit Amet
           </Text>
         </View>
       </View>
 
       <Text style={styles.bio} numberOfLines={2}>
-        Writing the first algorithm intended for a machine. Currently thinking about how
-        Bernoulli numbers fall out of punched cards.
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+        incididunt ut labore et dolore magna aliqua.
       </Text>
 
       <View style={styles.stats}>

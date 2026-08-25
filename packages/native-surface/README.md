@@ -42,6 +42,20 @@ import { MyRNScreen } from './rn/MyRNScreen'; // ordinary React Native source
 </NativeSurface>
 ```
 
+The preset aliases `react-native` at bundle time, but `tsc` knows nothing about
+Vite aliases — give TypeScript the same mapping in your app tsconfig (the one
+that includes your sources; `tsconfig.app.json` in the Vite React template):
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "react-native": ["./node_modules/native-surface/dist/index.d.ts"]
+    }
+  }
+}
+```
+
 The preset aliases `react-native` (and friends) to the engine, applies Metro's
 platform-extension and `react-native` exports-condition resolution, transforms
 `require()` assets, and workletizes RN libraries in `node_modules` (Metro

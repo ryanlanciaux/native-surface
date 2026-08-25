@@ -17,12 +17,12 @@ interface Post {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const authors = [
-  { author: 'Ada Lovelace', handle: 'ada', tint: '#4F46E5' },
-  { author: 'Grace Hopper', handle: 'ghopper', tint: '#0E9488' },
-  { author: 'Alan Turing', handle: 'aturing', tint: '#B45309' },
-  { author: 'Radia Perlman', handle: 'radia', tint: '#BE185D' },
-  { author: 'Barbara Liskov', handle: 'bliskov', tint: '#2563EB' },
-  { author: 'Ken Thompson', handle: 'ken', tint: '#65758B' },
+  { author: 'Dolor Sit', handle: 'dolorsit', tint: '#4F46E5' },
+  { author: 'Amet Consectetur', handle: 'amet', tint: '#0E9488' },
+  { author: 'Adipiscing Elit', handle: 'elit', tint: '#B45309' },
+  { author: 'Sed Eiusmod', handle: 'eiusmod', tint: '#BE185D' },
+  { author: 'Tempor Incididunt', handle: 'tempor', tint: '#2563EB' },
+  { author: 'Magna Aliqua', handle: 'aliqua', tint: '#65758B' },
 ];
 
 const bodies = [

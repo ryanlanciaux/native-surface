@@ -57,6 +57,11 @@ export function NativeSurface(props: NativeSurfaceProps): React.JSX.Element {
     roots.add(root);
     return () => {
       rootRef.current = null;
+      // A remount (e.g. StrictMode's mount/unmount/remount) creates a fresh
+      // engine root whose first paint has not happened yet — let the next
+      // render effect arm onReady again. The rootRef guard on the flush
+      // callback keeps a late resolution from this dead root from firing.
+      readyFiredRef.current = false;
       roots.delete(root);
       root.unmount();
     };

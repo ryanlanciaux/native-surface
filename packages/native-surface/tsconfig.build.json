@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Types-only build for the published tarball. The runtime entry stays
+    // src/index.ts on purpose — the Vite preset aliases 'react-native' to the
+    // source, and a compiled dist/index.js alongside it would put TWO engine
+    // instances (two liveRoots sets, two reconcilers) in consumer bundles.
+    // Only tsc needs dist: real .d.ts entries stop consumers from typechecking
+    // the engine source under their own compilerOptions.
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
