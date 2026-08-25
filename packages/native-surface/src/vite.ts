@@ -78,11 +78,15 @@ export interface NativeSurfaceAliasOptions {
    * exclude 'react-native-reanimated' from optimizeDeps (it imports the
    * aliased 'react-native') — the nativeSurface() preset does both.
    *
-   * Default: the nativeSurface() preset auto-detects inside its config hook
-   * (the app root is only known there) — 'real' iff react-native-reanimated
-   * resolves from the app root, else 'shim', so apps without reanimated
-   * installed work out of the box. An explicit option always wins. Calling
-   * nativeSurfaceAliases() directly keeps its historical 'shim' default.
+   * Default: REAL-FIRST. The project's standing position is that the real
+   * package beats a shim wherever its JS path can run, so the nativeSurface()
+   * preset picks 'real' whenever react-native-reanimated resolves from the
+   * app root (detected inside its config hook — the root is only known
+   * there). The shim is strictly the fallback for installs without the
+   * package, where 'real' cannot work at all. An explicit option always
+   * wins. Calling nativeSurfaceAliases() directly keeps its historical
+   * 'shim' default — à la carte callers don't get the preset's excludes and
+   * defines that 'real' depends on.
    */
   reanimated?: 'shim' | 'real';
   /**
@@ -199,6 +203,30 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: 'reactotron-react-native', replacement: compat('reactotron.tsx') },
     { find: 'reactotron-react-js', replacement: compat('reactotron.tsx') },
     { find: 'reactotron-core-client', replacement: compat('reactotron.tsx') },
+    // Bridge queue (docs/plays/next-bridges.md). Anchored regexes: these
+    // replacements are FILES, so a string find would map `pkg/subpath` onto
+    // `<file>/subpath` — the whole id must land on the shim instead.
+    { find: /^react-native-svg(\/.*)?$/, replacement: compat('svg.tsx') },
+    { find: /^@react-native-async-storage\/async-storage(\/.*)?$/, replacement: compat('async-storage.ts') },
+    { find: /^@react-native-community\/netinfo(\/.*)?$/, replacement: compat('netinfo.ts') },
+    { find: /^expo-haptics(\/.*)?$/, replacement: compat('haptics.ts') },
+    { find: /^react-native-device-info(\/.*)?$/, replacement: compat('device-info.ts') },
+    { find: /^expo-constants(\/.*)?$/, replacement: compat('constants.ts') },
+    { find: /^@react-native-clipboard\/clipboard(\/.*)?$/, replacement: compat('clipboard.ts') },
+    { find: /^expo-clipboard(\/.*)?$/, replacement: compat('clipboard.ts') },
+    { find: /^react-native-share(\/.*)?$/, replacement: compat('share.ts') },
+    { find: /^expo-image-picker(\/.*)?$/, replacement: compat('image-picker.tsx') },
+    { find: /^react-native-image-picker(\/.*)?$/, replacement: compat('image-picker.tsx') },
+    { find: /^react-native-permissions(\/.*)?$/, replacement: compat('permissions.ts') },
+    { find: /^expo-notifications(\/.*)?$/, replacement: compat('notifications.ts') },
+    { find: /^react-native-vector-icons(\/.*)?$/, replacement: compat('vector-icons.tsx') },
+    { find: /^expo-image(\/.*)?$/, replacement: compat('image.tsx') },
+    { find: /^react-native-fast-image(\/.*)?$/, replacement: compat('image.tsx') },
+    { find: /^expo-linear-gradient(\/.*)?$/, replacement: compat('linear-gradient.tsx') },
+    { find: /^react-native-linear-gradient(\/.*)?$/, replacement: compat('linear-gradient.tsx') },
+    { find: /^expo-blur(\/.*)?$/, replacement: compat('blur.tsx') },
+    { find: /^@react-native-community\/blur(\/.*)?$/, replacement: compat('blur.tsx') },
+    { find: /^@react-native-masked-view\/masked-view(\/.*)?$/, replacement: compat('masked-view.tsx') },
     reactNativeAlias()
   );
   return aliases;
@@ -235,7 +263,9 @@ export function rnRequirePlugin(opts: RnRequireOptions = {}): {
   enforce: 'pre';
   transform(code: string, id: string): { code: string; map: null } | null;
 } {
-  const includePackages = opts.includePackages ?? ['@expo-google-fonts/'];
+  // @expo/vector-icons: FontAwesome5/6 entries carry `require('./….ttf')`
+  // (the other sets use ESM ttf imports Vite already treats as assets).
+  const includePackages = opts.includePackages ?? ['@expo-google-fonts/', '@expo/vector-icons/'];
   const assetAliases = opts.assetAliases ?? {};
   const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
   const assetExts = new Set(
@@ -424,9 +454,17 @@ interface ViteTransformers {
   ) => Promise<{ code: string; map?: unknown }>;
 }
 
+/** RN-ecosystem packages that ship raw JSX inside plain .js files: Metro runs
+ *  Babel over everything, so publishing untranspiled JSX is normal there —
+ *  reanimated does it, and @expo/vector-icons' build/ + vendored
+ *  react-native-vector-icons do too. Matched as path substrings, which holds
+ *  under both flat and pnpm node_modules layouts. */
+const RAW_JSX_LIB_PREFIXES = ['react-native-reanimated', '@expo/vector-icons'];
+
 /**
- * Vite helper: reanimated ships raw JSX inside .js files (Metro runs Babel
- * over everything; Rollup/esbuild do not). Parse those files as JSX.
+ * Vite helper: some RN libraries ship raw JSX inside .js files (Metro runs
+ * Babel over everything; Rollup/esbuild do not) — see RAW_JSX_LIB_PREFIXES.
+ * Parse those files as JSX.
  * Part of the `nativeSurface()` preset; exported for à-la-carte configs.
  *
  * Transformer choice: prefers `transformWithOxc` when the consumer's vite
@@ -453,13 +491,14 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
       // (build ids have no query, so this covers both modes).
       const path = id.split('?')[0] ?? id;
       if (path.includes('/.vite/')) return null;
-      if (path.includes('react-native-reanimated') && path.endsWith('.js')) {
+      if (RAW_JSX_LIB_PREFIXES.some((p) => path.includes(p)) && path.endsWith('.js')) {
         let vite: ViteTransformers;
         try {
           vite = rooted.req('vite') as ViteTransformers;
         } catch {
-          // A reanimated file reached this transform, so the project needs it:
-          // failing loud beats a cryptic esbuild JSX parse error downstream.
+          // A raw-JSX library file reached this transform, so the project
+          // needs it: failing loud beats a cryptic esbuild JSX parse error
+          // downstream.
           throw new Error(
             `native-surface: cannot resolve 'vite' from the project root to JSX-transform ${path}; ` +
               `pass rnLibJsxPlugin({ resolveFrom }) pointing at the app's directory`
@@ -475,7 +514,7 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
           } catch {
             // Defensive: the oxc option shape is vite's, not ours — on drift
             // (or a missing native binding) fall through to esbuild rather
-            // than 500 every reanimated module.
+            // than 500 every raw-JSX library module.
           }
         }
         if (typeof vite.transformWithEsbuild !== 'function') {
@@ -508,6 +547,63 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
   };
 }
 
+/** Packages from the excluded (raw-served) RN-lib set whose trees contain
+ *  bare CJS leaves that sibling files import with ESM named imports — e.g.
+ *  @expo/vector-icons' vendored object-utils.js (`module.exports = { pick,
+ *  omit }`) imported by icon-button.js as `import { pick, omit }`. Metro
+ *  interops CJS/ESM per file; Vite's dev server serves excluded packages raw,
+ *  so the browser dies with "does not provide an export named …". */
+const CJS_INTEROP_PACKAGES = ['@expo/vector-icons'];
+
+/**
+ * Vite helper: ESM-wrap bare CJS files inside CJS_INTEROP_PACKAGES so their
+ * named imports bind in dev. Build mode never strictly needs it
+ * (rollup-commonjs interops there), but the transform applies in both modes
+ * so dev and build serve one shape. Files with any ESM syntax of their own
+ * are left alone — they already interop through the module graph.
+ * Part of the `nativeSurface()` preset; exported for à-la-carte configs.
+ */
+export function rnCjsInteropPlugin(): {
+  name: string;
+  enforce: 'pre';
+  transform(code: string, id: string): { code: string; map: null } | null;
+} {
+  return {
+    name: 'native-surface:rn-cjs-interop',
+    enforce: 'pre',
+    transform(code: string, id: string) {
+      const path = id.split('?')[0] ?? id;
+      if (path.includes('/.vite/') || path.includes('/.vite-')) return null;
+      if (!/\.c?js$/.test(path)) return null;
+      if (!CJS_INTEROP_PACKAGES.some((p) => path.includes(p))) return null;
+      if (!code.includes('module.exports')) return null;
+      if (/^\s*(import|export)\b/m.test(code)) return null;
+      // Named bindings come from the LAST `module.exports = { … }` object
+      // literal; through aliased intermediates, because `export { pick }`
+      // directly would collide with the file's own top-level declarations.
+      const assignments = [...code.matchAll(/module\.exports\s*=\s*\{([^{}]*)\}/g)];
+      const names: string[] = [];
+      const body = assignments[assignments.length - 1]?.[1];
+      if (body) {
+        for (const entry of body.split(',')) {
+          const name = entry.split(':')[0]!.trim();
+          if (/^[A-Za-z_$][\w$]*$/.test(name)) names.push(name);
+        }
+      }
+      let tail = '\nexport default module.exports;';
+      if (names.length > 0) {
+        tail +=
+          `\n${names.map((n, i) => `const __cjsX${i} = module.exports[${JSON.stringify(n)}];`).join('\n')}` +
+          `\nexport { ${names.map((n, i) => `__cjsX${i} as ${n}`).join(', ')} };`;
+      }
+      return {
+        code: `const module = { exports: {} }; const exports = module.exports;\n${code}${tail}`,
+        map: null,
+      };
+    },
+  };
+}
+
 export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, PresetResolveOptions {
   /** Platform whose file extensions and Platform.OS the surface reports. */
   platform?: 'ios' | 'android';
@@ -532,6 +628,10 @@ const RN_ECOSYSTEM_EXCLUDES = [
   'react-native-screens',
   'react-native-safe-area-context',
   'react-native-gesture-handler',
+  // Also raw JSX in .js files: the dep scanner (raw esbuild, runs before the
+  // plugin pipeline, so rnLibJsxPlugin can't help it) dies parsing the
+  // package unless it's marked external here.
+  '@expo/vector-icons',
 ];
 
 /** A second copy of any of these = raw-CJS imports outside the include list
@@ -568,13 +668,18 @@ const CJS_LEAF_INCLUDES = [
   'use-sync-external-store/shim',
   'use-sync-external-store/with-selector',
   'color',
+  // rnLibJsxPlugin emits automatic-runtime JSX imports INTO node_modules
+  // files, so the preset — not @vitejs/plugin-react, which some apps don't
+  // use — must guarantee these CJS entries are interop-bundled.
+  'react/jsx-runtime',
+  'react/jsx-dev-runtime',
 ];
 
 /**
  * One-call preset: everything a Vite app needs to render React Native
  * component trees with <NativeSurface>. Composes the platform-extension
- * resolver, the reanimated JSX loader, the require/asset transform, the
- * node_modules workletizer, and a config layer (react-native alias + compat
+ * resolver, the raw-JSX loader, the require/asset transform, the CJS-interop
+ * wrapper, the node_modules workletizer, and a config layer (react-native alias + compat
  * shims, Metro-parity resolve conditions, RN globals, react/reanimated
  * dedupe, reanimated un-prebundled).
  *
@@ -665,6 +770,7 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
       assetAliases: opts.assetAliases,
       includePackages: opts.requireIncludePackages,
     }),
+    rnCjsInteropPlugin(),
     rnWorkletsPlugin({ resolveFrom: opts.resolveFrom }),
     configPlugin,
   ] as PluginOption[];

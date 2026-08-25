@@ -31,7 +31,23 @@
     "./edge-to-edge": "./src/edge-to-edge.tsx",
     "./expo": "./src/expo.tsx",
     "./reactotron": "./src/reactotron.tsx",
-    "./native-stack": "./src/native-stack.tsx"
+    "./native-stack": "./src/native-stack.tsx",
+    "./svg": "./src/svg.tsx",
+    "./async-storage": "./src/async-storage.ts",
+    "./netinfo": "./src/netinfo.ts",
+    "./haptics": "./src/haptics.ts",
+    "./device-info": "./src/device-info.ts",
+    "./constants": "./src/constants.ts",
+    "./clipboard": "./src/clipboard.ts",
+    "./share": "./src/share.ts",
+    "./image-picker": "./src/image-picker.tsx",
+    "./permissions": "./src/permissions.ts",
+    "./notifications": "./src/notifications.ts",
+    "./vector-icons": "./src/vector-icons.tsx",
+    "./image": "./src/image.tsx",
+    "./linear-gradient": "./src/linear-gradient.tsx",
+    "./blur": "./src/blur.tsx",
+    "./masked-view": "./src/masked-view.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -39,9 +55,9 @@
     "test": "echo 'exercised by native-surface tests + embed-demo e2e'"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
     "@react-navigation/stack": "^7.0.0",
-    "native-surface": "workspace:*"
+    "native-surface": "workspace:*",
+    "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "@react-navigation/stack": {
@@ -49,6 +65,7 @@
     }
   },
   "devDependencies": {
+    "@expo/vector-icons": "^15.1.1",
     "@react-navigation/stack": "^7.10.22",
     "@types/node": "^26.2.0",
     "@types/react": "^19.0.0",

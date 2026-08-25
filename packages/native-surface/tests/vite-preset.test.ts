@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { nativeSurface, nativeSurfaceAliases, type NativeSurfaceAlias } from '../src/vite';
+import { nativeSurface, nativeSurfaceAliases, rnCjsInteropPlugin, type NativeSurfaceAlias } from '../src/vite';
 import type { NativeSurfacePresetOptions } from '../src/vite';
 
 const EMBED_ROOT = fileURLToPath(new URL('../../../examples/embed-demo', import.meta.url));
@@ -140,6 +140,7 @@ describe('standard-boundary optimizeDeps ownership', () => {
       'react-native-screens',
       'react-native-safe-area-context',
       'react-native-gesture-handler',
+      '@expo/vector-icons',
     ]) {
       expect(exclude).toContain(pkg);
     }
@@ -155,6 +156,8 @@ describe('standard-boundary optimizeDeps ownership', () => {
       'canvaskit-wasm/bin/canvaskit.js',
       'react-is',
       'use-latest-callback',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
     ]) {
       expect(include).toContain(id);
     }
@@ -164,6 +167,25 @@ describe('standard-boundary optimizeDeps ownership', () => {
     const { include } = runConfig({ resolveFrom: emptyRoot }).optimizeDeps;
     expect(include).not.toContain('react-reconciler');
     expect(include).not.toContain('canvaskit-wasm/bin/canvaskit.js');
+  });
+
+  it('wraps bare CJS leaves of interop packages as ESM with aliased named exports', () => {
+    const plugin = rnCjsInteropPlugin();
+    const file =
+      '/x/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/lib/object-utils.js';
+    const cjs = 'const pick = () => {};\nconst omit = () => {};\nmodule.exports = { pick, omit };\n';
+    const out = plugin.transform(cjs, file);
+    expect(out).not.toBeNull();
+    expect(out!.code).toContain('const module = { exports: {} }');
+    expect(out!.code).toContain('export default module.exports;');
+    // Aliased bindings: direct `export { pick }` would collide with the
+    // file's own top-level consts.
+    expect(out!.code).toContain('export { __cjsX0 as pick, __cjsX1 as omit };');
+    // ESM files interop through the graph already; other packages are out of scope.
+    expect(plugin.transform(`import x from './x.js';\nmodule.exports = {};`, file)).toBeNull();
+    expect(plugin.transform(cjs, '/x/node_modules/some-lib/utils.js')).toBeNull();
+    // Dep-cache chunks are prebundled output, never wrap targets.
+    expect(plugin.transform(cjs, '/x/node_modules/.vite/deps/chunk.js')).toBeNull();
   });
 
   it('dedupes the nav singletons alongside react and reanimated', () => {
