@@ -1,8 +1,8 @@
 name: Pages
 
-# Manual for now — switch `on:` to `push: {branches: [main]}` for auto-deploys
-# once Pages is enabled in repo settings.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
