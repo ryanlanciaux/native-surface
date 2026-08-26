@@ -33,11 +33,35 @@ import { View } from 'native-surface';
 // Registry
 // ---------------------------------------------------------------------------
 
-const moduleRegistry = new Map<string, unknown>();
-const viewRegistry = new Map<string, React.ComponentType<Record<string, unknown>>>();
-/** Requested but unregistered — the host-facing diagnostic of what an app wanted. */
-const missing = new Set<string>();
-const warned = new Set<string>();
+/**
+ * The registry is keyed on globalThis, not module scope. A host registers
+ * implementations from ITS copy of this module, while the app reads through
+ * whichever copy its own imports resolved to — and there is reliably more
+ * than one: a bundler inlines this module into every prebundled dependency
+ * that imports expo-modules-core. Module-scoped state would leave the host
+ * writing to a registry the app never reads.
+ */
+interface RegistryState {
+  modules: Map<string, unknown>;
+  views: Map<string, React.ComponentType<Record<string, unknown>>>;
+  missing: Set<string>;
+  warned: Set<string>;
+  /** Shared for the same reason the maps are: a host sets it once, and every
+   *  duplicated copy of this module must observe it. */
+  policy: 'throw' | 'inert';
+}
+const globalScope = globalThis as unknown as { __nativeSurfaceExpoModules?: RegistryState };
+const registry: RegistryState = (globalScope.__nativeSurfaceExpoModules ??= {
+  modules: new Map(),
+  views: new Map(),
+  missing: new Set(),
+  warned: new Set(),
+  policy: 'throw',
+});
+const moduleRegistry = registry.modules;
+const viewRegistry = registry.views;
+const missing = registry.missing;
+const warned = registry.warned;
 
 function warnOnce(key: string, message: string): void {
   if (warned.has(key)) return;
@@ -96,10 +120,84 @@ function unavailableModule(name: string): Record<string, never> {
   ) as Record<string, never>;
 }
 
+/**
+ * What an unregistered module returns. 'throw' (default) surfaces the gap at
+ * the call site, which is what you want while integrating one library. A host
+ * bringing up a WHOLE app wants 'inert': every unbridged module answers
+ * harmlessly so the app boots and you can see how far it gets, with
+ * getMissingNativeModules() as the running list of what to bridge. Absent
+ * features degrade instead of stopping the run.
+ */
+export type UnregisteredModulePolicy = 'throw' | 'inert';
+
+export function setUnregisteredModulePolicy(policy: UnregisteredModulePolicy): void {
+  registry.policy = policy;
+}
+
+/** Verb-leading names are treated as methods; everything else reads as data. */
+const METHOD_LIKE =
+  /^(set|add|remove|delete|dismiss|open|close|start|stop|reload|present|toggle|play|pause|prefetch|update|clear|schedule|cancel|launch|share|save|copy|write|read|load|init|enable|disable|lock|unlock|activate|deactivate|emit|subscribe|unsubscribe|register|unregister|create|destroy|show|hide|select|pick|capture|record|scan|validate|check|has|is|can)/;
+
+/** Answers anything: getters/requests resolve a granted permission, methods no-op, data reads undefined. */
+function inertModule(name: string): Record<string, never> {
+  const base: Record<string, unknown> = {
+    addListener: () => ({ remove() {} }),
+    removeListeners: () => {},
+  };
+  return new Proxy(
+    base,
+    {
+      get(target, prop) {
+        if (prop in target) return (target as Record<string | symbol, unknown>)[prop];
+        if (prop === 'then' || prop === '__esModule' || typeof prop === 'symbol') return undefined;
+        const key = String(prop);
+        // Predicates must answer a boolean; a Promise here is truthy and
+        // would silently invert `if (Module.isAvailable())`.
+        if (/^(is|has|can|supports)[A-Z]/.test(key)) return () => false;
+        if (key.startsWith('get') || key.startsWith('request')) {
+          return async () => ({ status: 'granted', granted: true, canAskAgain: true, expires: 'never' });
+        }
+        // Native modules expose DATA as well as methods (expo-updates reads
+        // `manifestString` and JSON.parses it at import). Returning a function
+        // for every read corrupts those, and at module scope that is fatal;
+        // returning undefined for a method only fails when it is called, and
+        // says "is not a function", which is the clearer failure. So: a
+        // function only when the name reads like one.
+        // PascalCase members are classes (expo-file-system exposes File and
+        // Directory this way and apps `extend` them), so they must be
+        // constructible; a data read of the same shape is rare enough that
+        // a class is the safer guess.
+        if (/^[A-Z]/.test(key)) {
+          const Inert = class {};
+          Object.defineProperty(Inert, 'name', { value: `${name}.${key}` });
+          return Inert;
+        }
+        if (!METHOD_LIKE.test(key)) return undefined;
+        // A plain function, never an arrow: libraries `class X extends
+        // Module.Base {}` off these, and only a [[Construct]]-able value can
+        // be extended.
+        function inertMember(this: unknown, ..._args: unknown[]) {
+          warnOnce(`inert:${name}.${key}`, `native-surface: ${name}.${key}() is inert (no web implementation).`);
+          // Resolved promise, not undefined: Expo module methods are almost
+          // all async and callers chain .then/.catch on the result without
+          // checking — `undefined.catch` is the crash this policy exists to
+          // prevent. A caller that ignores the value is unaffected.
+          return Promise.resolve(undefined);
+        }
+        return inertMember;
+      },
+    }
+  ) as Record<string, never>;
+}
+
 export function requireNativeModule<T = Record<string, never>>(name: string): T {
   const found = moduleRegistry.get(name);
   if (found !== undefined) return found as T;
   missing.add(name);
+  if (registry.policy === 'inert') {
+    warnOnce(`mod:${name}`, `native-surface: native module '${name}' is unbridged — answering inert.`);
+    return inertModule(name) as T;
+  }
   warnOnce(
     `mod:${name}`,
     `native-surface: no web implementation for native module '${name}' — calls into it will throw. ` +
@@ -186,6 +284,40 @@ export class SharedObject<TEvents extends Record<string, (...args: never[]) => v
 
 export class SharedRef<TNativeRefType extends string = string, TEvents extends Record<string, (...args: never[]) => void> = Record<string, (...args: never[]) => void>> extends SharedObject<TEvents> {
   nativeRefType: TNativeRefType = 'unknown' as TNativeRefType;
+}
+
+/**
+ * Creates a SharedObject and releases it when the deps change or the
+ * component unmounts. On native this manages a real native handle's
+ * lifetime; here the object is plain JS, so `release()` is the only teardown
+ * and the hook's value is keeping consumers' call sites unchanged.
+ */
+export function useReleasingSharedObject<T extends { release?: () => void }>(
+  factory: () => T,
+  dependencies: React.DependencyList
+): T {
+  const ref = React.useRef<{ object: T; deps: React.DependencyList } | null>(null);
+  if (ref.current === null || !shallowEqualDeps(ref.current.deps, dependencies)) {
+    ref.current?.object.release?.();
+    ref.current = { object: factory(), deps: dependencies };
+  }
+  const object = ref.current.object;
+  React.useEffect(() => {
+    return () => {
+      ref.current?.object.release?.();
+      ref.current = null;
+    };
+    // Release on unmount only; dep changes are handled synchronously above so
+    // the fresh object is available during the same render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return object;
+}
+
+function shallowEqualDeps(a: React.DependencyList, b: React.DependencyList): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+  return true;
 }
 
 /** Legacy bridge proxy: reads resolve through the same registry. */
@@ -391,3 +523,83 @@ export function createVisibilityViewComponent(
   VisibilityView.displayName = 'VisibilityView';
   return VisibilityView as React.ComponentType<Record<string, unknown>>;
 }
+
+// ---------------------------------------------------------------------------
+// Event hooks and web-module registration (the `expo` package re-exports these).
+// ---------------------------------------------------------------------------
+
+interface EventSource {
+  addListener(event: string, listener: (...args: never[]) => void): EventSubscription | undefined;
+}
+
+/**
+ * Subscribes to `eventName` on an emitter-shaped source for the component's
+ * lifetime. A null/undefined source is valid and inert — callers pass a
+ * module that may not exist on this platform, which is exactly our case.
+ */
+export function useEventListener<T extends (...args: never[]) => void>(
+  source: EventSource | null | undefined,
+  eventName: string,
+  listener: T
+): void {
+  const saved = React.useRef(listener);
+  React.useEffect(() => {
+    saved.current = listener;
+  }, [listener]);
+  React.useEffect(() => {
+    if (!source?.addListener) return;
+    const sub = source.addListener(eventName, ((...args: never[]) => saved.current(...args)) as T);
+    return () => sub?.remove();
+  }, [source, eventName]);
+}
+
+/**
+ * Latest payload of `eventName`, starting at `initialValue`. Mirrors expo's
+ * hook: the parameters after the event name are the initial state.
+ */
+export function useEvent<T>(
+  source: EventSource | null | undefined,
+  eventName: string,
+  initialValue?: T
+): T | undefined {
+  const [value, setValue] = React.useState<T | undefined>(initialValue);
+  useEventListener(source, eventName, ((...args: unknown[]) => {
+    setValue((args.length > 1 ? args : args[0]) as T);
+  }) as (...args: never[]) => void);
+  return value;
+}
+
+/** expo's snapshot-friendly ref helper. */
+export function createSnapshotFriendlyRef<T>(): React.RefObject<T | null> {
+  const ref = React.createRef<T | null>() as React.RefObject<T | null> & { toJSON?: () => string };
+  ref.toJSON = () => '[React.ref]';
+  return ref;
+}
+
+/**
+ * Registers a web implementation class under the given name. This IS the web
+ * path on a canvas host, so it registers into the same name registry
+ * requireNativeModule reads — a module registered here is found by an app's
+ * `requireNativeModule('Name')` with no further wiring.
+ */
+export function registerWebModule<T extends new (...args: never[]) => object>(
+  moduleImplementation: T,
+  moduleName?: string
+): InstanceType<T> {
+  const instance = new moduleImplementation() as InstanceType<T>;
+  const name = moduleName ?? moduleImplementation.name;
+  if (name) registerNativeModule(name, instance);
+  return instance;
+}
+
+export const createWebModule = registerWebModule;
+
+/** Pre-SDK-48 emitter shape; some packages still construct it. */
+export class LegacyEventEmitter extends EventEmitter {
+  constructor(_nativeModule?: unknown) {
+    super();
+  }
+}
+
+/** No separate UI runtime exists here — worklets run on the one JS thread. */
+export function installOnUIRuntime(_fn: unknown, _name?: string): void {}

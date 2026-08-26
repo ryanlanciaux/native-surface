@@ -139,6 +139,44 @@ export function requireNativeComponent<P extends object>(name: string): React.Co
   return NativeViewFallback as React.ComponentType<P>;
 }
 
+/**
+ * codegenNativeComponent — the Fabric-era spelling of the same escape hatch.
+ * Libraries built for the new architecture (reanimated 4, screens, pager-view)
+ * declare their host views this way, at module scope, and the name is what
+ * the codegen would have registered. Same degrade-don't-throw contract as
+ * requireNativeComponent, for the same reason.
+ */
+export function codegenNativeComponent<P extends object>(
+  name: string,
+  _options?: Record<string, unknown>
+): React.ComponentType<P> {
+  return requireNativeComponent<P>(name);
+}
+
+/**
+ * codegenNativeCommands — imperative commands dispatched at a native view's
+ * ref (scrollToIndex on a native list, setPage on a native pager). There is
+ * no native view to receive them, so each command is an inert function that
+ * warns once. Returning an object rather than throwing keeps the library's
+ * module-scope `const Commands = codegenNativeCommands({...})` alive.
+ */
+export function codegenNativeCommands<T extends Record<string, unknown>>(options: {
+  supportedCommands: ReadonlyArray<string>;
+}): T {
+  const commands: Record<string, unknown> = {};
+  for (const command of options?.supportedCommands ?? []) {
+    commands[command] = (..._args: unknown[]) => {
+      if (!warnedNativeComponents.has(`cmd:${command}`)) {
+        warnedNativeComponents.add(`cmd:${command}`);
+        console.warn(
+          `native-surface: native command '${command}' has no receiver on the canvas host; the call is a no-op.`
+        );
+      }
+    };
+  }
+  return commands as T;
+}
+
 function throwingComponent(name: string, why: string): React.ComponentType<Record<string, unknown>> {
   const Throwing: React.FC<Record<string, unknown>> = () => {
     throw new Error(`native-surface: <${name}> is not supported in v1 (${why}). It may be imported but not rendered.`);
@@ -332,4 +370,165 @@ export const Linking = {
  */
 export function PlatformColor(..._names: string[]): string {
   return '#000000';
+}
+
+// ---------------------------------------------------------------------------
+// Remaining react-native surface that libraries import at module scope.
+//
+// The rule these all follow: a missing NAME breaks the importing module at
+// link time, which takes out far more than the feature it belongs to. Each of
+// these is either genuinely implementable here or an honest, documented inert
+// stand-in — never a throw at import.
+// ---------------------------------------------------------------------------
+
+/**
+ * React 18+ batches automatically, so this is a passthrough rather than a
+ * no-op wrapper: callers rely on the callback running synchronously.
+ */
+export function unstable_batchedUpdates<T, R>(callback: (arg: T) => R, arg?: T): R {
+  return callback(arg as T);
+}
+
+/** RN's global event bus. Real emitter — app code both emits and listens. */
+class DeviceEventEmitterImpl {
+  private listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  addListener(event: string, listener: (...args: unknown[]) => void): { remove(): void } {
+    let set = this.listeners.get(event);
+    if (!set) this.listeners.set(event, (set = new Set()));
+    set.add(listener);
+    return { remove: () => void set!.delete(listener) };
+  }
+  removeAllListeners(event?: string): void {
+    if (event) this.listeners.get(event)?.clear();
+    else this.listeners.clear();
+  }
+  removeSubscription(sub: { remove(): void }): void {
+    sub.remove();
+  }
+  listenerCount(event: string): number {
+    return this.listeners.get(event)?.size ?? 0;
+  }
+  emit(event: string, ...args: unknown[]): void {
+    for (const l of [...(this.listeners.get(event) ?? [])]) l(...args);
+  }
+}
+export const DeviceEventEmitter = new DeviceEventEmitterImpl();
+
+/** navigator.vibrate where available; silently absent otherwise (as on a device with it disabled). */
+export const Vibration = {
+  vibrate(pattern: number | number[] = 400, _repeat = false): void {
+    try {
+      (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(pattern);
+    } catch {
+      /* refused without a user gesture */
+    }
+  },
+  cancel(): void {
+    try {
+      (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(0);
+    } catch {
+      /* nothing to cancel */
+    }
+  },
+};
+
+/** RN's internal profiler hooks; inert but shaped, because libraries call them in hot paths. */
+export const Systrace = {
+  installReactHook(): void {},
+  setEnabled(_enabled: boolean): void {},
+  beginEvent(_name?: string | (() => string), _args?: unknown): void {},
+  endEvent(_args?: unknown): void {},
+  beginAsyncEvent(_name?: string | (() => string)): number {
+    return 0;
+  },
+  endAsyncEvent(): void {},
+  counterEvent(): void {},
+  isEnabled(): boolean {
+    return false;
+  },
+};
+
+/** Dev-menu controls; no dev menu exists on this host. */
+export const DevSettings = {
+  addMenuItem(_title: string, _handler: () => void): void {},
+  reload(_reason?: string): void {
+    if (typeof location !== 'undefined') location.reload();
+  },
+  onFastRefresh(): void {},
+  setHotLoadingEnabled(_enabled: boolean): void {},
+  setIsDebuggingRemotely(_enabled: boolean): void {},
+  setProfilingEnabled(_enabled: boolean): void {},
+};
+
+/** Android-only in RN; accepted and inert so cross-platform code links. */
+export const ToastAndroid = {
+  SHORT: 0,
+  LONG: 1,
+  TOP: 0,
+  BOTTOM: 1,
+  CENTER: 2,
+  show(_message: string, _duration: number): void {},
+  showWithGravity(_m: string, _d: number, _g: number): void {},
+  showWithGravityAndOffset(_m: string, _d: number, _g: number, _x: number, _y: number): void {},
+};
+
+/** Android runtime permissions; the browser brokers its own at point of use. */
+export const PermissionsAndroid = {
+  PERMISSIONS: new Proxy({} as Record<string, string>, { get: (_t, p) => String(p) }),
+  RESULTS: { GRANTED: 'granted', DENIED: 'denied', NEVER_ASK_AGAIN: 'never_ask_again' } as const,
+  async check(_permission: string): Promise<boolean> {
+    return true;
+  },
+  async request(_permission: string): Promise<string> {
+    return 'granted';
+  },
+  async requestMultiple(permissions: string[]): Promise<Record<string, string>> {
+    return Object.fromEntries(permissions.map((p) => [p, 'granted']));
+  },
+};
+
+/** iOS Settings.bundle values; none exist here, so reads are null. */
+export const Settings = {
+  get(_key: string): unknown {
+    return null;
+  },
+  set(_settings: Record<string, unknown>): void {},
+  watchKeys(_keys: string | string[], _callback: () => void): number {
+    return 0;
+  },
+  clearWatch(_watchId: number): void {},
+};
+
+/** iOS action sheets — browser-native chrome, same trade as Alert. */
+export const ActionSheetIOS = {
+  showActionSheetWithOptions(
+    options: { options: string[]; cancelButtonIndex?: number; title?: string; message?: string },
+    callback: (index: number) => void
+  ): void {
+    const { options: labels, cancelButtonIndex, title, message } = options;
+    if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
+      callback(cancelButtonIndex ?? 0);
+      return;
+    }
+    const list = labels.map((l, i) => `${i}: ${l}`).join('\n');
+    const answer = window.prompt(`${title ?? ''}${message ? `\n${message}` : ''}\n${list}`.trim(), '');
+    const index = answer === null ? cancelButtonIndex ?? 0 : Number.parseInt(answer, 10);
+    callback(Number.isFinite(index) && index >= 0 && index < labels.length ? index : cancelButtonIndex ?? 0);
+  },
+  showShareActionSheetWithOptions(
+    _options: unknown,
+    _onError: (e: Error) => void,
+    onSuccess: (completed: boolean, method: string | null) => void
+  ): void {
+    onSuccess(false, null);
+  },
+  dismissActionSheet(): void {},
+};
+
+/**
+ * iOS dynamic colors resolve per appearance. The engine paints one scheme at
+ * a time, so this collapses to the light value — Appearance drives the rest.
+ */
+export function DynamicColorIOS(tuple: { light: string; dark: string; highContrastLight?: string; highContrastDark?: string }): string {
+  return tuple.light;
 }

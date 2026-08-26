@@ -235,10 +235,29 @@ describe('standard-boundary optimizeDeps ownership', () => {
     }
   });
 
-  it('drops includes that do not resolve (unresolvable entries make Vite log failures)', () => {
-    const { include } = runConfig({ resolveFrom: emptyRoot }).optimizeDeps;
-    expect(include).not.toContain('react-reconciler');
-    expect(include).not.toContain('canvaskit-wasm/bin/canvaskit.js');
+  it('drops ECOSYSTEM includes that do not resolve (unresolvable entries make Vite log failures)', () => {
+    // Both roots empty: an id no tree can resolve has nothing to prebundle.
+    const { include } = runConfig({ resolveFrom: emptyRoot }, { root: emptyRoot }).optimizeDeps;
+    expect(include).not.toContain('query-string');
+    expect(include).not.toContain('use-latest-callback');
+  });
+
+  it("always includes the ENGINE's own CJS leaves, resolved from the engine", () => {
+    // react-reconciler and canvaskit are dependencies of native-surface, not
+    // of the served app: under a strict (pnpm) install they are nested inside
+    // the engine's own tree and resolve from NEITHER the app root nor Vite's.
+    // Filtering them by either root left the surface unable to mount.
+    const cfg = runConfig({ resolveFrom: emptyRoot });
+    expect(cfg.optimizeDeps.include).toContain('react-reconciler');
+    expect(cfg.optimizeDeps.include).toContain('react-reconciler/constants');
+    expect(cfg.optimizeDeps.include).toContain('canvaskit-wasm/bin/canvaskit.js');
+    // …and each is pinned to an absolute path so resolution cannot depend on
+    // which root asks for it.
+    const pinned = cfg.resolve.alias.filter(
+      (a) => a.find instanceof RegExp && a.find.test('react-reconciler/constants')
+    );
+    expect(pinned.length).toBeGreaterThan(0);
+    expect(existsSync(pinned[0]!.replacement)).toBe(true);
   });
 
   it('wraps bare CJS leaves of interop packages as ESM with aliased named exports', () => {

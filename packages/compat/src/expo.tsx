@@ -130,6 +130,49 @@ export function useURL(): string | null {
   return typeof window !== 'undefined' ? window.location.href : null;
 }
 
+/**
+ * SDK 50+ additions. getLinkingURL is the synchronous "what launched this
+ * app" accessor — on the web that is simply the current address.
+ */
+export function getLinkingURL(): string | null {
+  return typeof location !== 'undefined' ? location.href : null;
+}
+
+export function useLinkingURL(): string | null {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      if (typeof window === 'undefined') return () => {};
+      window.addEventListener('popstate', onChange);
+      window.addEventListener('hashchange', onChange);
+      return () => {
+        window.removeEventListener('popstate', onChange);
+        window.removeEventListener('hashchange', onChange);
+      };
+    },
+    () => (typeof location !== 'undefined' ? location.href : null),
+    () => null
+  );
+}
+
+export function collectManifestSchemes(): string[] {
+  return [];
+}
+
+/**
+ * Clears the URL that launched the app so a deep link is handled once. The
+ * web has no separate launch URL — the address bar IS the state — so this
+ * strips the query/hash the app has just consumed, which is the equivalent
+ * effect without a navigation.
+ */
+export async function clearInitialURL(): Promise<void> {
+  if (typeof history === 'undefined' || typeof location === 'undefined') return;
+  try {
+    history.replaceState(history.state, '', location.pathname);
+  } catch {
+    /* opaque origin or a host that forbids replaceState */
+  }
+}
+
 export function addEventListener(_type: 'url', _cb: (e: { url: string }) => void): { remove: () => void } {
   return { remove: () => {} };
 }

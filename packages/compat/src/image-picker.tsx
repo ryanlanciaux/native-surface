@@ -325,3 +325,64 @@ export function launchImageLibrary(options: OptionsCommon = {}, callback?: Callb
 export function launchCamera(options: OptionsCommon = {}, callback?: Callback): Promise<ImagePickerResponse> {
   return launchRNIP({ accept: acceptForRNIP(options.mediaType), capture: true, multiple: false }, callback);
 }
+
+// ---------------------------------------------------------------------------
+// iOS picker-configuration enums.
+//
+// These describe how the *native* iOS picker presents itself and what it hands
+// back. A file input has none of those knobs, so the values exist to satisfy
+// module-scope imports (one missing name breaks the whole ESM module) and to
+// let option objects keep type-checking; they are not consulted.
+// ---------------------------------------------------------------------------
+
+export const UIImagePickerPreferredAssetRepresentationMode = {
+  Automatic: 'automatic',
+  Compatible: 'compatible',
+  Current: 'current',
+} as const;
+export type UIImagePickerPreferredAssetRepresentationMode =
+  (typeof UIImagePickerPreferredAssetRepresentationMode)[keyof typeof UIImagePickerPreferredAssetRepresentationMode];
+
+export const UIImagePickerPresentationStyle = {
+  FullScreen: 'fullScreen',
+  PageSheet: 'pageSheet',
+  FormSheet: 'formSheet',
+  CurrentContext: 'currentContext',
+  OverFullScreen: 'overFullScreen',
+  OverCurrentContext: 'overCurrentContext',
+  Popover: 'popover',
+  BlurOverFullScreen: 'blurOverFullScreen',
+  Automatic: 'automatic',
+} as const;
+export type UIImagePickerPresentationStyle =
+  (typeof UIImagePickerPresentationStyle)[keyof typeof UIImagePickerPresentationStyle];
+
+export const UIImagePickerControllerQualityType = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+  VGA640x480: 3,
+  IFrame1280x720: 4,
+  IFrame960x540: 5,
+} as const;
+export type UIImagePickerControllerQualityType =
+  (typeof UIImagePickerControllerQualityType)[keyof typeof UIImagePickerControllerQualityType];
+
+export const VideoExportPreset = {
+  Passthrough: 0,
+  LowQuality: 1,
+  MediumQuality: 2,
+  HighestQuality: 3,
+  H264_640x480: 4,
+  H264_960x540: 5,
+  H264_1280x720: 6,
+  H264_1920x1080: 7,
+  H264_3840x2160: 8,
+  HEVC_1920x1080: 9,
+  HEVC_3840x2160: 10,
+} as const;
+export type VideoExportPreset = (typeof VideoExportPreset)[keyof typeof VideoExportPreset];
+
+/** Which camera a launch would prefer; the browser picks its own. */
+export const CameraType = { back: 'back', front: 'front' } as const;
+export type CameraType = (typeof CameraType)[keyof typeof CameraType];
