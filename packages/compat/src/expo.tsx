@@ -9,6 +9,7 @@
  * is backed by the browser's Intl/navigator surface.
  */
 import * as React from 'react';
+import { assertOpenable, isOpenableURL } from './url-safety';
 import { initEngine } from 'native-surface';
 
 /**
@@ -118,12 +119,15 @@ export function parse(url: string): { scheme: string | null; hostname: string | 
 }
 
 export async function openURL(url: string): Promise<boolean> {
+  // See url-safety.ts: apps route USER-SUPPLIED links through here, and a
+  // `javascript:` URL that is inert on a device runs in this page's origin.
+  if (!assertOpenable(url, 'Linking.openURL')) return false;
   if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
   return true;
 }
 
-export async function canOpenURL(_url: string): Promise<boolean> {
-  return true;
+export async function canOpenURL(url: string): Promise<boolean> {
+  return isOpenableURL(url);
 }
 
 export function useURL(): string | null {

@@ -42,6 +42,7 @@
  *   mayInitWithUrlAsync resolve empty results and
  *   getCustomTabsSupportingBrowsersAsync reports no packages.
  */
+import { assertOpenable } from './url-safety';
 
 export enum WebBrowserResultType {
   CANCEL = 'cancel',
@@ -259,6 +260,10 @@ export async function openBrowserAsync(
     warnOnce('open-no-window', 'compat web-browser: no window (SSR/node); openBrowserAsync resolves cancel.');
     return { type: WebBrowserResultType.CANCEL };
   }
+  // See url-safety.ts: a script-only scheme would run in this page's origin.
+  if (!assertOpenable(url, 'WebBrowser.openBrowserAsync')) {
+    return { type: WebBrowserResultType.CANCEL };
+  }
   const { windowName = '_blank', windowFeatures } = browserParams;
   const opened = window.open(url, windowName, popupFeatures(windowFeatures));
   if (!opened) {
@@ -325,6 +330,13 @@ export async function openAuthSessionAsync(
   if (!hasWindow()) {
     warnOnce('auth-no-window', 'compat web-browser: no window (SSR/node); openAuthSessionAsync resolves cancel.');
     return { type: WebBrowserResultType.CANCEL };
+  }
+
+  if (!assertOpenable(url, 'WebBrowser.openAuthSessionAsync')) {
+    throw new WebBrowserCodedError(
+      'ERR_WEB_BROWSER_BLOCKED',
+      'Refused to open a script-only URL scheme. See url-safety.ts.'
+    );
   }
 
   // A second call replaces the first: only one popup can be the auth window.
