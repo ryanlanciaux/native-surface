@@ -60,8 +60,46 @@ export function useKeyboardState(): typeof CLOSED_STATE {
   return CLOSED_STATE;
 }
 
-function staticValue(v: number): { value: number } {
-  return { value: v };
+/**
+ * A reanimated SharedValue that nothing ever drives.
+ *
+ * The SHAPE is the load-bearing part. This used to return `{ value: 0 }`, and
+ * reanimated 3 code reading `.value` was happy — but reanimated 4 renamed the
+ * accessors, and every real caller now writes `height.get()`. Bluesky's
+ * `Dialog.FlatListFooter`, `KeyboardStickyView` and its message composer all
+ * do. A bare `{value}` therefore threw `height.get is not a function` the
+ * moment one of those rendered, which is a crash rather than a missing
+ * feature — the exact "a missing MEMBER fails late" shape that has now cost
+ * this project several round-trips.
+ *
+ * So the whole documented SharedValue surface is here. `set` really does
+ * write and really does notify, because a caller that writes to a keyboard
+ * value and reads it back should see what it wrote; nothing else will ever
+ * move it, since there is no OS keyboard on a canvas host.
+ */
+export interface InertSharedValue<T> {
+  value: T;
+  get(): T;
+  set(next: T | ((current: T) => T)): void;
+  addListener(id: number, listener: (current: T) => void): void;
+  removeListener(id: number): void;
+  modify(modifier?: (current: T) => T, forceUpdateUI?: boolean): void;
+}
+
+function staticValue<T>(initial: T): InertSharedValue<T> {
+  const listeners = new Map<number, (current: T) => void>();
+  const shared: InertSharedValue<T> = {
+    value: initial,
+    get: () => shared.value,
+    set: (next) => {
+      shared.value = typeof next === 'function' ? (next as (c: T) => T)(shared.value) : next;
+      for (const listener of [...listeners.values()]) listener(shared.value);
+    },
+    addListener: (id, listener) => void listeners.set(id, listener),
+    removeListener: (id) => void listeners.delete(id),
+    modify: (modifier) => shared.set(modifier ? modifier(shared.value) : shared.value),
+  };
+  return shared;
 }
 
 export function useKeyboardAnimation() {
