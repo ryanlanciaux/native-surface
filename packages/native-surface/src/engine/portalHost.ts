@@ -14,6 +14,7 @@
  * Like textInputOverlay, this module is Node-import-safe: no top-level DOM
  * access, and every entry point no-ops when `document` is undefined.
  */
+import { canvasGeometry, canvasHostOf } from './canvasGeometry';
 import type { CNode } from './node';
 
 /** Declarative portal request, carried on a host node as `props.__portal`. */
@@ -30,19 +31,6 @@ export interface PortalSpec {
 
 /** Imperative escape hatch: `props.__portalRef` receives the live element. */
 export type PortalRef = (el: HTMLElement | null) => void;
-
-interface PortalHost {
-  canvas: HTMLCanvasElement | null;
-  cssWidth: number;
-  cssHeight: number;
-}
-
-/** Same host the input overlay positions against (RootHooks.getInputHost). */
-function hostOf(node: CNode): PortalHost | null {
-  const hooks = node.rootHooks as { getInputHost?: () => PortalHost } | null;
-  const host = hooks?.getInputHost?.();
-  return host && host.canvas ? host : null;
-}
 
 function specOf(node: CNode): PortalSpec | null {
   const spec = node.props.__portal as PortalSpec | undefined;
@@ -81,34 +69,9 @@ function nodeVisible(node: CNode): boolean {
   return true;
 }
 
-/**
- * Fixed-position geometry of a node over its (possibly CSS-stretched) canvas —
- * the same math textInputOverlay.reposition uses. Returns null while the
- * canvas has no on-screen box.
- */
-export function portalGeometry(
-  node: CNode,
-  host: PortalHost
-): { left: number; top: number; width: number; height: number; sx: number; sy: number } | null {
-  if (!host.canvas) return null;
-  const rect = host.canvas.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return null;
-  const sx = rect.width / host.cssWidth;
-  const sy = rect.height / host.cssHeight;
-  const abs = node.absoluteRect();
-  return {
-    left: rect.left + abs.x * sx,
-    top: rect.top + abs.y * sy,
-    width: abs.w * sx,
-    height: abs.h * sy,
-    sx,
-    sy,
-  };
-}
-
 function reposition(node: CNode, inst: PortalInstance): void {
-  const host = hostOf(node);
-  const geo = host ? portalGeometry(node, host) : null;
+  const host = canvasHostOf(node);
+  const geo = host ? canvasGeometry(node, host) : null;
   const s = inst.el.style;
   if (!geo || !nodeVisible(node)) {
     s.visibility = 'hidden';
@@ -226,7 +189,7 @@ export function syncPortalOverlays(rootNode: CNode): void {
       inst = undefined;
     }
     if (!inst) {
-      if (!hostOf(node)) return; // headless root (Node/tests without a canvas)
+      if (!canvasHostOf(node)) return; // headless root (Node/tests without a canvas)
       inst = createInstance(node, spec, rootNode);
     } else {
       applyAttrs(inst, spec.attrs);

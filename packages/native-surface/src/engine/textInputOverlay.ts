@@ -4,24 +4,18 @@
  * stateful lives in textInputState.ts; this module is pure geometry + DOM
  * plumbing and is never loaded into the paint/layout path (no top-level DOM
  * access, so it is Node-import-safe; the factory just returns null there).
+ *
+ * Placement comes from engine/canvasGeometry — the same helper the portal host
+ * and the CNode DOM facade use — so the overlay, a portal, and a measured node
+ * agree on where a node is to the pixel. The scale factors it returns also
+ * size the type, not just the box.
  */
 import { Edge } from 'yoga-layout/load';
+import { canvasGeometry, canvasHostOf } from './canvasGeometry';
 import type { CNode } from './node';
 import { DEFAULT_TEXT_STYLE, resolveTextStyle } from './styles';
 import type { InputOverlay, OverlayController, TextInputSpec } from './textInputState';
 import { specOfInput } from './textInputState';
-
-interface InputHost {
-  canvas: HTMLCanvasElement | null;
-  cssWidth: number;
-  cssHeight: number;
-}
-
-function hostOf(node: CNode): InputHost | null {
-  const hooks = node.rootHooks as { getInputHost?: () => InputHost } | null;
-  const host = hooks?.getInputHost?.();
-  return host && host.canvas ? host : null;
-}
 
 const KEYBOARD_TYPE_MAP: Record<string, { type?: string; inputmode?: string }> = {
   'default': {},
@@ -44,7 +38,7 @@ function cssFontWeight(w: number): string {
 
 export function createDomInputOverlay(node: CNode, controller: OverlayController): InputOverlay | null {
   if (typeof document === 'undefined') return null;
-  const host = hostOf(node);
+  const host = canvasHostOf(node);
   if (!host) return null;
 
   const spec = specOfInput(node);
@@ -66,22 +60,22 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
   if (spec.selectionColor || spec.cursorColor) s.caretColor = spec.cursorColor ?? spec.selectionColor!;
 
   const reposition = () => {
-    const h = hostOf(node);
-    if (!h?.canvas) return;
-    const rect = h.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const sx = rect.width / h.cssWidth; // CSS-stretched canvas: scale layout px → screen px
-    const sy = rect.height / h.cssHeight;
-    const abs = node.absoluteRect();
+    const h = canvasHostOf(node);
+    const geo = h ? canvasGeometry(node, h) : null;
+    if (!geo) return;
+    // The canvas's CSS-stretch factors also scale the type: an overlay whose
+    // box is stretched 2x but whose font is not would not line up with the
+    // Skia text it replaces. Both come off the same geometry.
+    const { sx, sy } = geo;
     const text = resolveTextStyle(node.flatStyle, DEFAULT_TEXT_STYLE);
     const yoga = node.yoga;
     const pad = (edge: Edge) =>
       (yoga ? yoga.getComputedPadding(edge) + yoga.getComputedBorder(edge) : 0);
 
-    s.left = `${rect.left + abs.x * sx}px`;
-    s.top = `${rect.top + abs.y * sy}px`;
-    s.width = `${abs.w * sx}px`;
-    s.height = `${abs.h * sy}px`;
+    s.left = `${geo.left}px`;
+    s.top = `${geo.top}px`;
+    s.width = `${geo.width}px`;
+    s.height = `${geo.height}px`;
     s.paddingLeft = `${pad(Edge.Left) * sx}px`;
     s.paddingRight = `${pad(Edge.Right) * sx}px`;
     s.paddingTop = `${pad(Edge.Top) * sy}px`;
@@ -97,7 +91,7 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
       s.lineHeight = text.lineHeight != null ? `${text.lineHeight * sy}px` : 'normal';
     } else {
       // vertically center single-line text the way the paint side does
-      s.lineHeight = `${Math.max(0, abs.h * sy - (pad(Edge.Top) + pad(Edge.Bottom)) * sy)}px`;
+      s.lineHeight = `${Math.max(0, geo.height - (pad(Edge.Top) + pad(Edge.Bottom)) * sy)}px`;
       s.paddingTop = '0px';
       s.paddingBottom = '0px';
     }

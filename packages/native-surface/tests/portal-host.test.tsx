@@ -2,56 +2,19 @@
 /**
  * DOM-portal seam (engine/portalHost) + the react-native-webview shim built on
  * it. Runs under jsdom so real elements are created; the env seam is mocked to
- * the Node loaders (jsdom has a window, so the real module would pick the
- * browser wasm path and try to fetch). The canvas host is faked through the
- * same root-hooks seam the TextInput overlay uses: getInputHost returns a
- * jsdom canvas with a stubbed bounding rect.
+ * the Node loaders through tests/nodeEnvMock (jsdom has a window, so the real
+ * module would pick the browser wasm path and try to fetch). The canvas host
+ * is faked through the same root-hooks seam the TextInput overlay uses:
+ * getInputHost returns a jsdom canvas with a stubbed bounding rect.
  */
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../src/env/index', async () => {
-  const { createRequire } = await import('node:module');
-  const fs = await import('node:fs');
-  const path = await import('node:path');
-  // import.meta.url is unreliable under the jsdom environment — anchor on the
-  // package dir instead (vitest runs with the package as cwd; the workspace
-  // root is the fallback).
-  const pkgDir = [process.cwd(), path.join(process.cwd(), 'packages/native-surface')].find((d) =>
-    fs.existsSync(path.join(d, 'assets/fonts'))
-  )!;
-  const req = createRequire(path.join(pkgDir, 'package.json'));
-  return {
-    isNode: true,
-    loadCanvasKit: async () => {
-      const CanvasKitInit = req('canvaskit-wasm/bin/canvaskit.js') as (opts: {
-        wasmBinary: Uint8Array;
-      }) => Promise<unknown>;
-      const buf = fs.readFileSync(req.resolve('canvaskit-wasm/bin/canvaskit.js').replace(/canvaskit\.js$/, 'canvaskit.wasm'));
-      return CanvasKitInit({ wasmBinary: new Uint8Array(buf) });
-    },
-    loadDefaultFonts: async () => {
-      const entries: Array<[string, number]> = [
-        ['Inter-Regular.otf', 400],
-        ['Inter-Medium.otf', 500],
-        ['Inter-SemiBold.otf', 600],
-        ['Inter-Bold.otf', 700],
-      ];
-      return entries.map(([file, weight]) => {
-        const buf = fs.readFileSync(path.join(pkgDir, 'assets/fonts', file));
-        return { family: 'Inter', data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), weight };
-      });
-    },
-    scheduleFrame: (cb: () => void) => {
-      const id = setTimeout(cb, 0);
-      return () => clearTimeout(id);
-    },
-    now: () => Date.now(),
-  };
-});
+vi.mock('../src/env/index', async () => (await import('./nodeEnvMock')).nodeEnvMock());
 
 import { Text, View } from '../src/components/primitives';
 import WebView, { type WebViewHandle } from '../../compat/src/webview';
+import type { CNode } from '../src/engine/node';
 import type { NativeRoot } from '../src/types';
 import { asImpl, createTestRoot, findNode } from './helpers';
 
@@ -158,6 +121,47 @@ describe('engine portal host', () => {
     await root.flush();
     expect(a.style.visibility).toBe('hidden');
     expect(b.style.visibility).not.toBe('hidden');
+  });
+
+  it('places a portal and answers getBoundingClientRect from the same shared geometry', async () => {
+    // A canvas offset on the page AND stretched 2x — the configuration where a
+    // second copy of the offset/scale math would silently disagree.
+    root = createTestRoot(300, 200);
+    const canvas = document.createElement('canvas');
+    canvas.getBoundingClientRect = () =>
+      ({ x: 17, y: 9, left: 17, top: 9, right: 617, bottom: 409, width: 600, height: 400, toJSON: () => ({}) }) as DOMRect;
+    (asImpl(root) as any).getInputHost = () => ({ canvas, cssWidth: 300, cssHeight: 200 });
+
+    let node: CNode | null = null;
+    root.render(
+      <View style={{ padding: 20 }}>
+        <PortalView
+          ref={(n: unknown) => {
+            node = n as CNode | null;
+          }}
+          style={{ width: 120, height: 80, marginLeft: 10, marginTop: 5 }}
+          __portal={{ tag: 'div', attrs: { 'data-role': 'geo' } }}
+        />
+      </View>
+    );
+    await root.flush();
+
+    const el = document.querySelector<HTMLElement>('[data-role="geo"]')!;
+    expect(el.style.left).toBe('77px'); // 17 + (20 + 10) * 2
+    expect(el.style.top).toBe('59px'); // 9 + (20 + 5) * 2
+    expect(el.style.width).toBe('240px');
+    expect(el.style.height).toBe('160px');
+
+    // The DOM facade must land on exactly the placement the portal host used.
+    const rect = node!.getBoundingClientRect();
+    expect({ x: rect.x, y: rect.y, width: rect.width, height: rect.height }).toEqual({
+      x: 77,
+      y: 59,
+      width: 240,
+      height: 160,
+    });
+    expect(rect.right).toBe(317);
+    expect(rect.bottom).toBe(219);
   });
 });
 

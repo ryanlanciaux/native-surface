@@ -152,6 +152,15 @@ const imageCache = new Map<string, ImageEntry>();
 // not once per attempt.
 const warnedImageUris = new Set<string>();
 
+/**
+ * How far past the cap the cache may grow on retained entries alone before we
+ * say something. Exceeding the cap is legitimate — a long feed can genuinely
+ * display more than IMAGE_CACHE_MAX images at once, and evicting one still on
+ * screen would blank it — so this is deliberately generous.
+ */
+const RETAINED_LEAK_FACTOR = 4;
+let warnedRetainedLeak = false;
+
 /** Move-to-end on access; evict (and .delete()) least-recently-used settled entries. */
 function touchImageEntry(uri: string, entry: ImageEntry): void {
   imageCache.delete(uri);
@@ -167,6 +176,37 @@ function touchImageEntry(uri: string, entry: ImageEntry): void {
     pixelKeys.delete(key);
     if (e.status === 'loaded') e.image.delete();
   }
+
+  /**
+   * Nothing above can reclaim a RETAINED entry, so a reference that is never
+   * released makes its image immortal and the cache unbounded. That ends in
+   * CanvasKit exhausting its WASM heap and calling `abort()` — surfacing as
+   * `RuntimeError: Aborted()`, which is not catchable and names nothing.
+   *
+   * One warning, so the failure has a cause attached before the runtime dies.
+   */
+  if (!warnedRetainedLeak && imageCache.size > IMAGE_CACHE_MAX * RETAINED_LEAK_FACTOR) {
+    warnedRetainedLeak = true;
+    let retained = 0;
+    for (const e of imageCache.values()) if (e.status === 'loaded' && e.refs > 0) retained++;
+    console.warn(
+      `native-surface: image cache holds ${imageCache.size} entries (${retained} still referenced) ` +
+        `against a cap of ${IMAGE_CACHE_MAX}. Retained entries cannot be evicted, so this grows until ` +
+        `CanvasKit aborts. If the app is not really displaying that many images at once, a node is ` +
+        `holding a reference it never released.`
+    );
+  }
+}
+
+/** Test/diagnostic seam: cache occupancy and how much of it is unreclaimable. */
+export function getImageCacheStats(): { size: number; retained: number; loading: number } {
+  let retained = 0;
+  let loading = 0;
+  for (const e of imageCache.values()) {
+    if (e.status === 'loading') loading++;
+    else if (e.status === 'loaded' && e.refs > 0) retained++;
+  }
+  return { size: imageCache.size, retained, loading };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { PointerPipeline } from './events';
 import { getReconciler, type ContainerHost } from '../reconciler/hostConfig';
 import { setOverlayFactory, syncFocusedOverlay } from './textInputState';
 import { createDomInputOverlay } from './textInputOverlay';
+import { installIntersectionObserver } from './intersectionObserver';
 import { destroyPortalOverlays, syncPortalOverlays } from './portalHost';
 import {
   DimensionsContext,
@@ -56,6 +57,11 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     this.theme = opts.theme ?? 'ios';
     this.onAction = opts.onAction;
     this.canvas = typeof HTMLCanvasElement !== 'undefined' && target instanceof HTMLCanvasElement ? target : null;
+    // A canvas root means app code is about to run in a browser, where
+    // `typeof IntersectionObserver !== 'undefined'` is true and any web branch
+    // gated on it will hand us an engine node. Install the delegating wrapper
+    // before that can happen; it is idempotent and leaves real Elements alone.
+    if (this.canvas) installIntersectionObserver();
 
     this.rootNode = new CNode('root', {});
     this.pointer = new PointerPipeline(
@@ -119,13 +125,40 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
       const sy = rect.height > 0 ? this.cssHeight / rect.height : 1;
       return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
     };
+    /** Pointer ids this root captured, so the window fallback only speaks for
+     *  gestures that actually started on this canvas. */
+    const activePointers = new Set<number>();
     const down = (e: PointerEvent) => {
+      // Without this the browser may start its own text selection or image
+      // drag from the pointerdown, which STEALS the pointer: capture is lost,
+      // no pointerup ever reaches us, and the engine sits in a held gesture
+      // forever — the drag-off-the-canvas-and-everything-stays-pressed bug.
+      e.preventDefault();
       canvas.setPointerCapture?.(e.pointerId);
+      activePointers.add(e.pointerId);
       this.pointer.dispatch('down', local(e));
     };
     const move = (e: PointerEvent) => this.pointer.dispatch('move', local(e));
-    const up = (e: PointerEvent) => this.pointer.dispatch('up', local(e));
-    const cancel = (e: PointerEvent) => this.pointer.dispatch('cancel', local(e));
+    const endGesture = (kind: 'up' | 'cancel', e: PointerEvent) => {
+      if (!activePointers.delete(e.pointerId)) return; // not ours, or already ended
+      this.pointer.dispatch(kind, local(e));
+    };
+    const up = (e: PointerEvent) => endGesture('up', e);
+    const cancel = (e: PointerEvent) => endGesture('cancel', e);
+    /**
+     * Capture can be revoked by the browser (a native drag starting, the tab
+     * losing focus, a devtools inspect). The spec fires `lostpointercapture`
+     * and then NOTHING else — no up, no cancel — so a gesture that is not
+     * terminated here stays held for the rest of the session.
+     */
+    const lostCapture = (e: PointerEvent) => endGesture('cancel', e);
+    /**
+     * Belt and braces for the case where capture was never granted at all
+     * (older Safari, a synthetic event with an unknown pointerId): a release
+     * anywhere on the page ends a gesture this canvas started.
+     */
+    const windowUp = (e: PointerEvent) => endGesture('up', e);
+    const windowCancel = (e: PointerEvent) => endGesture('cancel', e);
     const wheel = (e: WheelEvent) => {
       this.pointer.dispatch('wheel', { ...local(e), deltaX: e.deltaX, deltaY: e.deltaY });
       e.preventDefault();
@@ -134,13 +167,23 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     canvas.addEventListener('pointermove', move);
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', cancel);
+    canvas.addEventListener('lostpointercapture', lostCapture);
     canvas.addEventListener('wheel', wheel, { passive: false });
+    // Window-level, and deliberately not capture-phase: these only fire for
+    // ids still in activePointers, so they are a fallback rather than a
+    // duplicate of the canvas handlers.
+    window.addEventListener('pointerup', windowUp);
+    window.addEventListener('pointercancel', windowCancel);
     this.detachListeners = () => {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', cancel);
+      canvas.removeEventListener('lostpointercapture', lostCapture);
       canvas.removeEventListener('wheel', wheel);
+      window.removeEventListener('pointerup', windowUp);
+      window.removeEventListener('pointercancel', windowCancel);
+      activePointers.clear();
     };
   }
 
