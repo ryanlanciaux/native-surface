@@ -92,3 +92,60 @@ describe('engine state shared across duplicate module copies', () => {
     expect(seen).toEqual([500]);
   });
 });
+
+/**
+ * The value handed to `DimensionsContext` must keep its IDENTITY while the
+ * numbers are unchanged.
+ *
+ * The renderer re-provides it on every commit. A fresh object each time makes
+ * React treat the context as changed, re-renders every
+ * `useWindowDimensions()` consumer, and re-runs any effect keyed on that value
+ * — which is how "Maximum update depth exceeded" appears. It only became
+ * reachable once app components could see this context at all.
+ */
+describe('dimensions context identity', () => {
+  it('does not change identity across re-renders', async () => {
+    const React = await import('react');
+    const { createTestRoot } = await import('./helpers');
+    const { View, useWindowDimensions } = await import('../src/index');
+
+    const seen: unknown[] = [];
+    function Probe() {
+      seen.push(useWindowDimensions());
+      return React.createElement(View, { style: { width: 1, height: 1 } });
+    }
+    const root = createTestRoot(390, 844);
+    root.render(React.createElement(Probe));
+    await root.flush();
+    root.render(React.createElement(Probe));
+    await root.flush();
+    root.render(React.createElement(Probe));
+    await root.flush();
+
+    expect(seen.length).toBeGreaterThan(1);
+    // Same object every time, not merely equal.
+    for (const d of seen) expect(d).toBe(seen[0]);
+    root.unmount();
+  });
+
+  it('DOES change identity when the surface is resized', async () => {
+    const React = await import('react');
+    const { createTestRoot } = await import('./helpers');
+    const { View, useWindowDimensions } = await import('../src/index');
+
+    const seen: Array<{ width: number }> = [];
+    function Probe() {
+      seen.push(useWindowDimensions());
+      return React.createElement(View, { style: { width: 1, height: 1 } });
+    }
+    const root = createTestRoot(390, 844);
+    root.render(React.createElement(Probe));
+    await root.flush();
+    root.resize(500, 900);
+    root.render(React.createElement(Probe));
+    await root.flush();
+    expect(seen.at(-1)!.width).toBe(500);
+    expect(seen.at(-1)).not.toBe(seen[0]);
+    root.unmount();
+  });
+});

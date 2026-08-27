@@ -20,6 +20,7 @@ import {
   pushActiveRenderDimensions,
   popActiveRenderDimensions,
   type SurfaceInsets,
+  type WindowDimensions,
 } from '../api/Dimensions';
 import { setHairlineWidth } from '../api/StyleSheet';
 import { isNode, scheduleFrame } from '../env/index';
@@ -126,8 +127,31 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     });
   }
 
-  private windowDimensions() {
-    return { width: this.cssWidth, height: this.cssHeight, scale: this.dpr, fontScale: 1 };
+  /**
+   * Cached so its IDENTITY is stable while the numbers are.
+   *
+   * This object is the value of `DimensionsContext`, and `render()` re-provides
+   * it on every commit of the embedding tree. A fresh object each time makes
+   * React treat the context as changed, so every `useWindowDimensions()`
+   * consumer re-renders — and any of them running an effect keyed on that
+   * value re-runs it, sets state, and renders again. That is a "Maximum update
+   * depth exceeded" waiting to happen, and it only became reachable once app
+   * components could actually SEE this context (see api/Dimensions.ts on the
+   * duplicate-module bug that had been hiding them from it).
+   */
+  private cachedDimensions: WindowDimensions | null = null;
+
+  private windowDimensions(): WindowDimensions {
+    const cached = this.cachedDimensions;
+    if (cached && cached.width === this.cssWidth && cached.height === this.cssHeight && cached.scale === this.dpr) {
+      return cached;
+    }
+    return (this.cachedDimensions = {
+      width: this.cssWidth,
+      height: this.cssHeight,
+      scale: this.dpr,
+      fontScale: 1,
+    });
   }
 
   private initGraphics(): void {
