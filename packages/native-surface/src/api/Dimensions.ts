@@ -9,6 +9,39 @@ export interface WindowDimensions {
 
 export const DimensionsContext = createContext<WindowDimensions | null>(null);
 
+/**
+ * The OS chrome a surface sits behind — a status bar, a notch, a home
+ * indicator — in the surface's own coordinates.
+ *
+ * A canvas in a page has none of that, so the default is zero and stays zero.
+ * But a surface is very often standing in for a device viewport (the harnesses
+ * here render 390x844), and a mobile app lays itself out around these numbers:
+ * headers, tab bars, and — the case that made this necessary — the height a
+ * presented sheet gets, which apps compute as `screenHeight - insets.top`.
+ * With a zero top inset a "full height" sheet covers the entire surface and
+ * leaves no backdrop to dismiss it by.
+ *
+ * The EMBEDDER declares them, because only the embedder knows whether it is
+ * simulating a device. `@native-surface/compat/safe-area` reports whatever is
+ * declared here, which is what makes `react-native-safe-area-context` answer
+ * honestly for an app that asks the standard way.
+ */
+export interface SurfaceInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export const ZERO_INSETS: SurfaceInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+export const SurfaceInsetsContext = createContext<SurfaceInsets | null>(null);
+
+/** The insets declared for the surface this component renders into. */
+export function useSurfaceInsets(): SurfaceInsets {
+  return useContext(SurfaceInsetsContext) ?? ZERO_INSETS;
+}
+
 let primary: WindowDimensions | null = null;
 
 /**

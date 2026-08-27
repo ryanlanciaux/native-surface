@@ -255,12 +255,36 @@ export interface RootOptions {
   height: number;
   dpr?: number;
   theme?: 'ios' | 'android';
+  /**
+   * The OS chrome this surface stands in for — status bar, notch, home
+   * indicator. Zero by default, because a canvas in a page has none; an
+   * embedder simulating a device viewport declares the device's insets here
+   * and `react-native-safe-area-context` (via the compat shim) reports them.
+   */
+  safeAreaInsets?: { top?: number; right?: number; bottom?: number; left?: number };
   onAction?: (name: string, payload?: unknown) => void;
 }
 
 export interface LayoutNode {
   type: string;
+  /** Where Yoga put the node, in surface coordinates. Transforms are NOT in
+   *  here — see `painted` for where it actually ended up. */
   frame: { x: number; y: number; width: number; height: number };
+  /**
+   * Where the node is actually PAINTED, once every `transform` between it and
+   * the surface has been applied — and therefore where a press lands, since
+   * the hit path inverts those same transforms.
+   *
+   * Present only when it differs from `frame`, so a tree with no transforms in
+   * it reads exactly as before. Omitting this was a real hole: a node animated
+   * by a translate reports a frame it is nowhere near, which makes a driver
+   * tap empty space and makes a layout dump quietly disagree with the screen.
+   *
+   * `rotated` marks the case this rectangle cannot describe honestly: under a
+   * rotation (or a skew) the painted region is not axis-aligned, so the rect is
+   * the transformed BOUNDING BOX and the center is still exact.
+   */
+  painted?: { x: number; y: number; width: number; height: number; rotated?: boolean };
   text?: string;
   /** The component's testID prop, when set — the driver-facing address. */
   testID?: string;
@@ -294,6 +318,8 @@ export interface NativeRoot {
    *  "mounted AND painted", await flush() after render(). */
   whenReady(): Promise<void>;
   readonly canvas: HTMLCanvasElement | null;
+  /** Live update of the declared safe-area insets (see RootOptions). */
+  setSafeAreaInsets(insets: RootOptions['safeAreaInsets']): void;
   /** Test hook: drive the pointer pipeline without a DOM. Coordinates in CSS px. */
   dispatchPointerEvent(type: PointerEventType, e: SyntheticPointer): void;
   /** Switches the theme live (repaints; no remount needed). */

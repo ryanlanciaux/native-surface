@@ -8,6 +8,18 @@ export interface NativeSurfaceProps {
   height: number;
   dpr?: number;
   theme?: 'ios' | 'android';
+  /**
+   * The OS chrome this surface stands in for — status bar / notch / home
+   * indicator — reported to the tree through `useSurfaceInsets()` and, for
+   * apps, through the `react-native-safe-area-context` compat shim.
+   *
+   * Zero by default: a canvas in a page has no OS chrome. Declare a device's
+   * insets when the surface is standing in for that device's viewport, or a
+   * mobile app lays out flush to the bezel — and a "full height" sheet, whose
+   * height apps compute as `screenHeight - insets.top`, covers the surface
+   * completely and leaves no backdrop to dismiss it by.
+   */
+  safeAreaInsets?: RootOptions['safeAreaInsets'];
   className?: string;
   style?: React.CSSProperties;
   onAction?: RootOptions['onAction'];
@@ -24,10 +36,14 @@ export interface NativeSurfaceProps {
  * SEPARATE React tree owned by canvas-native's own reconciler.
  */
 export function NativeSurface(props: NativeSurfaceProps): React.JSX.Element {
-  const { width, height, dpr, theme, className, style, onAction, onReady, children } = props;
+  const { width, height, dpr, theme, safeAreaInsets, className, style, onAction, onReady, children } = props;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rootRef = useRef<NativeRoot | null>(null);
   const sizeRef = useRef({ width, height, dpr });
+  // Read through a ref by the create-once effect, then kept live by its own
+  // effect below — the same shape as theme/onAction.
+  const insetsRef = useRef(safeAreaInsets);
+  insetsRef.current = safeAreaInsets;
   const onReadyRef = useRef(onReady);
   const readyFiredRef = useRef(false);
   useEffect(() => {
@@ -42,6 +58,7 @@ export function NativeSurface(props: NativeSurfaceProps): React.JSX.Element {
       height: sizeRef.current.height,
       dpr: sizeRef.current.dpr,
       theme,
+      safeAreaInsets: insetsRef.current,
       onAction,
     });
     rootRef.current = root;
@@ -82,6 +99,13 @@ export function NativeSurface(props: NativeSurfaceProps): React.JSX.Element {
   useEffect(() => {
     rootRef.current?.setOnAction(onAction);
   }, [onAction]);
+  // Compared by value, not identity: an inline object literal would otherwise
+  // re-provide the whole tree on every render of the embedder.
+  const { top, right, bottom, left } = safeAreaInsets ?? {};
+  useEffect(() => {
+    rootRef.current?.setSafeAreaInsets(insetsRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [top, right, bottom, left]);
 
   // re-render the embedded tree on every commit; the inner reconciler diffs
   useEffect(() => {
