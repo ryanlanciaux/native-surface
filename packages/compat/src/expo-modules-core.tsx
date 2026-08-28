@@ -213,19 +213,40 @@ export function requireOptionalNativeModule<T = unknown>(name: string): T | null
   return null;
 }
 
+/** Standard View props a native view can carry that mean the same thing here.
+ *  Everything else is native-specific and would reach the engine as unknown. */
+const PASSTHROUGH_VIEW_PROPS = ['style', 'testID', 'onLayout', 'pointerEvents', 'accessibilityLabel', 'accessible', 'collapsable'] as const;
+
 function passthroughView(name: string): React.ComponentType<Record<string, unknown>> {
-  const Passthrough = ({ children, ...rest }: Record<string, unknown> & { children?: React.ReactNode }) => {
-    warnOnce(
-      `view:${name}`,
-      `native-surface: no web implementation for native view '${name}' — rendering an empty View. ` +
-        `Register one with registerNativeView('${name}', Component).`
-    );
-    // Only style/children are safe to forward blind; native view props are
-    // arbitrary and would reach the engine as unknown props.
-    return <View style={(rest as { style?: unknown }).style as never}>{children}</View>;
-  };
+  /**
+   * forwardRef, not a plain function: a native view is usually wrapped by the
+   * library's own `React.forwardRef` and the app calls imperative methods
+   * through it (expo-paste-input's wrapper is exactly this shape). A plain
+   * function component drops the ref AND makes React warn, so the failure
+   * reads as a library bug rather than a missing bridge. Forwarding hands the
+   * caller the engine node, which answers measure/setNativeProps — strictly
+   * more than null does.
+   */
+  const Passthrough = React.forwardRef<unknown, Record<string, unknown> & { children?: React.ReactNode }>(
+    ({ children, ...rest }, ref) => {
+      warnOnce(
+        `view:${name}`,
+        `native-surface: no web implementation for native view '${name}' — rendering an empty View. ` +
+          `Register one with registerNativeView('${name}', Component).`
+      );
+      const forwarded: Record<string, unknown> = {};
+      for (const prop of PASSTHROUGH_VIEW_PROPS) {
+        if (rest[prop] !== undefined) forwarded[prop] = rest[prop];
+      }
+      return (
+        <View ref={ref as never} {...(forwarded as Record<string, never>)}>
+          {children as React.ReactNode}
+        </View>
+      );
+    }
+  );
   Passthrough.displayName = `NativeView(${name})`;
-  return Passthrough as React.ComponentType<Record<string, unknown>>;
+  return Passthrough as unknown as React.ComponentType<Record<string, unknown>>;
 }
 
 export function requireNativeView(name: string): React.ComponentType<Record<string, unknown>> {
