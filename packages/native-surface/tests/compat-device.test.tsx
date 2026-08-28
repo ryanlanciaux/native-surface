@@ -17,6 +17,8 @@ import Constants, { ExecutionEnvironment } from '../../compat/src/constants';
 import NetInfo, { NetInfoStateType } from '../../compat/src/netinfo';
 import Permissions, { PERMISSIONS, RESULTS, checkNotifications, request, requestMultiple } from '../../compat/src/permissions';
 import * as Notifications from '../../compat/src/notifications';
+import { getUrlAsync, hasUrlAsync, setUrlAsync } from '../../compat/src/clipboard';
+import { SystemBars, __systemBarsStackSize } from '../../compat/src/edge-to-edge';
 import Share from '../../compat/src/share';
 
 function fakeStorage(): Storage {
@@ -142,6 +144,35 @@ describe('clipboard compat shim', () => {
     await setStringAsync('y');
     expect(clipboardWarns()).toBe(2);
   });
+
+  /**
+   * The URL trio is iOS/macOS-only upstream, where it differs from the string
+   * functions purely in the pasteboard type tag. A browser clipboard has no
+   * type tag, so these ride the string path — but they must still EXIST and
+   * keep their own return types: `setUrlAsync` resolves void where
+   * `setStringAsync` resolves boolean. Bluesky's share menu awaits it.
+   */
+  test('the URL trio round-trips through the string clipboard', async () => {
+    let held = '';
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        writeText: vi.fn(async (t: string) => {
+          held = t;
+        }),
+        readText: vi.fn(async () => held),
+      },
+    });
+    await expect(setUrlAsync('https://bsky.app/profile/x')).resolves.toBeUndefined();
+    await expect(getStringAsync()).resolves.toBe('https://bsky.app/profile/x');
+    await expect(getUrlAsync()).resolves.toBe('https://bsky.app/profile/x');
+    await expect(hasUrlAsync()).resolves.toBe(true);
+
+    // Plain text is not a URL, and saying otherwise would have callers hand a
+    // non-URL to something that expects one.
+    await setStringAsync('just some text');
+    await expect(getUrlAsync()).resolves.toBeNull();
+    await expect(hasUrlAsync()).resolves.toBe(false);
+  });
 });
 
 describe('haptics compat shim', () => {
@@ -236,6 +267,69 @@ describe('notifications compat shim', () => {
     await expect(Notifications.getDevicePushTokenAsync()).rejects.toThrow(/native host/);
     expect(Notifications.addNotificationReceivedListener(() => {}).remove).toBeTypeOf('function');
   });
+
+  /**
+   * Namespace-imported packages fail LATE. Apps write
+   * `import * as Notifications from 'expo-notifications'`, so a name this
+   * shim never implemented is `undefined` rather than a link error — it
+   * survives the boot, survives every render, and throws
+   * "X is not a function" the first time a real user reaches the code path.
+   * Bluesky hit exactly that on `addPushTokenListener`, after login.
+   *
+   * So the surface is asserted by NAME here. This list is the set a real app
+   * reaches for; anything added to the shim later must keep it intact.
+   */
+  test('exposes the whole surface a namespace import reaches for', () => {
+    for (const name of [
+      'getPermissionsAsync',
+      'requestPermissionsAsync',
+      'setNotificationHandler',
+      'scheduleNotificationAsync',
+      'cancelScheduledNotificationAsync',
+      'cancelAllScheduledNotificationsAsync',
+      'getAllScheduledNotificationsAsync',
+      'dismissNotificationAsync',
+      'dismissAllNotificationsAsync',
+      'addNotificationReceivedListener',
+      'addNotificationResponseReceivedListener',
+      'removeNotificationSubscription',
+      'addPushTokenListener',
+      'removePushTokenSubscription',
+      'getLastNotificationResponse',
+      'getLastNotificationResponseAsync',
+      'clearLastNotificationResponse',
+      'clearLastNotificationResponseAsync',
+      'getExpoPushTokenAsync',
+      'getDevicePushTokenAsync',
+      'setNotificationChannelAsync',
+      'getNotificationChannelsAsync',
+      'setNotificationChannelGroupAsync',
+      'getNotificationChannelGroupsAsync',
+      'deleteNotificationChannelAsync',
+      'deleteNotificationChannelGroupAsync',
+      'setBadgeCountAsync',
+      'getBadgeCountAsync',
+    ] as const) {
+      expect(Notifications[name], `Notifications.${name} is missing`).toBeTypeOf('function');
+    }
+    // Enums and constants are compared by VALUE, not merely present: apps test
+    // equality against a real payload's identifier, and a private constant
+    // would silently never match.
+    expect(Notifications.DEFAULT_ACTION_IDENTIFIER).toBe('expo.modules.notifications.actions.DEFAULT');
+    expect(Notifications.AndroidImportance.DEFAULT).toBe(5);
+    expect(Notifications.AndroidImportance.MAX).toBe(7);
+    expect(Notifications.AndroidNotificationVisibility.SECRET).toBe(3);
+  });
+
+  test('a push-token listener subscribes and unsubscribes without ever firing', () => {
+    const seen: unknown[] = [];
+    const sub = Notifications.addPushTokenListener((t) => seen.push(t));
+    expect(sub.remove).toBeTypeOf('function');
+    sub.remove();
+    expect(seen).toEqual([]);
+    // The synchronous last-response read is what apps consult during render.
+    expect(Notifications.getLastNotificationResponse()).toBeNull();
+  });
 });
 
 describe('share compat shim', () => {
@@ -253,5 +347,51 @@ describe('share compat shim', () => {
       isInstalled: false,
       message: expect.stringContaining('not available'),
     });
+  });
+});
+
+/**
+ * `SystemBars` is a COMPONENT with statics hanging off it, which is a shape a
+ * "does the module export this name?" check waves straight through: the named
+ * import links, and `SystemBars.pushStackEntry(...)` throws the first time a
+ * composer opens. Bluesky's iOS composer does exactly that.
+ */
+describe('edge-to-edge SystemBars', () => {
+  test('exposes the imperative statics, not just the component', () => {
+    expect(SystemBars).toBeTypeOf('function');
+    for (const name of ['pushStackEntry', 'popStackEntry', 'replaceStackEntry', 'setStyle', 'setHidden'] as const) {
+      expect(SystemBars[name], `SystemBars.${name} is missing`).toBeTypeOf('function');
+    }
+  });
+
+  test('push/pop balance, and each entry is its own handle', () => {
+    const before = __systemBarsStackSize();
+    const a = SystemBars.pushStackEntry({ style: 'light' });
+    const b = SystemBars.pushStackEntry({ style: 'dark' });
+    // Distinct objects: two overlapping pushes must be tellable apart, or a
+    // pop removes the wrong one.
+    expect(a).not.toBe(b);
+    expect(__systemBarsStackSize()).toBe(before + 2);
+
+    // Popping the OLDER entry first is the interleaved case that a naive
+    // stack (pop-the-last) gets wrong.
+    SystemBars.popStackEntry(a);
+    expect(__systemBarsStackSize()).toBe(before + 1);
+    SystemBars.popStackEntry(b);
+    expect(__systemBarsStackSize()).toBe(before);
+
+    // A pop of something never pushed is inert rather than corrupting.
+    SystemBars.popStackEntry(a);
+    expect(__systemBarsStackSize()).toBe(before);
+  });
+
+  test('replaceStackEntry swaps in place and returns a new handle', () => {
+    const before = __systemBarsStackSize();
+    const first = SystemBars.pushStackEntry({ style: 'light' });
+    const second = SystemBars.replaceStackEntry(first, { style: 'dark' });
+    expect(second).not.toBe(first);
+    expect(__systemBarsStackSize()).toBe(before + 1); // replaced, not appended
+    SystemBars.popStackEntry(second);
+    expect(__systemBarsStackSize()).toBe(before);
   });
 });
