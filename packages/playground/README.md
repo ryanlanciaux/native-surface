@@ -39,6 +39,31 @@ relative to the `.storybook` dir; `@(a|b)` alternation supported; a TS-only
 Adding or deleting a matching file live-reloads the story list; edits ride
 normal HMR.
 
+### `shoot` — headless screenshots / CI visual regression
+
+```sh
+npx native-surface playground shoot                      # PNGs into .native-surface/shots
+npx native-surface playground shoot --diff shots-baseline            # compare
+npx native-surface playground shoot --diff shots-baseline --update   # (re)create baseline
+```
+
+Renders every story in a headless Chromium against the same server the serve
+command runs, waits for fonts + the engine's flush, and captures the CANVAS
+ONLY — one `<out>/<storyId>.png` per story plus `<out>/report.json`. A story
+that hits the "not bridged yet" boundary is reported as `skipped` with the
+reason; a story that throws is an `error`. `--diff <dir>` compares each shot
+with `<dir>/<storyId>.png` via a built-in PNG decoder (no extra deps) and
+fails (`exit 1`) on any mismatch or missing baseline unless `--update` copies
+the current shots over. Deterministic by construction — fixed viewport
+(`--viewport WxH`, default 390x720), dpr pinned to 1, SwiftShader rendering —
+so `--tolerance` (differing-pixel fraction, default 0.001) rarely matters.
+
+Requirements: a Chromium/Chrome binary (`--browser` flag, else `$CHROME_PATH`,
+else `/usr/bin/chromium`) and `puppeteer-core` resolvable from
+`$NS_SHOOT_PUPPETEER_DIR`, the host app, or the playground package (usually:
+`npm i -D puppeteer-core` in the app). Programmatic use:
+`import { shoot } from '@native-surface/playground/src/shoot.mjs'`.
+
 ### Config file
 
 `.native-surface/playground.config.mjs` (or `.js`) in the host root:
@@ -48,8 +73,21 @@ export default {
   stories: ['src/**/*.stories.tsx'], // optional; CLI --stories wins
   port: 5170,                        // optional; CLI --port wins
   decorators: 'none',                // reserved: opts out of future auto decorators
+  optimizeDeps: {                    // optional Vite escape hatch:
+    exclude: ['react-native-paper'], //   host UI kits importing 'react-native'
+    include: ['@callstack/react-theme-provider'], // their bare-CJS leaves
+  },
+  aliases: {                         // optional; exact-specifier overrides that
+    'react-native': './rn-plus.tsx', //   OUTRANK the engine preset's aliases —
+  },                                 //   patch a missing engine export locally
 };
 ```
+
+`optimizeDeps.exclude` keeps a UI kit that imports the aliased `react-native`
+out of Vite's prebundle (a dep chunk would freeze a private engine copy);
+`include` entries that only resolve from the host get an automatic exact alias
+so the optimizer finds them from the playground's Vite root. `aliases` values
+resolve against the host root when they start with `.` or `/`.
 
 ### What the server adopts from the host
 

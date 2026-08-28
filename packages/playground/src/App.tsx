@@ -6,6 +6,7 @@ import type { StoryIndex } from './registry';
 import { composeStory, filterGroups, findStory } from './csf';
 import type { StoryEntry } from './csf';
 import { describeCall, describeValue, wrapActions } from './args';
+import { publishShootError, publishShootIndex, publishShootSelection, shootParams } from './shoot-mode';
 import { useHashSelection } from './useHashSelection';
 import { useStoryNav } from './useStoryNav';
 import { DEFAULT_VIEWPORT, matchViewport } from './viewports';
@@ -49,9 +50,12 @@ export function App(): React.JSX.Element {
     loadStoryIndex().then(
       (loaded) => {
         if (live) setIndex(loaded);
+        if (shootParams().enabled) publishShootIndex(loaded);
       },
       (error: unknown) => {
-        if (live) setLoadError(error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        if (live) setLoadError(message);
+        if (shootParams().enabled) publishShootError(message);
       }
     );
     return () => {
@@ -66,11 +70,17 @@ export function App(): React.JSX.Element {
 
 function Playground({ index }: { index: StoryIndex }): React.JSX.Element {
   const { groups, allStories } = index;
+  // Read once: shoot mode is a page-load decision (the query string never
+  // changes without a full navigation).
+  const shoot = useMemo(shootParams, []);
   const [filter, setFilter] = useState('');
   const [selectedId, select] = useHashSelection(allStories[0]?.id ?? null);
-  const [theme, setTheme] = useState<Theme>('ios');
-  const [size, setSize] = useState({ width: DEFAULT_VIEWPORT.width, height: DEFAULT_VIEWPORT.height });
-  const [dprMode, setDprMode] = useState<DprMode>('auto');
+  const [theme, setTheme] = useState<Theme>(shoot.theme ?? 'ios');
+  const [size, setSize] = useState({
+    width: shoot.width ?? DEFAULT_VIEWPORT.width,
+    height: shoot.height ?? DEFAULT_VIEWPORT.height,
+  });
+  const [dprMode, setDprMode] = useState<DprMode>(shoot.enabled ? 1 : 'auto');
   const [overrides, setOverrides] = useState<Record<string, Args>>({});
   // Bumped on reset so uncontrolled knob editors (the JSON textarea) resync.
   const [resetNonce, setResetNonce] = useState(0);
@@ -90,6 +100,12 @@ function Playground({ index }: { index: StoryIndex }): React.JSX.Element {
   useLayoutEffect(() => {
     setPlatformOS(theme);
   }, [theme]);
+
+  // The shoot driver navigates by hash and needs to know when the selection
+  // it asked for is the one actually on stage.
+  useEffect(() => {
+    if (shoot.enabled) publishShootSelection(entry?.id ?? null);
+  }, [shoot, entry]);
 
   const log = useCallback((source: ActionRecord['source'], name: string, payload: string) => {
     setActions((previous) => {

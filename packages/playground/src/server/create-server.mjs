@@ -88,6 +88,51 @@ export async function createPlaygroundServer(options = {}) {
     // Host has no reanimated; the preset aliases the shim.
   }
 
+  // Host-dep optimizeDeps.include entries: Vite resolves includes from ITS
+  // root — the playground package — which cannot see the host's node_modules
+  // (the play-fixture pattern; a real `npx` install has the same split). For
+  // entries that only resolve from the host, register an exact alias onto the
+  // host-resolved file so both the optimizer's include resolver and runtime
+  // imports land on the same module.
+  let optimizeDeps = config.optimizeDeps;
+  const includeAliases = [];
+  if (optimizeDeps?.include?.length) {
+    const playgroundRequire = createRequire(join(PLAYGROUND_ROOT, 'package.json'));
+    const include = [];
+    for (const entry of optimizeDeps.include) {
+      include.push(entry);
+      try {
+        playgroundRequire.resolve(entry);
+        continue; // plain include works as-is
+      } catch {
+        /* fall through to host resolution */
+      }
+      try {
+        const resolved = hostRequire.resolve(entry);
+        includeAliases.push({
+          find: new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+          replacement: resolved,
+        });
+      } catch {
+        warn(`playground.config optimizeDeps.include "${entry}" does not resolve from ${hostRoot}; ignoring`);
+        include.pop();
+      }
+    }
+    optimizeDeps = { ...optimizeDeps, include };
+  }
+
+  // Host alias overrides (playground.config `aliases`): delivered through a
+  // TRAILING config plugin, because Vite's mergeAlias puts the later-merged
+  // config's entries FIRST — the only position from which a host entry can
+  // outrank the engine preset's own aliases (host tsconfig paths, merged with
+  // the inline config below, land AFTER them). Exact-match regexes so an
+  // entry never swallows subpath imports.
+  const aliasOverrides = Object.entries(config.aliases ?? {}).map(([find, replacement]) => ({
+    find: new RegExp(`^${find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+    replacement:
+      replacement.startsWith('.') || replacement.startsWith('/') ? resolve(hostRoot, replacement) : replacement,
+  }));
+
   const { nativeSurface } = await loadEnginePreset();
 
   const server = await createServer({
@@ -99,8 +144,19 @@ export async function createPlaygroundServer(options = {}) {
       react(reanimatedBabelPlugin ? { babel: { plugins: [reanimatedBabelPlugin] } } : {}),
       hostStoriesPlugin({ hostRoot, globs }),
       importAuditPlugin({ hostRoot, audit }),
+      ...(aliasOverrides.length
+        ? [
+            {
+              name: 'native-surface-playground:host-alias-overrides',
+              config: () => ({ resolve: { alias: aliasOverrides } }),
+            },
+          ]
+        : []),
     ],
-    resolve: { alias: hostAliases },
+    resolve: { alias: [...hostAliases, ...includeAliases] },
+    // Host escape hatch (see host-config.mjs): merged with the preset's own
+    // optimizeDeps arrays by Vite's config merge.
+    ...(optimizeDeps ? { optimizeDeps } : {}),
     server: {
       port,
       host: true,
