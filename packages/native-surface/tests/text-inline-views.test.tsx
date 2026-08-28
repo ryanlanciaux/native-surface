@@ -25,7 +25,7 @@ describe('inline views inside <Text>', () => {
     const root = createTestRoot(SURFACE, 200);
     root.render(
       <Text testID="line" style={{ fontSize: 16 }}>
-        Ryan
+        Avery
         <View testID="badge" style={{ width: 20, height: 20 }} />
       </Text>
     );
@@ -42,7 +42,7 @@ describe('inline views inside <Text>', () => {
     const root = createTestRoot(SURFACE, 200);
     root.render(
       <Text testID="line" style={{ fontSize: 16 }}>
-        Ryan
+        Avery
         <View testID="badge" style={{ width: 20, height: 20 }} />
       </Text>
     );
@@ -65,7 +65,7 @@ describe('inline views inside <Text>', () => {
     withBadge.render(
       <View style={{ alignItems: 'flex-start' }}>
         <Text testID="line" style={{ fontSize: 16 }}>
-          Ryan
+          Avery
           <View style={{ width: 40, height: 20 }} />
         </Text>
       </View>
@@ -78,7 +78,7 @@ describe('inline views inside <Text>', () => {
     plain.render(
       <View style={{ alignItems: 'flex-start' }}>
         <Text testID="line" style={{ fontSize: 16 }}>
-          Ryan
+          Avery
         </Text>
       </View>
     );
@@ -96,7 +96,7 @@ describe('inline views inside <Text>', () => {
     let pressed = false;
     root.render(
       <Text style={{ fontSize: 16 }}>
-        Ryan
+        Avery
         <Pressable testID="badge" onPress={() => { pressed = true; }} style={{ width: 30, height: 30 }} />
       </Text>
     );
@@ -115,9 +115,9 @@ describe('inline views inside <Text>', () => {
     const root = createTestRoot(SURFACE, 200);
     root.render(
       <Text style={{ fontSize: 16 }}>
-        Ryan{' '}
+        Avery{' '}
         <Text style={{ fontWeight: 'bold' }}>
-          Lanciaux
+          Stone
           <View testID="badge" style={{ width: 16, height: 16 }} />
         </Text>
       </Text>
@@ -150,7 +150,7 @@ describe('inline views inside <Text>', () => {
     const root = createTestRoot(SURFACE, 200);
     const Line = ({ show }: { show: boolean }) => (
       <Text testID="line" style={{ fontSize: 16 }}>
-        Ryan
+        Avery
         {show ? <View testID="badge" style={{ width: 20, height: 20 }} /> : null}
       </Text>
     );
@@ -172,7 +172,7 @@ describe('inline views inside <Text>', () => {
     const root = createTestRoot(120, 200);
     root.render(
       <Text testID="line" numberOfLines={1} style={{ fontSize: 16 }}>
-        Ryan Lanciaux writes a great deal of text here indeed
+        Avery Stone writes a great deal of text here indeed
         <View testID="badge" style={{ width: 20, height: 20 }} />
       </Text>
     );

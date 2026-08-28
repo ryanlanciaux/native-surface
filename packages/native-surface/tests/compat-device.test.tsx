@@ -48,20 +48,20 @@ describe('async-storage compat shim', () => {
   test('round-trips values under the namespaced localStorage prefix', async () => {
     const store = fakeStorage();
     vi.stubGlobal('localStorage', store);
-    await AsyncStorage.setItem('user', 'ryan');
-    expect(await AsyncStorage.getItem('user')).toBe('ryan');
+    await AsyncStorage.setItem('user', 'avery');
+    expect(await AsyncStorage.getItem('user')).toBe('avery');
     expect(await AsyncStorage.getItem('missing')).toBeNull();
-    expect(store.getItem('rn-async-storage:user')).toBe('ryan');
+    expect(store.getItem('rn-async-storage:user')).toBe('avery');
     await AsyncStorage.removeItem('user');
     expect(await AsyncStorage.getItem('user')).toBeNull();
   });
 
   test('mergeItem deep-merges nested objects and replaces arrays/scalars', async () => {
     vi.stubGlobal('localStorage', fakeStorage());
-    await AsyncStorage.setItem('doc', JSON.stringify({ profile: { name: 'ryan', age: 1 }, tags: ['a'] }));
+    await AsyncStorage.setItem('doc', JSON.stringify({ profile: { name: 'avery', age: 1 }, tags: ['a'] }));
     await AsyncStorage.mergeItem('doc', JSON.stringify({ profile: { age: 2, city: 'x' }, tags: ['b', 'c'] }));
     expect(JSON.parse((await AsyncStorage.getItem('doc'))!)).toEqual({
-      profile: { name: 'ryan', age: 2, city: 'x' },
+      profile: { name: 'avery', age: 2, city: 'x' },
       tags: ['b', 'c'],
     });
   });
