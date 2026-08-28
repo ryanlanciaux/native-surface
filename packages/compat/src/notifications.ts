@@ -109,3 +109,98 @@ export async function setBadgeCountAsync(_badgeCount: number): Promise<boolean> 
 export async function getBadgeCountAsync(): Promise<number> {
   return 0;
 }
+
+// ---------------------------------------------------------------------------
+// Push-token listeners, the synchronous last-response pair, and the Android
+// channel/enum surface.
+//
+// Every name below is reached through a NAMESPACE import
+// (`import * as Notifications from 'expo-notifications'`), which is why their
+// absence surfaced as `Notifications.addPushTokenListener is not a function`
+// at the call site rather than as a link-time failure — the softer half of
+// the F6 lesson, and the reason a namespace-imported package needs its
+// surface covered by usage rather than by whatever the shim happened to
+// implement first.
+// ---------------------------------------------------------------------------
+
+/** The shape a device push token arrives in (`{type, data}`). */
+export interface DevicePushToken {
+  type: 'ios' | 'android' | 'web';
+  data: string;
+}
+
+export type PushTokenListener = (token: DevicePushToken) => void;
+
+/**
+ * Inert by construction, not by omission. A token listener fires when the OS
+ * ISSUES or ROTATES a push token, and this host never has one to issue —
+ * getPermissionsAsync reports denied, so a caller's `getDevicePushTokenAsync`
+ * is never reached either. Returning a live subscription that never fires is
+ * the honest shape: callers add it at mount and remove it at unmount, and
+ * both halves work.
+ */
+export function addPushTokenListener(_listener: PushTokenListener): Subscription {
+  return { remove: () => {} };
+}
+
+export function removePushTokenSubscription(subscription: Subscription): void {
+  subscription.remove();
+}
+
+/**
+ * The SYNCHRONOUS half of the last-response pair. Apps read it during render
+ * to decide whether they were cold-started by tapping a notification, so it
+ * must return a value rather than a promise. Nothing can have launched this
+ * surface from a notification, so the answer is always null — which is the
+ * same answer a native app gets on a normal launch.
+ */
+export function getLastNotificationResponse(): null {
+  return null;
+}
+
+export function clearLastNotificationResponse(): void {}
+
+export async function clearLastNotificationResponseAsync(): Promise<void> {}
+
+/** Android notification channels have no analogue here; see setNotificationChannelAsync. */
+export async function setNotificationChannelGroupAsync(
+  _groupId: string,
+  _group: unknown
+): Promise<null> {
+  return null;
+}
+
+export async function getNotificationChannelGroupsAsync(): Promise<unknown[]> {
+  return [];
+}
+
+export async function deleteNotificationChannelAsync(_channelId: string): Promise<void> {}
+export async function deleteNotificationChannelGroupAsync(_groupId: string): Promise<void> {}
+
+/**
+ * The identifier a response carries when the notification body itself was
+ * tapped, rather than one of its action buttons. Apps compare against it, so
+ * the VALUE has to match the real one exactly — a private constant here would
+ * silently never equal what a real payload carries.
+ */
+export const DEFAULT_ACTION_IDENTIFIER = 'expo.modules.notifications.actions.DEFAULT';
+
+/** Android channel importance levels, mirroring the real numeric values. */
+export enum AndroidImportance {
+  UNKNOWN = 0,
+  UNSPECIFIED = 1,
+  NONE = 2,
+  MIN = 3,
+  LOW = 4,
+  DEFAULT = 5,
+  HIGH = 6,
+  MAX = 7,
+}
+
+/** Android lock-screen visibility levels, mirroring the real numeric values. */
+export enum AndroidNotificationVisibility {
+  UNKNOWN = 0,
+  PUBLIC = 1,
+  PRIVATE = 2,
+  SECRET = 3,
+}

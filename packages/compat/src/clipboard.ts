@@ -108,3 +108,38 @@ export function setString(text: string): void {
 export async function hasStringAsync(): Promise<boolean> {
   return (await readText()).length > 0;
 }
+
+/**
+ * The URL trio (iOS/macOS-only upstream).
+ *
+ * On iOS these differ from the string functions only in the pasteboard TYPE
+ * they tag the content with, so other apps can tell a URL from arbitrary text.
+ * A browser clipboard has no such type — `navigator.clipboard` writes
+ * `text/plain` — so the honest implementation is the string path, and the
+ * DIFFERENCE is what the ceiling note records: a URL copied here pastes
+ * correctly everywhere, it just is not advertised as a URL.
+ *
+ * `setUrlAsync` resolves void where `setStringAsync` resolves boolean, so it
+ * cannot simply be an alias — matching the real return type matters for
+ * callers that await it. Bluesky's share menu calls exactly this
+ * (ShareMenuItems.tsx).
+ */
+export async function setUrlAsync(url: string): Promise<void> {
+  await writeText(url);
+}
+
+/** Whatever is on the clipboard, if it parses as a URL. */
+export async function getUrlAsync(): Promise<string | null> {
+  const text = (await readText()).trim();
+  if (!text) return null;
+  try {
+    new URL(text);
+    return text;
+  } catch {
+    return null;
+  }
+}
+
+export async function hasUrlAsync(): Promise<boolean> {
+  return (await getUrlAsync()) !== null;
+}
