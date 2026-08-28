@@ -70,8 +70,12 @@ type HandlerName = (typeof HANDLER_NAMES)[number];
 const CONFIG_CARRIERS = [
   'shouldCancelWhenOutside',
   'simultaneousWithExternalGesture',
+  // Both spellings ship in RNGH 2.x — the singular is the current name and
+  // the plural the older one; libraries in the wild call either.
   'requiresExternalGestureToFail',
+  'requireExternalGestureToFail',
   'blocksExternalGesture',
+  'blocksExternalGestures',
   'runOnJS',
   'withTestId',
   'withRef',

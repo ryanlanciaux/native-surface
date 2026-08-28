@@ -90,7 +90,34 @@ const DISPLAY: Record<string, number> = {
 
 type Applier = (node: YogaNode, value: unknown) => void;
 
-const dim = (v: unknown): Dim => (v === undefined || v === null ? undefined : (v as Dim));
+/**
+ * Yoga accepts a number, `${number}%`, or 'auto', and THROWS on anything else
+ * ("Invalid value calc(400px * -1) for setPosition"). Web-flavored values
+ * reach here whenever a library's web branch gets resolved — calc(), min(),
+ * vh units — and a throw from inside layout takes down the entire tree for
+ * one unsupported declaration. Drop what Yoga cannot express, warn once so
+ * the gap is findable, and lay out the rest.
+ */
+const warnedDimValues = new Set<string>();
+const dim = (v: unknown): Dim => {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === 'number') return Number.isFinite(v) ? (v as Dim) : undefined;
+  if (typeof v === 'string') {
+    if (v === 'auto') return v as Dim;
+    // Percent and plain numeric strings are the only other forms Yoga parses.
+    if (/^-?\d*\.?\d+%$/.test(v)) return v as Dim;
+    if (/^-?\d*\.?\d+$/.test(v)) return Number.parseFloat(v) as Dim;
+    if (!warnedDimValues.has(v)) {
+      warnedDimValues.add(v);
+      console.warn(
+        `native-surface: ignoring unsupported dimension value ${JSON.stringify(v)} — ` +
+          `layout accepts a number, a "<n>%" string, or "auto".`
+      );
+    }
+    return undefined;
+  }
+  return undefined;
+};
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
 /**

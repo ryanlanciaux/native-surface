@@ -9,6 +9,17 @@ import {
   type PaintStyle,
 } from './styles';
 import { Align } from 'yoga-layout/load';
+import {
+  ClonedElementStub,
+  ForeignNodeError,
+  createDomFacade,
+  nodeBoundingClientRect,
+  nodeContains,
+  type DOMRectLike,
+  type DomEventListener,
+  type DomFacade,
+  type NodeStyle,
+} from './domFacade';
 import { loadImage, releaseImageEntry, retainImageEntry, type ImageEntry } from './init';
 import { measureTextNode, measureInputNode } from './text';
 import { inputNodeDestroyed } from './textInputState';
@@ -182,6 +193,7 @@ export class CNode {
   }
 
   appendChild(child: CNode): void {
+    assertCNode(child, 'appendChild');
     if (child.parent) child.parent.removeChild(child);
     if (child.type === 'rawtext' && this.type !== 'text') {
       throw new Error('native-surface: text strings must be rendered within a <Text> component');
@@ -199,6 +211,7 @@ export class CNode {
   }
 
   insertBefore(child: CNode, before: CNode): void {
+    assertCNode(child, 'insertBefore');
     if (child.parent) child.parent.removeChild(child);
     if (child.type === 'rawtext' && this.type !== 'text') {
       throw new Error('native-surface: text strings must be rendered within a <Text> component');
@@ -227,8 +240,23 @@ export class CNode {
     this.markDirty();
   }
 
+  /**
+   * True once this node has been deleted from the tree.
+   *
+   * Async work outlives the node: an image fetch settles after the row that
+   * requested it has scrolled away and unmounted. Every such callback has to
+   * check this, because the node it closed over is otherwise indistinguishable
+   * from a live one — see `syncImage`, where adopting a late entry left a
+   * permanent reference on it.
+   */
+  destroyed = false;
+
   /** Recursively free yoga nodes + paragraphs. Called on deletion. */
   destroy(): void {
+    // Idempotent: the WASM handles below are freed here, and freeing one twice
+    // aborts the whole runtime rather than throwing something catchable.
+    if (this.destroyed) return;
+    this.destroyed = true;
     for (const c of this.children) c.destroy();
     if (this.type === 'textinput') inputNodeDestroyed(this);
     releaseImageEntry(this.imageEntry);
@@ -322,6 +350,13 @@ export class CNode {
       return;
     }
     const acquired = loadImage(uri, (entry) => {
+      // Unmounted while the bytes were in flight. Adopting the entry here
+      // would RETAIN it on a node that will never release it again, and the
+      // LRU refuses to evict anything still referenced — so the image becomes
+      // immortal and the cache grows without bound. A feed scrolling past
+      // images faster than they load leaks one per row, and CanvasKit's heap
+      // ends that with an un-catchable `Aborted()`.
+      if (this.destroyed) return;
       if (this.imageUri !== uri) return; // source changed while loading
       releaseImageEntry(this.imageEntry);
       this.imageEntry = entry;
@@ -455,6 +490,153 @@ export class CNode {
     queueMicrotask(() => onSuccess(this.frame.x, this.frame.y, this.frame.width, this.frame.height));
   }
 
+  // -------------------------------------------------------------------------
+  // DOM facade
+  //
+  // A ref handed to React IS this object (hostConfig `getPublicInstance`), so a
+  // library's *web* build talks to a CNode in DOM. These members answer it.
+  // The logic lives in engine/domFacade.ts — read its header for the ceiling
+  // (nothing here animates) and for why the tree members are inert.
+  // -------------------------------------------------------------------------
+
+  /** CSS-animation lifecycle slots; libraries assign these directly. */
+  onanimationstart: DomEventListener | null = null;
+  onanimationend: DomEventListener | null = null;
+  onanimationcancel: DomEventListener | null = null;
+
+  /** Built on first DOM-ish access; most nodes never need one. */
+  private dom: DomFacade | null = null;
+
+  private get domFacade(): DomFacade {
+    return (this.dom ??= createDomFacade(this));
+  }
+
+  /** Inline style, `CSSStyleDeclaration`-shaped and iterable. */
+  get style(): NodeStyle {
+    return this.domFacade.style;
+  }
+
+  addEventListener(type: string, listener: DomEventListener): void {
+    this.domFacade.addEventListener(type, listener);
+  }
+
+  removeEventListener(type: string, listener: DomEventListener): void {
+    this.domFacade.removeEventListener(type, listener);
+  }
+
+  readonly nodeType = 1; // Node.ELEMENT_NODE
+
+  get tagName(): string {
+    return this.type.toUpperCase();
+  }
+
+  get nodeName(): string {
+    return this.type.toUpperCase();
+  }
+
+  /** The node's frame in page coordinates (engine/domFacade). */
+  getBoundingClientRect(): DOMRectLike {
+    return nodeBoundingClientRect(this);
+  }
+
+  get offsetWidth(): number {
+    return this.frame.width;
+  }
+
+  get offsetHeight(): number {
+    return this.frame.height;
+  }
+
+  get clientWidth(): number {
+    return this.frame.width;
+  }
+
+  get clientHeight(): number {
+    return this.frame.height;
+  }
+
+  /**
+   * Scroll offsets, readable AND writable — reanimated saves them before its
+   * exiting flow reparents things and restores them afterwards, so a read-only
+   * pair would silently zero a list's position. Only a scroll node has any;
+   * everything else reads 0 and ignores writes.
+   *
+   * A write clamps at 0 but not at the content maximum: content size may not be
+   * measured yet, and `syncLayout` already clamps against it every flush.
+   */
+  get scrollTop(): number {
+    return this.type === 'scroll' ? this.scrollY : 0;
+  }
+
+  set scrollTop(value: number) {
+    if (this.type !== 'scroll') return;
+    this.scrollY = Number.isFinite(value) ? Math.max(0, value) : 0;
+    this.markDirty();
+  }
+
+  get scrollLeft(): number {
+    return this.type === 'scroll' ? this.scrollX : 0;
+  }
+
+  set scrollLeft(value: number) {
+    if (this.type !== 'scroll') return;
+    this.scrollX = Number.isFinite(value) ? Math.max(0, value) : 0;
+    this.markDirty();
+  }
+
+  /**
+   * Always null, on purpose. reanimated's exiting path does
+   * `parent = element.offsetParent; …; parent?.appendChild(dummy)`, and
+   * `fixElementPosition` calls `getComputedStyle(element.parentElement)`.
+   * Handing either one a CNode would push a detached clone into the live tree
+   * or throw inside a browser API we do not implement; null makes both no-op.
+   * The real parent is still reachable as `.parent` for engine code.
+   */
+  get offsetParent(): null {
+    return null;
+  }
+
+  get parentElement(): null {
+    return null;
+  }
+
+  /**
+   * Always null — the single most dangerous member in this facade.
+   *
+   * reanimated's exiting flow does
+   * `while (element.firstChild) { dummy.appendChild(element.firstChild) }`,
+   * because on the web `appendChild` MOVES a node rather than copying it.
+   * Exposing real children here would drain this node's entire live subtree
+   * into a detached clone and destroy everything it renders. Reporting "no
+   * children" makes that loop a no-op, which is precisely the outcome we want:
+   * the clone stays empty and the real tree is never touched.
+   *
+   * `children` stays a real array (libraries only ever read it, and
+   * `Array.from(node.children)` already works).
+   */
+  get firstChild(): null {
+    return null;
+  }
+
+  /** `Node.contains`: this node or one of its descendants. */
+  contains(other: unknown): boolean {
+    return nodeContains(this, other);
+  }
+
+  /** `ChildNode.remove`. Detaches from the parent; the tree stays consistent. */
+  remove(): void {
+    this.parent?.removeChild(this);
+  }
+
+  /**
+   * A detached, inert stub — never a CNode, never in the render tree. See
+   * ClonedElementStub in engine/domFacade.ts. `deep` is accepted and ignored:
+   * the stub has no children either way.
+   */
+  cloneNode(_deep?: boolean): ClonedElementStub {
+    return new ClonedElementStub(this.tagName);
+  }
+
   /** zIndex-sorted children for painting (stable for equal zIndex). */
   paintOrderedChildren(): CNode[] {
     const kids = this.children.filter((c) => c.participatesInYoga);
@@ -479,4 +661,14 @@ export class CNode {
     for (const c of this.children) if (c.isTextish) out += c.textContent();
     return out;
   }
+}
+
+/**
+ * Tree mutations only accept CNodes. A web-targeted library will hand us a
+ * detached DOM-like object (reanimated's exiting flow builds one and appends
+ * to whatever it thinks the parent is); pushing that into `children` corrupts
+ * layout, paint and hit-testing far from the call that caused it.
+ */
+function assertCNode(value: CNode, method: string): void {
+  if (!(value instanceof CNode)) throw new ForeignNodeError(method, value);
 }

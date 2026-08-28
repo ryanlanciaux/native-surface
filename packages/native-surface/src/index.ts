@@ -51,6 +51,18 @@ export {
   KeyboardAvoidingView,
   LayoutAnimation,
   requireNativeComponent,
+  unstable_batchedUpdates,
+  DeviceEventEmitter,
+  Vibration,
+  Systrace,
+  DevSettings,
+  ToastAndroid,
+  PermissionsAndroid,
+  Settings,
+  ActionSheetIOS,
+  DynamicColorIOS,
+  codegenNativeComponent,
+  codegenNativeCommands,
 } from './api/extras';
 export type {
   FlatListProps,

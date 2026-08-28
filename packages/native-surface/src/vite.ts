@@ -99,6 +99,13 @@ export interface NativeSurfaceAliasOptions {
    * to screens-enabled code paths once the import resolves at all.
    */
   screens?: 'shim' | 'off';
+  /**
+   * Whether @react-navigation/stack resolves from the app. The native-stack
+   * adapter is built on it, so when it is absent the adapter cannot be the
+   * answer and the alias is dropped. The nativeSurface() preset detects this;
+   * à-la-carte callers of nativeSurfaceAliases() may pass it explicitly.
+   */
+  jsStackAvailable?: boolean;
 }
 
 /**
@@ -127,12 +134,15 @@ export function nativeSurfaceConditions(): string[] {
  * platform-suffixed sibling and prefers it, matching Metro's order:
  * `.{platform}.` → `.native.` → plain.
  */
-export function rnPlatformExtensionsPlugin(opts: { platform?: 'ios' | 'android' } = {}): {
+export function rnPlatformExtensionsPlugin(
+  opts: { platform?: 'ios' | 'android'; webVariantPackages?: string[] } = {}
+): {
   name: string;
   enforce: 'pre';
   resolveId(source: string, importer: string | undefined, options: unknown): Promise<string | null>;
 } {
   const platform = opts.platform ?? 'ios';
+  const webVariantPackages = opts.webVariantPackages ?? [];
   const SUFFIXABLE = /\.(js|jsx|ts|tsx|mjs)$/;
   const ALREADY = new RegExp(`\\.(${platform}|native|android|ios|web)\\.(js|jsx|ts|tsx|mjs)$`);
 
@@ -150,7 +160,15 @@ export function rnPlatformExtensionsPlugin(opts: { platform?: 'ios' | 'android' 
       if (!SUFFIXABLE.test(file) || ALREADY.test(file) || file.includes('/.vite/')) return null;
       const ext = file.slice(file.lastIndexOf('.'));
       const base = file.slice(0, -ext.length);
-      for (const suffix of [`.${platform}`, '.native']) {
+      // Opt-in inversion: some libraries implement this platform's real
+      // capabilities in their `.web.*` files (reanimated 4's web runtime is
+      // the canonical case — its native path constructs a TurboModule that
+      // cannot exist here). For those packages the WEB variant is the
+      // faithful one, so it wins over .native/.ios.
+      const suffixes = webVariantPackages.some((p) => file.includes(p))
+        ? ['.web', `.${platform}`, '.native']
+        : [`.${platform}`, '.native'];
+      for (const suffix of suffixes) {
         const candidate = `${base}${suffix}${ext}`;
         if (existsSync(candidate)) return query ? `${candidate}?${query}` : candidate;
       }
@@ -191,7 +209,15 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: 'react-native-mmkv', replacement: compat('mmkv.ts') },
     { find: 'react-native-keyboard-controller', replacement: compat('keyboard-controller.tsx') },
     { find: 'react-native-edge-to-edge', replacement: compat('edge-to-edge.tsx') },
-    { find: '@react-navigation/native-stack', replacement: compat('native-stack.tsx') },
+    // The adapter maps native-stack onto the JS stack, so it is only viable
+    // when @react-navigation/stack is actually installed. An app that uses
+    // native-stack WITHOUT the JS stack (a valid, common dependency set) must
+    // not have this alias applied — it would turn a working install into an
+    // unresolvable import. Those apps fall through to the real native-stack
+    // over the screens shim.
+    ...(opts.jsStackAvailable === false
+      ? []
+      : [{ find: '@react-navigation/native-stack', replacement: compat('native-stack.tsx') }]),
     { find: 'expo-font', replacement: compat('expo.tsx') },
     { find: 'expo-linking', replacement: compat('expo.tsx') },
     { find: 'expo-localization', replacement: compat('expo.tsx') },
@@ -706,7 +732,13 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
  *  omit }`) imported by icon-button.js as `import { pick, omit }`. Metro
  *  interops CJS/ESM per file; Vite's dev server serves excluded packages raw,
  *  so the browser dies with "does not provide an export named …". */
-const CJS_INTEROP_PACKAGES = ['@expo/vector-icons'];
+const CJS_INTEROP_PACKAGES = [
+  '@expo/vector-icons',
+  // reanimated 4 ships plain-CJS helpers (scripts/validate-worklets-version.js)
+  // that its own ESM modules default-import. It is excluded from prebundling
+  // in 'real' mode, so Vite serves those raw and the import has no binding.
+  'react-native-reanimated',
+];
 
 /**
  * Vite helper: ESM-wrap bare CJS files inside CJS_INTEROP_PACKAGES so their
@@ -716,11 +748,12 @@ const CJS_INTEROP_PACKAGES = ['@expo/vector-icons'];
  * are left alone — they already interop through the module graph.
  * Part of the `nativeSurface()` preset; exported for à-la-carte configs.
  */
-export function rnCjsInteropPlugin(): {
+export function rnCjsInteropPlugin(extraPackages: string[] = []): {
   name: string;
   enforce: 'pre';
   transform(code: string, id: string): { code: string; map: null } | null;
 } {
+  const packages = [...CJS_INTEROP_PACKAGES, ...extraPackages];
   return {
     name: 'native-surface:rn-cjs-interop',
     enforce: 'pre',
@@ -728,29 +761,58 @@ export function rnCjsInteropPlugin(): {
       const path = id.split('?')[0] ?? id;
       if (path.includes('/.vite/') || path.includes('/.vite-')) return null;
       if (!/\.c?js$/.test(path)) return null;
-      if (!CJS_INTEROP_PACKAGES.some((p) => path.includes(p))) return null;
-      if (!code.includes('module.exports')) return null;
+      if (!packages.some((p) => path.includes(p))) return null;
+      const hasModuleExports = code.includes('module.exports');
+      // tsc-compiled CJS — `exports.foo = …` with an __esModule marker — is
+      // the commonest shape of all, and `export * from` such a file loses
+      // every named binding when Vite serves it raw ("does not provide an
+      // export named 'x'"). Handle it alongside `module.exports = {…}`.
+      const namedExportAssignments = [...code.matchAll(/^\s*exports\.([A-Za-z_$][\w$]*)\s*=/gm)];
+      if (!hasModuleExports && namedExportAssignments.length === 0) return null;
       if (/^\s*(import|export)\b/m.test(code)) return null;
       // Named bindings come from the LAST `module.exports = { … }` object
       // literal; through aliased intermediates, because `export { pick }`
       // directly would collide with the file's own top-level declarations.
       const assignments = [...code.matchAll(/module\.exports\s*=\s*\{([^{}]*)\}/g)];
-      const names: string[] = [];
-      const body = assignments[assignments.length - 1]?.[1];
-      if (body) {
-        for (const entry of body.split(',')) {
+      const names: string[] = [...new Set(namedExportAssignments.map((m) => m[1]!))].filter(
+        (n) => n !== '__esModule' && n !== 'default'
+      );
+      const lastObjectLiteral = assignments[assignments.length - 1]?.[1];
+      if (lastObjectLiteral) {
+        for (const entry of lastObjectLiteral.split(',')) {
           const name = entry.split(':')[0]!.trim();
           if (/^[A-Za-z_$][\w$]*$/.test(name)) names.push(name);
         }
       }
       let tail = '\nexport default module.exports;';
-      if (names.length > 0) {
+      // Both collection paths can name the same binding; a duplicate would be
+      // a syntax error in the emitted export clause.
+      const unique = [...new Set(names)];
+      if (unique.length > 0) {
         tail +=
-          `\n${names.map((n, i) => `const __cjsX${i} = module.exports[${JSON.stringify(n)}];`).join('\n')}` +
-          `\nexport { ${names.map((n, i) => `__cjsX${i} as ${n}`).join(', ')} };`;
+          `\n${unique.map((n, i) => `const __cjsX${i} = module.exports[${JSON.stringify(n)}];`).join('\n')}` +
+          `\nexport { ${unique.map((n, i) => `__cjsX${i} as ${n}`).join(', ')} };`;
       }
+      // The wrapper supplies `module`/`exports`, but a bare-CJS file also
+      // CALLS require() at runtime, which does not exist in an ES module.
+      // Hoist each distinct specifier to a real import so the file executes.
+      const requireImports: string[] = [];
+      const seen = new Map<string, string>();
+      const body = code.replace(/require\(\s*(['"])([^'"\n]+)\1\s*\)/g, (_whole, _q: string, spec: string) => {
+        let ident = seen.get(spec);
+        if (!ident) {
+          ident = `__cjsReq${seen.size}`;
+          seen.set(spec, ident);
+          // `import x from` gives the CJS namespace through Vite's interop;
+          // JSON and ESM leaves both arrive with their value on default.
+          requireImports.push(`import ${ident} from ${JSON.stringify(spec)};`);
+        }
+        return ident;
+      });
       return {
-        code: `const module = { exports: {} }; const exports = module.exports;\n${code}${tail}`,
+        code:
+          `${requireImports.join('\n')}\n` +
+          `const module = { exports: {} }; const exports = module.exports;\n${body}${tail}`,
         map: null,
       };
     },
@@ -765,6 +827,21 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
   assetAliases?: Record<string, string>;
   /** node_modules package prefixes rnRequirePlugin should also transform. */
   requireIncludePackages?: string[];
+  /**
+   * Extra node_modules packages whose bare-CJS files should be ESM-wrapped
+   * (see rnCjsInteropPlugin). Needed when an app depends on a compiled-CJS
+   * package that its own ESM sources `export * from` — served raw, such a
+   * star re-export loses every named binding.
+   */
+  cjsInteropPackages?: string[];
+  /**
+   * Packages whose `.web.*` files should be preferred over `.native`/`.ios`.
+   * Use when a library's web implementation is the one that can actually run
+   * here — reanimated 4, whose native path constructs a TurboModule, is the
+   * canonical example. Boundary-general: it inverts resolution for the named
+   * packages only.
+   */
+  webVariantPackages?: string[];
 }
 
 /** Standard-boundary ESM packages that import the aliased 'react-native':
@@ -772,6 +849,14 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
  *  (stale code + duplicated singletons). Excluding a package that isn't
  *  installed is harmless, so the list is unconditional. */
 const RN_ECOSYSTEM_EXCLUDES = [
+  // The engine and its shims themselves. Installed from npm they sit in
+  // node_modules like any dep, so Vite would prebundle them — freezing a
+  // private copy of the engine AND duplicating its singletons (the module
+  // registry, the live-roots set), so a host registering a native module
+  // would populate a different registry than the app reads. In a workspace
+  // they resolve to source and this is a no-op.
+  'native-surface',
+  '@native-surface/compat',
   '@react-navigation/native',
   '@react-navigation/core',
   '@react-navigation/elements',
@@ -781,6 +866,11 @@ const RN_ECOSYSTEM_EXCLUDES = [
   'react-native-screens',
   'react-native-safe-area-context',
   'react-native-gesture-handler',
+  // Prebundling also bypasses the platform-extension resolver (esbuild does
+  // its own resolution), so a library shipping Foo.js/Foo.native.js gets its
+  // WEB file frozen into the dep chunk — drawer-layout's web Drawer expects a
+  // DOM element and dies with "element.addEventListener is not a function".
+  'react-native-drawer-layout',
   // Also raw JSX in .js files: the dep scanner (raw esbuild, runs before the
   // plugin pipeline, so rnLibJsxPlugin can't help it) dies parsing the
   // package unless it's marked external here.
@@ -810,12 +900,22 @@ const RN_ECOSYSTEM_DEDUPE = [
  *  the excluded navigation packages. Filtered at config time to what actually
  *  resolves from the app root, because Vite logs a failure for every
  *  unresolvable include. The .wasm asset itself is fetched, never prebundled. */
-const CJS_LEAF_INCLUDES = [
+/**
+ * The ENGINE's own CJS leaves. These are dependencies of native-surface, so
+ * they are resolved relative to the ENGINE, never the app or Vite's root:
+ * under pnpm's strict layout an installed engine's deps are nested inside
+ * .pnpm and invisible to both. Each is pinned by an absolute-path alias so
+ * the optimizer and runtime imports agree on one file.
+ */
+const ENGINE_CJS_LEAVES = [
   'react-reconciler',
   'react-reconciler/constants',
   'scheduler',
   'canvaskit-wasm',
   'canvaskit-wasm/bin/canvaskit.js',
+];
+
+const CJS_LEAF_INCLUDES = [
   'react-is',
   'use-latest-callback',
   'escape-string-regexp',
@@ -899,16 +999,60 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
       // tree then fails the optimizer AND, served raw, has no ESM bindings for
       // its named imports. Pin those onto the app-resolved file so the
       // optimizer's include resolver and runtime imports land on one module.
-      const include = CJS_LEAF_INCLUDES.filter(resolvable);
+      // An id counts as present if EITHER root can resolve it: the engine's
+      // own CJS leaves (react-reconciler, canvaskit) live wherever the engine
+      // is installed — the tool's tree, not the served app's — while the
+      // navigation leaves live in the app's. Filtering by the app root alone
+      // silently dropped the engine's own, and the surface then never mounts.
+      const viteRootRequire = createRequire(`${user?.root ?? process.cwd()}/`);
+      const resolvableFromViteRoot = (id: string): boolean => {
+        try {
+          viteRootRequire.resolve(id);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      const include = CJS_LEAF_INCLUDES.filter((id) => resolvable(id) || resolvableFromViteRoot(id));
+      // Engine leaves: resolve from the engine itself and pin to absolute
+      // paths, so neither the app's tree nor Vite's root has to see them.
+      const engineAliases: NativeSurfaceAlias[] = [];
+      for (const id of ENGINE_CJS_LEAVES) {
+        try {
+          const resolvedPath = selfRequire.resolve(id);
+          engineAliases.push({ find: new RegExp(`^${escapeRegExp(id)}$`), replacement: resolvedPath });
+          include.push(id);
+        } catch {
+          // Not installed alongside the engine (à-la-carte consumer): leave
+          // resolution to Vite rather than inventing a path.
+        }
+      }
+      const dedupe = ['react', 'react-dom', 'react-native-reanimated', ...RN_ECOSYSTEM_DEDUPE];
       const includeAliases: NativeSurfaceAlias[] = [];
-      if (user?.root && user.root !== appRoot) {
-        const fromViteRoot = createRequire(`${user.root}/`);
+      // resolve.dedupe has the SAME root problem, with a worse failure: Vite
+      // re-resolves a deduped bare id from its own root, so a package living
+      // only in the app's tree stops resolving AT ALL ("Failed to resolve
+      // import" from the app's own sources). Pinning it to the app-resolved
+      // file both fixes resolution and achieves what dedupe wanted — every
+      // importer lands on one absolute module.
+      const dedupeOut = new Set(dedupe);
+      // Vite's root defaults to cwd when the user doesn't set one, so keying
+      // off `user.root` alone silently skipped every app served from outside
+      // its own directory without an explicit root.
+      const viteRoot = user?.root ?? process.cwd();
+      if (viteRoot !== appRoot) {
+        const fromViteRoot = createRequire(`${viteRoot}/`);
+        // Pin only what the app has and Vite's root does not: those are the
+        // ids Vite would otherwise fail to resolve.
+        const pinnable = (id: string): boolean => !resolvableFromViteRoot(id) && resolvable(id);
+        void fromViteRoot;
         for (const id of include) {
-          try {
-            fromViteRoot.resolve(id);
-          } catch {
-            includeAliases.push({ find: new RegExp(`^${escapeRegExp(id)}$`), replacement: req.resolve(id) });
-          }
+          if (pinnable(id)) includeAliases.push({ find: new RegExp(`^${escapeRegExp(id)}$`), replacement: req.resolve(id) });
+        }
+        for (const id of dedupe) {
+          if (!pinnable(id)) continue;
+          dedupeOut.delete(id);
+          includeAliases.push({ find: new RegExp(`^${escapeRegExp(id)}$`), replacement: req.resolve(id) });
         }
       }
       return {
@@ -930,10 +1074,18 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
         resolve: {
           conditions: [...nativeSurfaceConditions(), ...defaults],
           // Two Reacts = broken hooks; a second reanimated = two UI runtimes.
-          dedupe: ['react', 'react-dom', 'react-native-reanimated', ...RN_ECOSYSTEM_DEDUPE],
+          dedupe: [...dedupeOut],
           // Exact-match include pins first: they name whole packages, so no RN
           // alias below can shadow them, and none of them can swallow subpaths.
-          alias: [...includeAliases, ...nativeSurfaceAliases({ reanimated, screens: opts.screens })],
+          alias: [
+            ...engineAliases,
+            ...includeAliases,
+            ...nativeSurfaceAliases({
+              reanimated,
+              screens: opts.screens,
+              jsStackAvailable: resolvable('@react-navigation/stack'),
+            }),
+          ],
         },
         optimizeDeps: {
           // Reanimated stays conditional: in 'real' mode it imports the
@@ -948,13 +1100,13 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
   // so they don't satisfy vite's Plugin interface nominally — but each is a
   // valid plugin object at runtime.
   return [
-    rnPlatformExtensionsPlugin({ platform: opts.platform ?? 'ios' }),
+    rnPlatformExtensionsPlugin({ platform: opts.platform ?? 'ios', webVariantPackages: opts.webVariantPackages }),
     rnLibJsxPlugin({ resolveFrom: opts.resolveFrom }),
     rnRequirePlugin({
       assetAliases: opts.assetAliases,
       includePackages: opts.requireIncludePackages,
     }),
-    rnCjsInteropPlugin(),
+    rnCjsInteropPlugin(opts.cjsInteropPackages),
     rnWorkletsPlugin({ resolveFrom: opts.resolveFrom }),
     configPlugin,
   ] as PluginOption[];

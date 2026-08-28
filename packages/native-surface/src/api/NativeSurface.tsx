@@ -100,6 +100,19 @@ export function NativeSurface(props: NativeSurfaceProps): React.JSX.Element {
   return createElement('canvas', {
     ref: canvasRef,
     className,
-    style: { display: 'block', width, height, ...style },
+    style: {
+      display: 'block',
+      width,
+      height,
+      // The surface owns its gestures. Without `touchAction: none` the browser
+      // claims a touch drag for page scrolling and the engine never sees the
+      // moves; without the selection guards a mouse drag starts a text/image
+      // selection, which steals pointer capture mid-gesture.
+      touchAction: 'none',
+      userSelect: 'none',
+      WebkitUserSelect: 'none',
+      WebkitTouchCallout: 'none',
+      ...style,
+    } as React.CSSProperties,
   });
 }
