@@ -50,6 +50,13 @@
     "./masked-view": "./src/masked-view.tsx",
     "./webview": "./src/webview.tsx",
     "./pager-view": "./src/pager-view.tsx",
+    "./web-browser": "./src/web-browser.ts",
+    "./sharing": "./src/sharing.ts",
+    "./location": "./src/location.ts",
+    "./device": "./src/device.ts",
+    "./keep-awake": "./src/keep-awake.ts",
+    "./screen-orientation": "./src/screen-orientation.ts",
+    "./updates": "./src/updates.ts",
     "./expo-modules-core": "./src/expo-modules-core.tsx"
   },
   "scripts": {

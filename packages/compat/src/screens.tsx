@@ -162,3 +162,51 @@ export const ScreenStackHeaderSearchBarView = Inert;
 export const SearchBar = (): null => null;
 export const isSearchBarAvailableForCurrentPlatform = false;
 export const FullWindowOverlay = Inert;
+
+/**
+ * Version-capability flags the navigators branch on.
+ *
+ * `@react-navigation/native-stack`'s NATIVE view imports these directly
+ * (`import { compatibilityFlags, ScreenStack, ScreenStackItem } from
+ * 'react-native-screens'`), so a missing name here does not degrade a
+ * feature — it breaks the whole ESM module at link time and the navigator
+ * never mounts. That path is reachable whenever an app has native-stack
+ * WITHOUT @react-navigation/stack, since the JS-stack adapter alias is then
+ * correctly dropped (see nativeSurfaceAliases) and the real native-stack runs
+ * over this shim.
+ *
+ * Every flag reports the MODERN shape, which is the truthful answer: these
+ * describe which API a downstream library should target, and this shim
+ * implements the current one — `ScreenStackItem`, the flexbox header
+ * contract, and the stabilised Tabs API are all present above. Reporting a
+ * legacy shape would send the navigators down compatibility paths for
+ * behavior this shim does not have.
+ */
+export const compatibilityFlags = {
+  isNewBackTitleImplementation: true,
+  usesHeaderFlexboxImplementation: true,
+  usesNewAndroidHeaderHeightImplementation: true,
+  usesStableTabsApi: true,
+} as const;
+
+/**
+ * Global behavior switches. Every one of them configures NATIVE screen
+ * containers — synchronous shadow-tree updates, Android inset behavior — none
+ * of which exist here, so they are settable and readable (libraries assign
+ * them at import time) and otherwise inert.
+ */
+export const featureFlags = {
+  experiment: {
+    synchronousScreenUpdatesEnabled: true,
+    synchronousHeaderConfigUpdatesEnabled: true,
+    synchronousHeaderSubviewUpdatesEnabled: true,
+    androidLegacyTopInsetBehavior: false,
+    androidResetScreenShadowStateOnOrientationChangeEnabled: true,
+    iosPreventReattachmentOfDismissedScreens: true,
+    iosPreventReattachmentOfDismissedModals: true,
+    ios26AllowInteractionsDuringTransition: true,
+  },
+  stable: { debugLogging: false },
+};
+
+export default featureFlags;
