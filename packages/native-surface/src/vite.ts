@@ -125,6 +125,45 @@ export function nativeSurfaceConditions(): string[] {
   return ['react-native'];
 }
 
+const SUFFIXABLE = /\.(js|jsx|ts|tsx|mjs)$/;
+
+/**
+ * Metro's platform-suffix preference for one already-resolved file:
+ * `.{platform}.` → `.native.` → the file as given, inverted to `.web.` first
+ * for the packages whose web build is the faithful one here.
+ *
+ * Returns null when the file is not suffixable, already carries a platform
+ * suffix, or has no sibling — i.e. "leave this resolution alone".
+ */
+function platformSibling(file: string, platform: 'ios' | 'android', webVariantPackages: string[]): string | null {
+  if (!SUFFIXABLE.test(file) || file.includes('/.vite/')) return null;
+  if (new RegExp(`\\.(${platform}|native|android|ios|web)\\.(js|jsx|ts|tsx|mjs)$`).test(file)) return null;
+  const ext = file.slice(file.lastIndexOf('.'));
+  const base = file.slice(0, -ext.length);
+  // Opt-in inversion: some libraries implement this platform's real
+  // capabilities in their `.web.*` files (reanimated 4's web runtime is the
+  // canonical case — its native path constructs a TurboModule that cannot
+  // exist here). For those packages the WEB variant is the faithful one.
+  //
+  // Note there is NO fallback to `.{platform}`/`.native` here, and that is the
+  // whole point rather than an omission. In Metro's convention the unsuffixed
+  // file IS the web build — `.web.*` only exists where a package needed to
+  // split web off from a shared default — so "no `.web` sibling" means the
+  // resolved file is already the web one. Falling through to `.native` would
+  // hand back exactly the native implementation the inversion exists to avoid:
+  // react-native-worklets has `WorkletsModule/NativeWorklets.native.js` with no
+  // `.web` sibling, and preferring it pulls in `../memory/valueUnpacker`, a
+  // native-only module that does not exist at all.
+  const suffixes = webVariantPackages.some((p) => file.includes(p))
+    ? ['.web']
+    : [`.${platform}`, '.native'];
+  for (const suffix of suffixes) {
+    const candidate = `${base}${suffix}${ext}`;
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 /**
  * Metro platform-extension resolution: RN packages split files as
  * `Foo.ios.js` / `Foo.android.js` / `Foo.native.js` / `Foo.js` (web last),
@@ -133,6 +172,11 @@ export function nativeSurfaceConditions(): string[] {
  * This resolver re-checks every default-resolved `.js/.ts(x)` file for a
  * platform-suffixed sibling and prefers it, matching Metro's order:
  * `.{platform}.` → `.native.` → plain.
+ *
+ * This covers the DEV/BUILD module graph. Dependency PREBUNDLING is a separate
+ * resolver (esbuild's own) that never consults Vite plugins — see
+ * {@link rnPlatformExtensionsEsbuildPlugin}, which the preset installs
+ * alongside this one so both halves agree.
  */
 export function rnPlatformExtensionsPlugin(
   opts: { platform?: 'ios' | 'android'; webVariantPackages?: string[] } = {}
@@ -142,9 +186,10 @@ export function rnPlatformExtensionsPlugin(
   resolveId(source: string, importer: string | undefined, options: unknown): Promise<string | null>;
 } {
   const platform = opts.platform ?? 'ios';
+  // Held by REFERENCE, not copied: the nativeSurface() preset appends its
+  // auto-detected entries from the `config` hook, which is the first moment
+  // the app root is known — and `config` runs before any `resolveId`.
   const webVariantPackages = opts.webVariantPackages ?? [];
-  const SUFFIXABLE = /\.(js|jsx|ts|tsx|mjs)$/;
-  const ALREADY = new RegExp(`\\.(${platform}|native|android|ios|web)\\.(js|jsx|ts|tsx|mjs)$`);
 
   return {
     name: 'native-surface:rn-platform-extensions',
@@ -157,22 +202,83 @@ export function rnPlatformExtensionsPlugin(
       ).resolve(source, importer, { ...(options as object), skipSelf: true });
       if (!resolved) return null;
       const [file, query] = resolved.id.split('?') as [string, string | undefined];
-      if (!SUFFIXABLE.test(file) || ALREADY.test(file) || file.includes('/.vite/')) return null;
-      const ext = file.slice(file.lastIndexOf('.'));
-      const base = file.slice(0, -ext.length);
-      // Opt-in inversion: some libraries implement this platform's real
-      // capabilities in their `.web.*` files (reanimated 4's web runtime is
-      // the canonical case — its native path constructs a TurboModule that
-      // cannot exist here). For those packages the WEB variant is the
-      // faithful one, so it wins over .native/.ios.
-      const suffixes = webVariantPackages.some((p) => file.includes(p))
-        ? ['.web', `.${platform}`, '.native']
-        : [`.${platform}`, '.native'];
-      for (const suffix of suffixes) {
-        const candidate = `${base}${suffix}${ext}`;
-        if (existsSync(candidate)) return query ? `${candidate}?${query}` : candidate;
-      }
-      return null;
+      const sibling = platformSibling(file, platform, webVariantPackages);
+      if (!sibling) return null;
+      return query ? `${sibling}?${query}` : sibling;
+    },
+  };
+}
+
+/** The subset of esbuild's plugin API this uses, typed structurally so the
+ *  preset never has to import esbuild (it is not a dependency here). */
+interface EsbuildPluginBuild {
+  onResolve(
+    options: { filter: RegExp },
+    callback: (args: {
+      path: string;
+      importer: string;
+      resolveDir: string;
+      kind: string;
+      namespace: string;
+      pluginData?: unknown;
+    }) => Promise<{ path?: string; external?: boolean; errors?: unknown[] } | null | undefined>
+  ): void;
+  resolve(
+    path: string,
+    options: { importer?: string; resolveDir?: string; kind?: string; pluginData?: unknown }
+  ): Promise<{ path: string; external: boolean; errors: unknown[]; namespace: string }>;
+}
+
+export interface EsbuildPluginLike {
+  name: string;
+  setup(build: EsbuildPluginBuild): void;
+}
+
+/**
+ * The same Metro platform preference, for the DEPENDENCY OPTIMIZER.
+ *
+ * Prebundling does its own resolution in esbuild and never runs Vite's plugin
+ * pipeline, so `rnPlatformExtensionsPlugin` cannot see it: every prebundled
+ * package gets its WEB file frozen into the dep chunk. That has been patched
+ * one package at a time by adding names to `optimizeDeps.exclude`, which only
+ * works for packages someone already tripped over — and excluding is a real
+ * cost (raw-served CJS loses its named-export bindings, which is exactly why
+ * some of these packages are prebundled on purpose).
+ *
+ * Two concrete cases this fixes rather than trades away: `@bsky.app/alf` ships
+ * `platform/index.js` with `isWeb = true` next to `platform/index.native.js`,
+ * and it MUST stay prebundled because its index re-exports through a runtime
+ * `__exportStar` that only the optimizer's CJS analysis can resolve — so
+ * excluding it is not available as a fix, and the frozen web build made an
+ * entire app take web branches (`minHeight: '100dvh'`, which Yoga cannot
+ * express) and collapse to zero height. Reanimated 4's worklets runtime is the
+ * mirror image: prebundled, it froze the `.native` files the `.web` inversion
+ * exists to avoid.
+ */
+export function rnPlatformExtensionsEsbuildPlugin(
+  opts: { platform?: 'ios' | 'android'; webVariantPackages?: string[] } = {}
+): EsbuildPluginLike {
+  const platform = opts.platform ?? 'ios';
+  const webVariantPackages = opts.webVariantPackages ?? [];
+  return {
+    name: 'native-surface:rn-platform-extensions-esbuild',
+    setup(build) {
+      build.onResolve({ filter: /.*/ }, async (args) => {
+        // Re-entry guard: the build.resolve() below comes back through this
+        // same callback, and without the marker it recurses forever.
+        if ((args.pluginData as { nativeSurfaceResolved?: boolean } | undefined)?.nativeSurfaceResolved) return null;
+        const resolved = await build.resolve(args.path, {
+          importer: args.importer,
+          resolveDir: args.resolveDir,
+          kind: args.kind,
+          pluginData: { nativeSurfaceResolved: true },
+        });
+        // Let esbuild own errors, externals and virtual modules unchanged;
+        // this plugin only ever re-points a real file at its sibling.
+        if (resolved.errors.length > 0 || resolved.external || resolved.namespace !== 'file') return null;
+        const sibling = platformSibling(resolved.path, platform, webVariantPackages);
+        return sibling ? { path: sibling } : { path: resolved.path };
+      });
     },
   };
 }
@@ -257,9 +363,80 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: /^@react-native-masked-view\/masked-view(\/.*)?$/, replacement: compat('masked-view.tsx') },
     { find: /^react-native-webview(\/.*)?$/, replacement: compat('webview.tsx') },
     { find: /^react-native-pager-view(\/.*)?$/, replacement: compat('pager-view.tsx') },
+    // Browser-API-backed Expo modules. Each maps onto a real web API and
+    // reports honestly where none exists (no geocoder, no background
+    // location, no OTA channel) — see each shim's header for its ceiling.
+    { find: /^expo-web-browser(\/.*)?$/, replacement: compat('web-browser.ts') },
+    { find: /^expo-sharing(\/.*)?$/, replacement: compat('sharing.ts') },
+    { find: /^expo-location(\/.*)?$/, replacement: compat('location.ts') },
+    { find: /^expo-device(\/.*)?$/, replacement: compat('device.ts') },
+    { find: /^expo-keep-awake(\/.*)?$/, replacement: compat('keep-awake.ts') },
+    { find: /^expo-screen-orientation(\/.*)?$/, replacement: compat('screen-orientation.ts') },
+    { find: /^expo-updates(\/.*)?$/, replacement: compat('updates.ts') },
+    // One module serves both of expo-file-system's SDK-57 surfaces: the
+    // `(\/.*)?$` group lands `expo-file-system/legacy` on the same file, so
+    // the object API and the legacy function API share one virtual
+    // filesystem. Same for expo-media-library's `/legacy` and `/next`.
+    { find: /^expo-file-system(\/.*)?$/, replacement: compat('file-system.ts') },
+    { find: /^expo-media-library(\/.*)?$/, replacement: compat('media-library.ts') },
+    // Anchored, so this cannot be swallowed by the expo-image entry above:
+    // that one requires `/` or end-of-string straight after `expo-image`.
+    { find: /^expo-image-manipulator(\/.*)?$/, replacement: compat('image-manipulator.ts') },
+    // Video rides the portal seam (a real <video> tracked to the node's
+    // frame). Thumbnails are a sibling module so expo-video's namespace does
+    // not carry a stray getThumbnailAsync.
+    { find: /^expo-video(\/.*)?$/, replacement: compat('video.tsx') },
+    { find: /^expo-video-thumbnails(\/.*)?$/, replacement: compat('video-thumbnails.ts') },
+    // Its unlinked stub is a Proxy that THROWS on every property access, so an
+    // app calling `clearCache()` at startup dies before it renders. The
+    // metadata half is real here (a <video> knows its own dimensions and
+    // duration); compression is not — see the shim.
+    { find: /^react-native-compressor(\/.*)?$/, replacement: compat('compressor.ts') },
+    /**
+     * react-responsive resolves through `window.matchMedia`, which on this
+     * host answers about the BROWSER WINDOW rather than the surface. An app
+     * rendering a 390pt surface inside a 1400px window is then told it is on a
+     * desktop and takes every desktop branch. On a device there is no
+     * matchMedia at all, so the same code answers false and lays out for a
+     * phone — which is the behaviour the shim restores.
+     */
+    { find: /^react-responsive(\/.*)?$/, replacement: compat('responsive.tsx') },
     reactNativeAlias()
   );
-  return aliases;
+  return aliases.filter(shimExists);
+}
+
+/**
+ * Drops an alias whose shim file is not on disk.
+ *
+ * `compat()` resolves each shim through @native-surface/compat's exports map
+ * and falls back to a workspace-relative path when that fails. Both can miss
+ * against a compat install older than the engine — a newer shim simply has no
+ * export entry yet — and the result is an alias pointing at a file that does
+ * not exist. Vite then fails the import from the APP's own source, naming a
+ * path inside node_modules that the app never wrote, which is close to
+ * undebuggable.
+ *
+ * Dropping it instead lets the real package resolve. That is strictly better:
+ * the package may work, and where it needs a native module the registry's
+ * inert policy already answers for it. Same reasoning as the native-stack
+ * alias being dropped when @react-navigation/stack is absent — an alias that
+ * cannot be honored must not be claimed.
+ */
+const missingShims = new Set<string>();
+function shimExists(alias: NativeSurfaceAlias): boolean {
+  // The engine entry is this package's own source, and assets/ paths are not
+  // shim files; only compat replacements can go missing.
+  if (alias.replacement === ENGINE_ENTRY || existsSync(alias.replacement)) return true;
+  if (!missingShims.has(alias.replacement)) {
+    missingShims.add(alias.replacement);
+    console.warn(
+      `native-surface: skipping the alias for ${String(alias.find)} — its compat shim is missing at ` +
+        `${alias.replacement}. @native-surface/compat is probably older than native-surface; ` +
+        `reinstall so the two match. The real package will be used instead.`
+    );
+  }
+  return false;
 }
 
 /**
@@ -840,6 +1017,11 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
    * here — reanimated 4, whose native path constructs a TurboModule, is the
    * canonical example. Boundary-general: it inverts resolution for the named
    * packages only.
+   *
+   * ADDITIVE. The preset already detects the known cases from what the app
+   * has installed (see `detectWebVariantPackages`), so reanimated 4 and
+   * expo-paste-input need no configuration; this option names packages the
+   * preset does not know about.
    */
   webVariantPackages?: string[];
 }
@@ -848,6 +1030,106 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
  *  prebundling would freeze a private copy of the engine inside the dep chunk
  *  (stale code + duplicated singletons). Excluding a package that isn't
  *  installed is harmless, so the list is unconditional. */
+/**
+ * Every package the alias set redirects to a compat shim.
+ *
+ * These MUST be excluded from prebundling, for the same reason
+ * 'native-surface' and '@native-surface/compat' are — and excluding those two
+ * alone does not cover it. Vite's optimizer sees the id the APP imports
+ * (`expo-notifications`), not the file our alias sends it to, so it happily
+ * prebundles the alias target: a frozen copy of the shim, plus the engine code
+ * the shim imports, sealed inside a dep chunk.
+ *
+ * Two failure modes, one of them near-undebuggable:
+ * - **The shim goes stale.** The optimizer cache outlives edits to the shim
+ *   (it is keyed on the app's dependencies, which did not change), so a fixed
+ *   shim keeps serving its old code until someone thinks to delete the cache
+ *   directory. This cost real time: a `Notifications.addPushTokenListener is
+ *   not a function` crash survived the function being added, because the
+ *   frozen chunk still had the old module.
+ * - **Singletons split**, exactly as the note above describes.
+ *
+ * Kept as data next to the alias list, and `tests/vite-preset.test.ts` asserts
+ * the two agree — every package that gets an alias also gets an exclude.
+ */
+const COMPAT_ALIASED_PACKAGES = [
+  // NOT 'react-native'. It is aliased to the engine and its `Libraries/*`
+  // subpaths to compat's fabric stub, so by the rule above it looks like it
+  // belongs here — but excluding it BREAKS the app, and the reason is worth
+  // recording so nobody re-adds it.
+  //
+  // Vite matches an exclude entry against the package name as well as the full
+  // id, so 'react-native' also excludes every deep `react-native/...` import.
+  // Prebundled CJS packages reach those internals through a RUNTIME require —
+  // @sentry/react-native does `require('react-native/Libraries/Promise')` —
+  // and esbuild cannot resolve a require to an external module, so it emits a
+  // stub that throws `Dynamic require of "..." is not supported` and the app
+  // never boots.
+  //
+  // The cost of leaving it optimizable is smaller and is handled elsewhere:
+  // deep Libraries imports are reached lazily, so the optimizer can discover
+  // one mid-session and re-run ("new dependencies optimized ... reloading"),
+  // which 404s the running page's chunks. An app that hits it pre-declares the
+  // id in its own `optimizeDeps.include` so discovery happens at startup.
+  'react-native-screens',
+  'react-native-reanimated',
+  'react-native-gesture-handler',
+  'react-native-safe-area-context',
+  'react-native-mmkv',
+  'react-native-keyboard-controller',
+  'react-native-edge-to-edge',
+  '@react-navigation/native-stack',
+  'expo-font',
+  'expo-linking',
+  'expo-localization',
+  'expo-application',
+  'expo-splash-screen',
+  'expo-system-ui',
+  'expo-modules-core',
+  'expo',
+  'reactotron-react-native-mmkv',
+  'reactotron-react-native',
+  'reactotron-react-js',
+  'reactotron-core-client',
+  'react-native-svg',
+  '@react-native-async-storage/async-storage',
+  '@react-native-community/netinfo',
+  'expo-haptics',
+  'react-native-device-info',
+  'expo-constants',
+  '@react-native-clipboard/clipboard',
+  'expo-clipboard',
+  'react-native-share',
+  'expo-image-picker',
+  'react-native-image-picker',
+  'react-native-permissions',
+  'expo-notifications',
+  'react-native-vector-icons',
+  'expo-image',
+  'react-native-fast-image',
+  'expo-linear-gradient',
+  'react-native-linear-gradient',
+  'expo-blur',
+  '@react-native-community/blur',
+  '@react-native-masked-view/masked-view',
+  'react-native-webview',
+  'react-native-pager-view',
+  'expo-web-browser',
+  'expo-sharing',
+  'expo-location',
+  'expo-device',
+  'expo-keep-awake',
+  'expo-screen-orientation',
+  'expo-updates',
+  'expo-file-system',
+  'expo-media-library',
+  'expo-image-manipulator',
+  'expo-video',
+  'expo-video-thumbnails',
+  'react-native-compressor',
+  'react-responsive',
+];
+
 const RN_ECOSYSTEM_EXCLUDES = [
   // The engine and its shims themselves. Installed from npm they sit in
   // node_modules like any dep, so Vite would prebundle them — freezing a
@@ -857,6 +1139,8 @@ const RN_ECOSYSTEM_EXCLUDES = [
   // they resolve to source and this is a no-op.
   'native-surface',
   '@native-surface/compat',
+  // ...and every id aliased ONTO them, which the two names above do not cover.
+  ...COMPAT_ALIASED_PACKAGES,
   '@react-navigation/native',
   '@react-navigation/core',
   '@react-navigation/elements',
@@ -938,6 +1222,45 @@ const CJS_LEAF_INCLUDES = [
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
+ * Packages whose `.web.*` files are the implementation that can actually run
+ * here, detected from what the app has installed (see the `webVariantPackages`
+ * option for the general rule). Each entry is a package whose DEFAULT files
+ * construct something a canvas host cannot provide, while its web siblings are
+ * plain JS — so leaving the Metro-parity `.native`/`.ios` preference in place
+ * picks the file that is guaranteed to fail.
+ *
+ * Detected rather than hardcoded because the answer is version-dependent:
+ * reanimated 3's default path drives views through `setNativeProps`, which
+ * this engine implements, and inverting it there would swap a working
+ * implementation for a worse one. Reanimated 4 is Fabric-only on native — its
+ * default files build a TurboModule that cannot exist — so only from 4 does
+ * the web variant become the faithful one. An explicit `webVariantPackages`
+ * always adds to (never replaces) this set.
+ */
+function detectWebVariantPackages(req: NodeJS.Require): string[] {
+  const out: string[] = [];
+  const major = (id: string): number => {
+    try {
+      const { version } = req(`${id}/package.json`) as { version?: string };
+      return Number.parseInt(version ?? '', 10) || 0;
+    } catch {
+      return 0;
+    }
+  };
+  if (major('react-native-reanimated') >= 4) out.push('react-native-reanimated', 'react-native-worklets');
+  // Its native view is a paste-intercepting UITextView wrapper; the web
+  // sibling is a straight passthrough, which is the honest answer here (and
+  // unlike the native path, it forwards its ref).
+  try {
+    req.resolve('expo-paste-input/package.json');
+    out.push('expo-paste-input');
+  } catch {
+    /* not installed */
+  }
+  return out;
+}
+
+/**
  * One-call preset: everything a Vite app needs to render React Native
  * component trees with <NativeSurface>. Composes the platform-extension
  * resolver, the raw-JSX loader, the require/asset transform, the CJS-interop
@@ -964,6 +1287,9 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\
  * CONCATENATED with the user's by Vite's config merge, so both layers add up.
  */
 export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOption[] {
+  // Shared with rnPlatformExtensionsPlugin by reference so the config hook —
+  // the first place the app root is known — can append what it detects.
+  const webVariantPackages = [...(opts.webVariantPackages ?? [])];
   const configPlugin = {
     name: 'native-surface:config',
     config(user: { root?: string; cacheDir?: string } | undefined, env: { mode: string }) {
@@ -985,6 +1311,9 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
       // here, where the app root is known — 'real' iff the package resolves
       // from it, so apps without reanimated never chase a missing import.
       const reanimated = opts.reanimated ?? (resolvable('react-native-reanimated') ? 'real' : 'shim');
+      for (const pkg of detectWebVariantPackages(req)) {
+        if (!webVariantPackages.includes(pkg)) webVariantPackages.push(pkg);
+      }
       let defaults: string[] = DEFAULT_CLIENT_CONDITIONS;
       try {
         const live = (req('vite') as typeof import('vite')).defaultClientConditions;
@@ -1088,10 +1417,20 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
           ],
         },
         optimizeDeps: {
-          // Reanimated stays conditional: in 'real' mode it imports the
-          // aliased 'react-native' and must not be prebundled either.
-          exclude: [...RN_ECOSYSTEM_EXCLUDES, ...(reanimated === 'real' ? ['react-native-reanimated'] : [])],
+          // Reanimated needs excluding in BOTH modes, so it lives in the list
+          // above rather than being appended conditionally here: 'real' imports
+          // the aliased 'react-native', and 'shim' resolves to compat's shim,
+          // which must not be frozen into a dep chunk either.
+          exclude: [...RN_ECOSYSTEM_EXCLUDES],
           include,
+          // Teach the OPTIMIZER the same Metro platform preference the dev
+          // resolver applies. Without it every prebundled package gets its
+          // web file frozen in, and the only remedy is adding the package to
+          // `exclude` — which is not always available (see the plugin's doc)
+          // and costs the CJS interop that prebundling provides.
+          esbuildOptions: {
+            plugins: [rnPlatformExtensionsEsbuildPlugin({ platform: opts.platform ?? 'ios', webVariantPackages })],
+          },
         },
       };
     },
@@ -1100,7 +1439,7 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
   // so they don't satisfy vite's Plugin interface nominally — but each is a
   // valid plugin object at runtime.
   return [
-    rnPlatformExtensionsPlugin({ platform: opts.platform ?? 'ios', webVariantPackages: opts.webVariantPackages }),
+    rnPlatformExtensionsPlugin({ platform: opts.platform ?? 'ios', webVariantPackages }),
     rnLibJsxPlugin({ resolveFrom: opts.resolveFrom }),
     rnRequirePlugin({
       assetAliases: opts.assetAliases,
