@@ -58,23 +58,43 @@ export function reactNativeAlias(): { find: string; replacement: string } {
 
 /**
  * Full alias set for apps using third-party RN libraries: `react-native` plus
- * the reanimated / gesture-handler compat shims (@native-surface/compat).
+ * the compat shims (@native-surface/compat) — reanimated / gesture-handler /
+ * screens / the react-native/Libraries/* fabric stub, and friends.
  * Rollup-style string finds match the exact id or `<find>/subpath`, so the
- * `react-native` entry does NOT swallow `react-native-reanimated`.
+ * `react-native` entry does NOT swallow `react-native-reanimated` — but it
+ * DOES match `react-native/Libraries/…`, which is why the regex finds sit
+ * first in the returned array. Order is semantic; consumers appending their
+ * own entries should append, not sort.
  *
  *   import { nativeSurfaceAliases } from 'native-surface/vite'
  *   export default defineConfig({ resolve: { alias: nativeSurfaceAliases() } })
  */
 export interface NativeSurfaceAliasOptions {
   /**
-   * 'shim' (default): reanimated resolves to the compat shim.
+   * 'shim': reanimated resolves to the compat shim.
    * 'real': reanimated resolves to the actual react-native-reanimated package,
    * whose web mode (`shouldBeUseWeb()`) drives our hosts via `setNativeProps`.
    * Requires the consumer app to also define `process.env.JEST_WORKER_ID` and
    * exclude 'react-native-reanimated' from optimizeDeps (it imports the
-   * aliased 'react-native').
+   * aliased 'react-native') — the nativeSurface() preset does both.
+   *
+   * Default: the nativeSurface() preset auto-detects inside its config hook
+   * (the app root is only known there) — 'real' iff react-native-reanimated
+   * resolves from the app root, else 'shim', so apps without reanimated
+   * installed work out of the box. An explicit option always wins. Calling
+   * nativeSurfaceAliases() directly keeps its historical 'shim' default.
    */
   reanimated?: 'shim' | 'real';
+  /**
+   * 'shim' (default): react-native-screens — subpath imports included —
+   * resolves to the compat shim. npm installs the real package as a peer of
+   * the navigators, and its `react-native` export condition + platform
+   * extensions resolve native entries (Tabs/TabsScreen/TabsHost) that don't
+   * exist in a usable web build, killing production builds.
+   * 'off': leave resolution alone — escape hatch, because navigators branch
+   * to screens-enabled code paths once the import resolves at all.
+   */
+  screens?: 'shim' | 'off';
 }
 
 /**
@@ -135,10 +155,27 @@ export function rnPlatformExtensionsPlugin(opts: { platform?: 'ios' | 'android' 
   };
 }
 
-export function nativeSurfaceAliases(
-  opts: NativeSurfaceAliasOptions = {}
-): Array<{ find: string; replacement: string }> {
-  const aliases: Array<{ find: string; replacement: string }> = [];
+/** One resolve.alias entry. Regex finds carry subtree redirects (deep
+ *  react-native/Libraries/* imports) that string finds can't express. */
+export interface NativeSurfaceAlias {
+  find: string | RegExp;
+  replacement: string;
+}
+
+export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): NativeSurfaceAlias[] {
+  const aliases: NativeSurfaceAlias[] = [
+    // MUST precede the 'react-native' string find below: string finds also
+    // match `<find>/subpath`, which would rewrite deep Libraries imports
+    // (reanimated's fabric probes, lazy try/catch'd on web) onto the engine
+    // FILE — dev shrugs, but a production build resolves eagerly and dies
+    // with UNLOADABLE_DEPENDENCY / "Not a directory".
+    { find: /^react-native\/Libraries\/.*/, replacement: compat('fabric.ts') },
+  ];
+  if (opts.screens !== 'off') {
+    // Regex so subpath imports also land on the shim (see the screens option
+    // doc for why the real package breaks web builds).
+    aliases.push({ find: /^react-native-screens(\/.*)?$/, replacement: compat('screens.tsx') });
+  }
   if (opts.reanimated !== 'real') {
     aliases.push({ find: 'react-native-reanimated', replacement: compat('reanimated.tsx') });
   }
@@ -370,10 +407,33 @@ export interface PresetResolveOptions {
   resolveFrom?: string;
 }
 
+/** Structural view of the consumer's vite module: which transformer it
+ *  exposes varies by version (Vite ≤7 bundles esbuild; Vite 8 / rolldown-vite
+ *  drops it and exposes oxc instead), so both are optional and feature-
+ *  detected — a nominal `typeof import('vite')` would pin us to one. */
+interface ViteTransformers {
+  transformWithEsbuild?: (
+    code: string,
+    filename: string,
+    options?: object
+  ) => Promise<{ code: string; map: unknown }>;
+  transformWithOxc?: (
+    code: string,
+    filename: string,
+    options?: object
+  ) => Promise<{ code: string; map?: unknown }>;
+}
+
 /**
  * Vite helper: reanimated ships raw JSX inside .js files (Metro runs Babel
  * over everything; Rollup/esbuild do not). Parse those files as JSX.
  * Part of the `nativeSurface()` preset; exported for à-la-carte configs.
+ *
+ * Transformer choice: prefers `transformWithOxc` when the consumer's vite
+ * exposes it (Vite 8 / rolldown-vite), falling back to `transformWithEsbuild`.
+ * Vite 8 no longer ships esbuild as a dependency, so its transformWithEsbuild
+ * throws "requires esbuild to be installed" at call time — that case is
+ * rethrown with the actual fix (install esbuild, or upgrade to an oxc vite).
  */
 export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
   name: string;
@@ -394,9 +454,9 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
       const path = id.split('?')[0] ?? id;
       if (path.includes('/.vite/')) return null;
       if (path.includes('react-native-reanimated') && path.endsWith('.js')) {
-        let transformWithEsbuild: typeof import('vite').transformWithEsbuild;
+        let vite: ViteTransformers;
         try {
-          ({ transformWithEsbuild } = rooted.req('vite') as typeof import('vite'));
+          vite = rooted.req('vite') as ViteTransformers;
         } catch {
           // A reanimated file reached this transform, so the project needs it:
           // failing loud beats a cryptic esbuild JSX parse error downstream.
@@ -405,9 +465,43 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
               `pass rnLibJsxPlugin({ resolveFrom }) pointing at the app's directory`
           );
         }
-        const out = await transformWithEsbuild(code, path, { loader: 'jsx', jsx: 'automatic' });
-        // esbuild's SourceMap type and rollup's SourceMapInput disagree structurally
-        return { code: out.code, map: out.map as unknown as null };
+        if (typeof vite.transformWithOxc === 'function') {
+          try {
+            const out = await vite.transformWithOxc(code, path, {
+              lang: 'jsx',
+              jsx: { runtime: 'automatic' },
+            });
+            return { code: out.code, map: (out.map ?? null) as null };
+          } catch {
+            // Defensive: the oxc option shape is vite's, not ours — on drift
+            // (or a missing native binding) fall through to esbuild rather
+            // than 500 every reanimated module.
+          }
+        }
+        if (typeof vite.transformWithEsbuild !== 'function') {
+          throw new Error(
+            `native-surface: this vite exposes neither transformWithOxc nor transformWithEsbuild; ` +
+              `cannot JSX-transform ${path}`
+          );
+        }
+        try {
+          const out = await vite.transformWithEsbuild(code, path, { loader: 'jsx', jsx: 'automatic' });
+          // esbuild's SourceMap type and rollup's SourceMapInput disagree structurally
+          return { code: out.code, map: out.map as unknown as null };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          // Vite 8 keeps transformWithEsbuild but lazy-loads esbuild, which is
+          // no longer a vite dependency — surface the actual fix instead of
+          // its "Failed to load" message.
+          if (/esbuild/i.test(msg) && /install|resolv|found|load/i.test(msg)) {
+            throw new Error(
+              `native-surface: JSX-transforming ${path} needs esbuild, which this vite no longer bundles — ` +
+                `run \`npm i -D esbuild\` in the app (or use a vite version exposing transformWithOxc). ` +
+                `Original error: ${msg}`
+            );
+          }
+          throw err;
+        }
       }
       return null;
     },
@@ -423,6 +517,58 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
   /** node_modules package prefixes rnRequirePlugin should also transform. */
   requireIncludePackages?: string[];
 }
+
+/** Standard-boundary ESM packages that import the aliased 'react-native':
+ *  prebundling would freeze a private copy of the engine inside the dep chunk
+ *  (stale code + duplicated singletons). Excluding a package that isn't
+ *  installed is harmless, so the list is unconditional. */
+const RN_ECOSYSTEM_EXCLUDES = [
+  '@react-navigation/native',
+  '@react-navigation/core',
+  '@react-navigation/elements',
+  '@react-navigation/stack',
+  '@react-navigation/bottom-tabs',
+  '@react-navigation/routers',
+  'react-native-screens',
+  'react-native-safe-area-context',
+  'react-native-gesture-handler',
+];
+
+/** A second copy of any of these = raw-CJS imports outside the include list
+ *  plus split navigation singletons. Deduping the uninstalled is harmless. */
+const RN_ECOSYSTEM_DEDUPE = [
+  '@react-navigation/native',
+  '@react-navigation/core',
+  '@react-navigation/elements',
+  '@react-navigation/stack',
+  '@react-navigation/bottom-tabs',
+  '@react-navigation/routers',
+  'use-latest-callback',
+];
+
+/** CJS leaves that MUST be prebundled: served raw, their named/default
+ *  exports don't exist as ESM bindings. The engine's own (named bindings from
+ *  react-reconciler/constants, the default from canvaskit.js — without them
+ *  the canvas never mounts and the surface stays blank) plus the CJS deps of
+ *  the excluded navigation packages. Filtered at config time to what actually
+ *  resolves from the app root, because Vite logs a failure for every
+ *  unresolvable include. The .wasm asset itself is fetched, never prebundled. */
+const CJS_LEAF_INCLUDES = [
+  'react-reconciler',
+  'react-reconciler/constants',
+  'scheduler',
+  'canvaskit-wasm',
+  'canvaskit-wasm/bin/canvaskit.js',
+  'react-is',
+  'use-latest-callback',
+  'escape-string-regexp',
+  'fast-deep-equal',
+  'query-string',
+  'nanoid/non-secure',
+  'use-sync-external-store/shim',
+  'use-sync-external-store/with-selector',
+  'color',
+];
 
 /**
  * One-call preset: everything a Vite app needs to render React Native
@@ -442,21 +588,35 @@ export interface NativeSurfacePresetOptions extends NativeSurfaceAliasOptions, P
  *     ],
  *   })
  *
- * App-specific concerns stay with the consumer: extra optimizeDeps
- * excludes for ESM RN libraries that import the aliased 'react-native'
- * (prebundling would freeze a private engine copy), dedupe entries for
- * libraries a nested app tree duplicates, and its own path aliases.
+ * The preset owns the STANDARD boundary end to end: mode-scoped optimizer
+ * cacheDir, optimizeDeps excludes/includes and dedupe for the react-navigation
+ * ecosystem and the engine's own CJS leaves. App-specific concerns stay with
+ * the consumer: optimizeDeps entries for the app's own libraries (e.g.
+ * bottom-sheet), pnpm `>` nested-include chains (they encode the app's
+ * dependency graph), and its own path aliases. Arrays returned here are
+ * CONCATENATED with the user's by Vite's config merge, so both layers add up.
  */
 export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOption[] {
-  const reanimated = opts.reanimated ?? 'real';
   const configPlugin = {
     name: 'native-surface:config',
-    config(user: { root?: string } | undefined, env: { mode: string }) {
+    config(user: { root?: string; cacheDir?: string } | undefined, env: { mode: string }) {
       // Resolve vite from the app's own root (cwd is wrong for programmatic
       // servers); when unresolvable, restate Vite's defaults ourselves —
       // setting resolve.conditions REPLACES them, so an empty fallback would
       // break every bare-specifier resolve.
       const req = createRequire(`${opts.resolveFrom ?? user?.root ?? process.cwd()}/`);
+      const resolvable = (id: string): boolean => {
+        try {
+          req.resolve(id);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      // Reanimated mode: an explicit option always wins; otherwise detected
+      // here, where the app root is known — 'real' iff the package resolves
+      // from it, so apps without reanimated never chase a missing import.
+      const reanimated = opts.reanimated ?? (resolvable('react-native-reanimated') ? 'real' : 'shim');
       let defaults: string[] = DEFAULT_CLIENT_CONDITIONS;
       try {
         const live = (req('vite') as typeof import('vite')).defaultClientConditions;
@@ -465,6 +625,14 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
         /* fall back to the hardcoded list above */
       }
       return {
+        // Scope the optimizer cache to the reanimated mode: the cache can
+        // survive config-change restarts, and a stale cache from the other
+        // mode silently serves the wrong reanimated. Plugin config results
+        // are merged over the user config (scalars OVERRIDE), so an explicit
+        // user cacheDir must win by us not setting one at all.
+        ...(user?.cacheDir === undefined
+          ? { cacheDir: `node_modules/.vite-native-surface-${reanimated}` }
+          : {}),
         define: {
           // RN libraries expect Metro's compile-time __DEV__; JEST_WORKER_ID
           // keeps reanimated's isJest() probe off bare `process`.
@@ -475,13 +643,14 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
         resolve: {
           conditions: [...nativeSurfaceConditions(), ...defaults],
           // Two Reacts = broken hooks; a second reanimated = two UI runtimes.
-          dedupe: ['react', 'react-dom', 'react-native-reanimated'],
-          alias: nativeSurfaceAliases({ reanimated }),
+          dedupe: ['react', 'react-dom', 'react-native-reanimated', ...RN_ECOSYSTEM_DEDUPE],
+          alias: nativeSurfaceAliases({ reanimated, screens: opts.screens }),
         },
         optimizeDeps: {
-          // Imports the aliased 'react-native'; prebundling would freeze a
-          // private copy of the engine inside the dep chunk.
-          exclude: reanimated === 'real' ? ['react-native-reanimated'] : [],
+          // Reanimated stays conditional: in 'real' mode it imports the
+          // aliased 'react-native' and must not be prebundled either.
+          exclude: [...RN_ECOSYSTEM_EXCLUDES, ...(reanimated === 'real' ? ['react-native-reanimated'] : [])],
+          include: CJS_LEAF_INCLUDES.filter(resolvable),
         },
       };
     },

@@ -39,6 +39,30 @@ const ZERO: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 /** Set only by a real native host at startup; null on this platform. */
 export const initialWindowMetrics: Metrics | null = null;
 
+/**
+ * Modern-iPhone-ish metrics for embeds that simulate device chrome:
+ *
+ *   <SafeAreaProvider initialMetrics={simulatedDeviceMetrics()}>
+ *
+ * The provider's zero default is deliberate — a canvas surface genuinely has
+ * no notch or home indicator — but without insets React Navigation's headers
+ * and tab bars sit flush against the bezel, and its stack interpolators need
+ * a non-zero frame. Defaults: insets { top: 59, bottom: 34 }, frame 390×844;
+ * `overrides` merge in. Because the preset aliases
+ * react-native-safe-area-context to this module, consumers can import this
+ * straight from 'react-native-safe-area-context'.
+ */
+export function simulatedDeviceMetrics(overrides?: {
+  width?: number;
+  height?: number;
+  insets?: Partial<EdgeInsets>;
+}): Metrics {
+  return {
+    insets: { top: 59, right: 0, bottom: 34, left: 0, ...overrides?.insets },
+    frame: { x: 0, y: 0, width: overrides?.width ?? 390, height: overrides?.height ?? 844 },
+  };
+}
+
 export const SafeAreaInsetsContext = React.createContext<EdgeInsets | null>(null);
 export const SafeAreaFrameContext = React.createContext<Rect | null>(null);
 
