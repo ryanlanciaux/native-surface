@@ -46,6 +46,26 @@ async function resolveFontSpecs(specs: NonNullable<InitOptions['fonts']>): Promi
   return out;
 }
 
+/**
+ * Single registration path for every font, whenever it arrives (initial load
+ * or post-init, e.g. expo-font's lazy loadAsync). TextInput's DOM overlay
+ * renders in the page, not on the canvas — register the same bytes as a
+ * document font so the two match.
+ */
+function registerEngineFont(fontProvider: TypefaceFontProvider, families: Set<string>, f: LoadedFont): void {
+  if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
+    try {
+      const face = new FontFace(f.family, f.data.slice(0));
+      document.fonts.add(face);
+      void face.load().catch(() => {});
+    } catch {
+      /* overlay falls back to the CSS stack */
+    }
+  }
+  fontProvider.registerFont(f.data, f.family);
+  families.add(f.family);
+}
+
 let warnedYogaUrl = false;
 
 export function ensureEngine(opts?: InitOptions): Promise<Engine> {
@@ -62,10 +82,7 @@ export function ensureEngine(opts?: InitOptions): Promise<Engine> {
       const fonts = opts.fonts;
       return initPromise.then(async (eng) => {
         const extra = await resolveFontSpecs(fonts);
-        for (const f of extra) {
-          eng.fontProvider.registerFont(f.data, f.family);
-          eng.families.add(f.family);
-        }
+        for (const f of extra) registerEngineFont(eng.fontProvider, eng.families, f);
         return eng;
       });
     }
@@ -79,21 +96,7 @@ export function ensureEngine(opts?: InitOptions): Promise<Engine> {
     const fontProvider = ck.TypefaceFontProvider.Make();
     const families = new Set<string>();
     const registerAll = (fonts: LoadedFont[]) => {
-      for (const f of fonts) {
-        // TextInput's DOM overlay renders in the page, not on the canvas —
-        // register the same bytes as a document font so the two match.
-        if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
-          try {
-            const face = new FontFace(f.family, f.data.slice(0));
-            document.fonts.add(face);
-            void face.load().catch(() => {});
-          } catch {
-            /* overlay falls back to the CSS stack */
-          }
-        }
-        fontProvider.registerFont(f.data, f.family);
-        families.add(f.family);
-      }
+      for (const f of fonts) registerEngineFont(fontProvider, families, f);
     };
     registerAll(defaultFonts);
 
@@ -149,6 +152,15 @@ const imageCache = new Map<string, ImageEntry>();
 // not once per attempt.
 const warnedImageUris = new Set<string>();
 
+/**
+ * How far past the cap the cache may grow on retained entries alone before we
+ * say something. Exceeding the cap is legitimate — a long feed can genuinely
+ * display more than IMAGE_CACHE_MAX images at once, and evicting one still on
+ * screen would blank it — so this is deliberately generous.
+ */
+const RETAINED_LEAK_FACTOR = 4;
+let warnedRetainedLeak = false;
+
 /** Move-to-end on access; evict (and .delete()) least-recently-used settled entries. */
 function touchImageEntry(uri: string, entry: ImageEntry): void {
   imageCache.delete(uri);
@@ -159,8 +171,147 @@ function touchImageEntry(uri: string, entry: ImageEntry): void {
     if (e.status === 'loading') continue; // never evict in-flight loads
     if (e.status === 'loaded' && e.refs > 0) continue; // still displayed by a node
     imageCache.delete(key);
+    // An evicted pixel key must be re-registered by its producer (loadImage
+    // would otherwise wait forever for an insert that is not coming).
+    pixelKeys.delete(key);
     if (e.status === 'loaded') e.image.delete();
   }
+
+  /**
+   * Nothing above can reclaim a RETAINED entry, so a reference that is never
+   * released makes its image immortal and the cache unbounded. That ends in
+   * CanvasKit exhausting its WASM heap and calling `abort()` — surfacing as
+   * `RuntimeError: Aborted()`, which is not catchable and names nothing.
+   *
+   * One warning, so the failure has a cause attached before the runtime dies.
+   */
+  if (!warnedRetainedLeak && imageCache.size > IMAGE_CACHE_MAX * RETAINED_LEAK_FACTOR) {
+    warnedRetainedLeak = true;
+    let retained = 0;
+    for (const e of imageCache.values()) if (e.status === 'loaded' && e.refs > 0) retained++;
+    console.warn(
+      `native-surface: image cache holds ${imageCache.size} entries (${retained} still referenced) ` +
+        `against a cap of ${IMAGE_CACHE_MAX}. Retained entries cannot be evicted, so this grows until ` +
+        `CanvasKit aborts. If the app is not really displaying that many images at once, a node is ` +
+        `holding a reference it never released.`
+    );
+  }
+}
+
+/** Test/diagnostic seam: cache occupancy and how much of it is unreclaimable. */
+export function getImageCacheStats(): { size: number; retained: number; loading: number } {
+  let retained = 0;
+  let loading = 0;
+  for (const e of imageCache.values()) {
+    if (e.status === 'loading') loading++;
+    else if (e.status === 'loaded' && e.refs > 0) retained++;
+  }
+  return { size: imageCache.size, retained, loading };
+}
+
+// ---------------------------------------------------------------------------
+// Raw-pixel image registration (blurhash/thumbhash placeholders, generated
+// bitmaps). Entries live in the same cache under a synthetic uri key, with
+// the same refcount/eviction semantics as fetched entries.
+// ---------------------------------------------------------------------------
+
+// Keys claimed by putImagePixels. A synthetic key is not fetchable: loadImage
+// waits for the pixel insert instead of fetching it, and a fetch already in
+// flight when the claim lands must not clobber (or warn about) the pixel entry.
+const pixelKeys = new Set<string>();
+const pixelWaiters = new Map<string, { promise: Promise<void>; resolve: () => void }>();
+
+/** Resolves once the claimed key's insert has settled (loaded or error). */
+function waitForPixelInsert(key: string): Promise<void> {
+  const existing = pixelWaiters.get(key);
+  if (existing) return existing.promise;
+  const e = imageCache.get(key);
+  if (e && e.status !== 'loading') return Promise.resolve();
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => (resolve = r));
+  pixelWaiters.set(key, { promise, resolve });
+  return promise;
+}
+
+function settlePixelWaiters(key: string): void {
+  const w = pixelWaiters.get(key);
+  if (!w) return;
+  pixelWaiters.delete(key);
+  w.resolve();
+}
+
+/**
+ * True when `key` currently resolves to a decoded image in the cache — an
+ * Image mounted with that uri paints immediately, no load or decode needed.
+ * Useful to skip re-decoding before putImagePixels; false also after the LRU
+ * evicts an unreferenced entry, in which case the producer must re-register.
+ */
+export function hasImage(key: string): boolean {
+  return imageCache.get(key)?.status === 'loaded';
+}
+
+/**
+ * Register unpremultiplied sRGB RGBA pixels under `key`: any Image whose
+ * source uri equals the key paints them through the normal cache path.
+ *
+ * The key is an arbitrary synthetic uri chosen by the caller (compat layers
+ * use namespaced ones like `blurhash:<hash>@32x32`); it shares the fetched
+ * images' cache, so pick keys that cannot collide with real uris. The entry
+ * gets identical refcount/eviction semantics to a fetched entry: nodes
+ * displaying it hold refs, and once unreferenced it can be LRU-evicted —
+ * after which the key must be re-registered before its next use (a stale
+ * mount without re-registration degrades to the normal fetch-error path).
+ * Registering an already-registered key replaces the entry; nodes still
+ * painting the old pixels keep them until their source changes.
+ *
+ * Safe to call before the engine is ready (the insert queues on init, and a
+ * concurrent load of the key waits for it); callers that need a paint-ready
+ * guarantee should `await initEngine()` first — once the engine is up the
+ * insert is synchronous.
+ */
+export function putImagePixels(
+  key: string,
+  pixels: Uint8Array | Uint8ClampedArray,
+  width: number,
+  height: number
+): void {
+  pixelKeys.add(key); // claim synchronously: concurrent loadImage(key) must wait, not fetch
+  const insert = (eng: Engine) => {
+    const image = eng.ck.MakeImage(
+      {
+        width,
+        height,
+        colorType: eng.ck.ColorType.RGBA_8888,
+        alphaType: eng.ck.AlphaType.Unpremul,
+        colorSpace: eng.ck.ColorSpace.SRGB,
+      },
+      pixels,
+      width * 4
+    );
+    const prev = imageCache.get(key);
+    if (!image) {
+      imageCache.set(key, { status: 'error', error: 'MakeImage returned null' });
+      if (!warnedImageUris.has(key)) {
+        warnedImageUris.add(key);
+        console.warn(
+          `native-surface: putImagePixels(${key}): MakeImage returned null (${width}x${height} wants ${width * height * 4} RGBA bytes, got ${pixels.length}).`
+        );
+      }
+    } else {
+      touchImageEntry(key, { status: 'loaded', image, refs: 0 });
+    }
+    // Nodes still painting a replaced entry hold their own reference; the old
+    // image is deleted only once nothing displays it.
+    if (prev?.status === 'loaded' && prev.refs === 0) prev.image.delete();
+    settlePixelWaiters(key);
+  };
+  const eng = getEngineIfReady();
+  if (eng) insert(eng);
+  else
+    void ensureEngine().then(insert, () => {
+      imageCache.set(key, { status: 'error', error: 'engine init failed' });
+      settlePixelWaiters(key);
+    });
 }
 
 export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): ImageEntry {
@@ -171,6 +322,18 @@ export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): 
     // Settled cache hit: onLoad/onError must still fire (async, like a real load).
     else queueMicrotask(() => onSettled(existing));
     return existing;
+  }
+  if (pixelKeys.has(uri)) {
+    // Pixel-registered key whose insert hasn't landed yet (engine still
+    // initializing): wait for it instead of fetching a synthetic uri.
+    const promise = waitForPixelInsert(uri).then(() => {
+      const e = imageCache.get(uri);
+      return e?.status === 'loaded' ? e.image : null;
+    });
+    const entry: ImageEntry = { status: 'loading', promise };
+    touchImageEntry(uri, entry);
+    void promise.then(() => onSettled(imageCache.get(uri) ?? entry));
+    return entry;
   }
   const promise = (async (): Promise<CKImage | null> => {
     // Which stage failed (and what the server called the payload) drives the
@@ -187,9 +350,24 @@ export function loadImage(uri: string, onSettled: (entry: ImageEntry) => void): 
       stage = 'decode';
       const image = eng.ck.MakeImageFromEncoded(bytes);
       if (!image) throw new Error('unsupported image data');
+      if (pixelKeys.has(uri)) {
+        // putImagePixels claimed this key mid-fetch; it owns the cache slot.
+        image.delete();
+        await waitForPixelInsert(uri);
+        const e = imageCache.get(uri);
+        return e?.status === 'loaded' ? e.image : null;
+      }
       imageCache.set(uri, { status: 'loaded', image, refs: 0 });
       return image;
     } catch (err) {
+      if (pixelKeys.has(uri)) {
+        // putImagePixels claimed this key while the fetch was in flight: the
+        // synthetic uri was never fetchable — settle on the pixel entry
+        // instead of recording (and warning about) a bogus failure.
+        await waitForPixelInsert(uri);
+        const e = imageCache.get(uri);
+        return e?.status === 'loaded' ? e.image : null;
+      }
       const message = err instanceof Error ? err.message : String(err);
       imageCache.set(uri, { status: 'error', error: message });
       if (!warnedImageUris.has(uri)) {

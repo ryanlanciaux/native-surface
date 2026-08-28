@@ -9,7 +9,16 @@
  * is backed by the browser's Intl/navigator surface.
  */
 import * as React from 'react';
+import { assertOpenable, isOpenableURL } from './url-safety';
 import { initEngine } from 'native-surface';
+
+/**
+ * The `expo` package re-exports the whole expo-modules-core surface, and
+ * local native modules import `requireNativeModule` from EITHER entry point
+ * (observed in the wild importing from 'expo' directly). Both must carry it,
+ * so the registry lives in one module and is re-exported here.
+ */
+export * from './expo-modules-core';
 
 // ---------------------------------------------------------------------------
 // expo (core): registerRootComponent
@@ -110,16 +119,94 @@ export function parse(url: string): { scheme: string | null; hostname: string | 
 }
 
 export async function openURL(url: string): Promise<boolean> {
+  // See url-safety.ts: apps route USER-SUPPLIED links through here, and a
+  // `javascript:` URL that is inert on a device runs in this page's origin.
+  if (!assertOpenable(url, 'Linking.openURL')) return false;
   if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
   return true;
 }
 
-export async function canOpenURL(_url: string): Promise<boolean> {
-  return true;
+export async function canOpenURL(url: string): Promise<boolean> {
+  return isOpenableURL(url);
 }
 
 export function useURL(): string | null {
   return typeof window !== 'undefined' ? window.location.href : null;
+}
+
+/**
+ * Whether the launch URL has been consumed (see `clearInitialURL`).
+ *
+ * globalThis-keyed, not module-scoped: a bundler inlines this module into
+ * every prebundled dependency that imports it, so an app clearing the URL
+ * through one copy must be seen by the copy it later reads through.
+ */
+const linking = ((globalThis as unknown as { __nativeSurfaceLinking?: { consumed: boolean } }).__nativeSurfaceLinking ??= {
+  consumed: false,
+});
+
+/** The address bar, unless the app has already consumed it. */
+function launchURL(): string | null {
+  if (linking.consumed) return null;
+  return typeof location !== 'undefined' ? location.href : null;
+}
+
+/**
+ * SDK 50+ additions. getLinkingURL is the synchronous "what launched this
+ * app" accessor — on the web that is simply the current address.
+ */
+export function getLinkingURL(): string | null {
+  return launchURL();
+}
+
+export function useLinkingURL(): string | null {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      if (typeof window === 'undefined') return () => {};
+      window.addEventListener('popstate', onChange);
+      window.addEventListener('hashchange', onChange);
+      return () => {
+        window.removeEventListener('popstate', onChange);
+        window.removeEventListener('hashchange', onChange);
+      };
+    },
+    () => launchURL(),
+    () => null
+  );
+}
+
+export function collectManifestSchemes(): string[] {
+  return [];
+}
+
+/**
+ * Clears the URL that launched the app, so a deep link is handled once.
+ *
+ * It does NOT touch the address bar, and that is the whole point. This used to
+ * do `history.replaceState(history.state, '', location.pathname)`, reasoning
+ * that on the web the address bar IS the launch URL. On a canvas host that
+ * reasoning fails: the app is a COMPONENT inside somebody's page, and the URL
+ * belongs to the host document, not to the app. Wiping it destroyed state the
+ * app never owned — every `?flag=` an embedder or a harness had put there,
+ * silently, seconds into boot, with no navigation to show for it.
+ *
+ * It was reached on every boot, not just on a real deep link: `getInitialURL()`
+ * returns the current address, which is always truthy, so an app guarding with
+ * `if (url) handle(url).finally(clearInitialURL)` clears unconditionally.
+ *
+ * What the callers actually want is the NATIVE semantics — expo-linking caches
+ * the launch URL and replays it to every later reader, and clearing drops that
+ * cache so a remount does not re-handle the same link. So that is what this
+ * does: the launch URL is marked consumed and every subsequent
+ * `getInitialURL` / `getLinkingURL` / `useLinkingURL` answers null. The app
+ * gets the behaviour it asked for and the page keeps its URL.
+ *
+ * (expo-linking's own web build makes this a no-op, which also leaves the URL
+ * alone but lets a remount re-handle the link. Marking it consumed is the
+ * closer match to the native contract the caller is written against.)
+ */
+export async function clearInitialURL(): Promise<void> {
+  linking.consumed = true;
 }
 
 export function addEventListener(_type: 'url', _cb: (e: { url: string }) => void): { remove: () => void } {
@@ -127,7 +214,7 @@ export function addEventListener(_type: 'url', _cb: (e: { url: string }) => void
 }
 
 export async function getInitialURL(): Promise<string | null> {
-  return typeof window !== 'undefined' ? window.location.href : null;
+  return launchURL();
 }
 
 // ---------------------------------------------------------------------------

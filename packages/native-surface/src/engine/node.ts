@@ -8,9 +8,20 @@ import {
   type FlatStyle,
   type PaintStyle,
 } from './styles';
-import { Align } from 'yoga-layout/load';
+import { Align, Direction } from 'yoga-layout/load';
+import {
+  ClonedElementStub,
+  ForeignNodeError,
+  createDomFacade,
+  nodeBoundingClientRect,
+  nodeContains,
+  type DOMRectLike,
+  type DomEventListener,
+  type DomFacade,
+  type NodeStyle,
+} from './domFacade';
 import { loadImage, releaseImageEntry, retainImageEntry, type ImageEntry } from './init';
-import { measureTextNode, measureInputNode } from './text';
+import { measureTextNode, measureInputNode, placeInlineChildren } from './text';
 import { inputNodeDestroyed } from './textInputState';
 import { MeasureMode, Overflow } from 'yoga-layout/load';
 import type { Paragraph } from 'canvaskit-wasm';
@@ -68,6 +79,21 @@ export class CNode {
   /** Set by the reconciler's hideInstance (Suspense/Offscreen): skip paint + hits. */
   hidden = false;
 
+  /**
+   * This node's own size as an inline view, measured unconstrained. Cached
+   * because it is computed BEFORE the surface's layout pass — see
+   * `measureAsInline`.
+   */
+  inlineMeasured: { width: number; height: number } | null = null;
+
+  /**
+   * Where the paragraph put this node's placeholder, in the text root's
+   * content box. Set by the text root's syncLayout, consumed by this node's
+   * own syncLayout — which otherwise reads x/y from a Yoga tree it is the ROOT
+   * of, where both are always 0.
+   */
+  inlineOffset: { x: number; y: number } | null = null;
+
   /** Paragraph cache for text roots (built during measure / paint). */
   paragraph: Paragraph | null = null;
   paragraphKey = '';
@@ -110,6 +136,19 @@ export class CNode {
     if (this.type === 'rawtext') return false;
     if (this.type === 'text') return this.isTextRoot;
     return true;
+  }
+
+  /**
+   * An element child of a `<Text>` — RN's inline view.
+   *
+   * It has its own Yoga tree but is NOT a child of its parent's Yoga node:
+   * a node with a measure function may not have children, and handing Yoga one
+   * anyway reaches Emscripten's `abort()` — `RuntimeError: Aborted()`, which no
+   * error boundary catches and which kills the surface. The paragraph gives it
+   * a placeholder instead, and `inlineOffset` below is where that landed.
+   */
+  get isInlineInText(): boolean {
+    return this.parent?.type === 'text' && !this.isTextish;
   }
 
   // -------------------------------------------------------------------------
@@ -171,7 +210,7 @@ export class CNode {
     let idx = 0;
     for (const c of this.children) {
       if (c === child) return idx;
-      if (c.participatesInYoga) idx++;
+      if (c.participatesInYoga && !c.isInlineInText) idx++;
     }
     return idx;
   }
@@ -182,6 +221,7 @@ export class CNode {
   }
 
   appendChild(child: CNode): void {
+    assertCNode(child, 'appendChild');
     if (child.parent) child.parent.removeChild(child);
     if (child.type === 'rawtext' && this.type !== 'text') {
       throw new Error('native-surface: text strings must be rendered within a <Text> component');
@@ -189,16 +229,27 @@ export class CNode {
     child.parent = this;
     this.children.push(child);
     child.setRootDeep(this.rootHooks);
-    if (child.participatesInYoga) {
-      this.ensureYoga();
-      child.ensureYoga();
-      if (this.yoga && child.yoga) this.yoga.insertChild(child.yoga, this.yogaChildIndex(child));
-    }
+    this.linkYoga(child);
     this.invalidateText();
     this.markDirty();
   }
 
+  /**
+   * Gives `child` its Yoga node and, unless it is an inline view inside a
+   * `<Text>`, parents it under this node's. An inline view keeps a Yoga tree of
+   * its OWN — see `isInlineInText` for why parenting it would abort the WASM
+   * runtime rather than throw.
+   */
+  private linkYoga(child: CNode): void {
+    if (!child.participatesInYoga) return;
+    this.ensureYoga();
+    child.ensureYoga();
+    if (child.isInlineInText) return;
+    if (this.yoga && child.yoga) this.yoga.insertChild(child.yoga, this.yogaChildIndex(child));
+  }
+
   insertBefore(child: CNode, before: CNode): void {
+    assertCNode(child, 'insertBefore');
     if (child.parent) child.parent.removeChild(child);
     if (child.type === 'rawtext' && this.type !== 'text') {
       throw new Error('native-surface: text strings must be rendered within a <Text> component');
@@ -207,11 +258,7 @@ export class CNode {
     child.parent = this;
     this.children.splice(idx < 0 ? this.children.length : idx, 0, child);
     child.setRootDeep(this.rootHooks);
-    if (child.participatesInYoga) {
-      this.ensureYoga();
-      child.ensureYoga();
-      if (this.yoga && child.yoga) this.yoga.insertChild(child.yoga, this.yogaChildIndex(child));
-    }
+    this.linkYoga(child);
     this.invalidateText();
     this.markDirty();
   }
@@ -219,16 +266,33 @@ export class CNode {
   removeChild(child: CNode): void {
     const idx = this.children.indexOf(child);
     if (idx < 0) return;
+    const wasInline = child.isInlineInText;
     this.children.splice(idx, 1);
-    if (this.yoga && child.yoga) this.yoga.removeChild(child.yoga);
+    // Never adopted by this node's Yoga (see linkYoga), so never detach it.
+    if (this.yoga && child.yoga && !wasInline) this.yoga.removeChild(child.yoga);
     child.parent = null;
     child.setRootDeep(null);
     this.invalidateText();
     this.markDirty();
   }
 
+  /**
+   * True once this node has been deleted from the tree.
+   *
+   * Async work outlives the node: an image fetch settles after the row that
+   * requested it has scrolled away and unmounted. Every such callback has to
+   * check this, because the node it closed over is otherwise indistinguishable
+   * from a live one — see `syncImage`, where adopting a late entry left a
+   * permanent reference on it.
+   */
+  destroyed = false;
+
   /** Recursively free yoga nodes + paragraphs. Called on deletion. */
   destroy(): void {
+    // Idempotent: the WASM handles below are freed here, and freeing one twice
+    // aborts the whole runtime rather than throwing something catchable.
+    if (this.destroyed) return;
+    this.destroyed = true;
     for (const c of this.children) c.destroy();
     if (this.type === 'textinput') inputNodeDestroyed(this);
     releaseImageEntry(this.imageEntry);
@@ -308,6 +372,31 @@ export class CNode {
     }
   }
 
+  /**
+   * Measures this inline view as its own Yoga ROOT, both axes unconstrained —
+   * what an inline attachment gets on a device, where the text engine asks the
+   * view for its intrinsic size.
+   *
+   * Run from `applyPreLayoutFixups`, i.e. BEFORE the surface's layout pass
+   * begins, and deliberately not from inside the text node's Yoga measure
+   * callback: Yoga keeps a global generation counter for layout caching, and
+   * starting a second `calculateLayout` while the first is still running would
+   * invalidate the outer pass's caches underneath it.
+   */
+  private measureAsInline(): void {
+    if (!this.yoga) return;
+    this.yoga.calculateLayout(undefined, undefined, Direction.LTR);
+    const l = this.yoga.getComputedLayout();
+    const width = Number.isFinite(l.width) ? l.width : 0;
+    const height = Number.isFinite(l.height) ? l.height : 0;
+    const prev = this.inlineMeasured;
+    if (prev && prev.width === width && prev.height === height) return;
+    this.inlineMeasured = { width, height };
+    // A resized inline view changes the paragraph's content: the text has to
+    // re-wrap around it. Nothing else notices a plain View's style change.
+    this.invalidateText();
+  }
+
   syncImage(): void {
     const source = this.props.source as { uri?: string; scale?: number } | string | undefined;
     const uri = typeof source === 'string' ? source : source?.uri;
@@ -322,6 +411,13 @@ export class CNode {
       return;
     }
     const acquired = loadImage(uri, (entry) => {
+      // Unmounted while the bytes were in flight. Adopting the entry here
+      // would RETAIN it on a node that will never release it again, and the
+      // LRU refuses to evict anything still referenced — so the image becomes
+      // immortal and the cache grows without bound. A feed scrolling past
+      // images faster than they load leaks one per row, and CanvasKit's heap
+      // ends that with an un-catchable `Aborted()`.
+      if (this.destroyed) return;
       if (this.imageUri !== uri) return; // source changed while loading
       releaseImageEntry(this.imageEntry);
       this.imageEntry = entry;
@@ -354,6 +450,7 @@ export class CNode {
    */
   applyPreLayoutFixups(): void {
     for (const c of this.children) c.applyPreLayoutFixups();
+    if (this.isInlineInText) this.measureAsInline();
     if (!this.yoga || !this.parent?.yoga) return;
     const parentFlat = this.parent.flatStyle;
     const wrap = parentFlat.flexWrap;
@@ -383,7 +480,12 @@ export class CNode {
   syncLayout(layoutEvents: Array<() => void>): void {
     if (this.yoga) {
       const l = this.yoga.getComputedLayout();
-      this.frame = { x: l.left, y: l.top, width: l.width, height: l.height };
+      // An inline view is the ROOT of its own Yoga tree, so Yoga's x/y are
+      // always 0 — the paragraph decided where it goes (see placeInlineChildren).
+      const at = this.inlineOffset;
+      this.frame = at
+        ? { x: at.x, y: at.y, width: l.width, height: l.height }
+        : { x: l.left, y: l.top, width: l.width, height: l.height };
       const onLayout = this.props.onLayout as ((e: { nativeEvent: { layout: Frame } }) => void) | undefined;
       if (onLayout) {
         const prev = this.lastReportedLayout;
@@ -408,6 +510,9 @@ export class CNode {
         }
       }
     }
+    // Before recursing: the text root's paragraph is what positions its inline
+    // children, and they read `inlineOffset` in their own syncLayout below.
+    if (this.type === 'text' && this.isTextRoot) placeInlineChildren(this);
     for (const c of this.children) c.syncLayout(layoutEvents);
   }
 
@@ -455,6 +560,153 @@ export class CNode {
     queueMicrotask(() => onSuccess(this.frame.x, this.frame.y, this.frame.width, this.frame.height));
   }
 
+  // -------------------------------------------------------------------------
+  // DOM facade
+  //
+  // A ref handed to React IS this object (hostConfig `getPublicInstance`), so a
+  // library's *web* build talks to a CNode in DOM. These members answer it.
+  // The logic lives in engine/domFacade.ts — read its header for the ceiling
+  // (nothing here animates) and for why the tree members are inert.
+  // -------------------------------------------------------------------------
+
+  /** CSS-animation lifecycle slots; libraries assign these directly. */
+  onanimationstart: DomEventListener | null = null;
+  onanimationend: DomEventListener | null = null;
+  onanimationcancel: DomEventListener | null = null;
+
+  /** Built on first DOM-ish access; most nodes never need one. */
+  private dom: DomFacade | null = null;
+
+  private get domFacade(): DomFacade {
+    return (this.dom ??= createDomFacade(this));
+  }
+
+  /** Inline style, `CSSStyleDeclaration`-shaped and iterable. */
+  get style(): NodeStyle {
+    return this.domFacade.style;
+  }
+
+  addEventListener(type: string, listener: DomEventListener): void {
+    this.domFacade.addEventListener(type, listener);
+  }
+
+  removeEventListener(type: string, listener: DomEventListener): void {
+    this.domFacade.removeEventListener(type, listener);
+  }
+
+  readonly nodeType = 1; // Node.ELEMENT_NODE
+
+  get tagName(): string {
+    return this.type.toUpperCase();
+  }
+
+  get nodeName(): string {
+    return this.type.toUpperCase();
+  }
+
+  /** The node's frame in page coordinates (engine/domFacade). */
+  getBoundingClientRect(): DOMRectLike {
+    return nodeBoundingClientRect(this);
+  }
+
+  get offsetWidth(): number {
+    return this.frame.width;
+  }
+
+  get offsetHeight(): number {
+    return this.frame.height;
+  }
+
+  get clientWidth(): number {
+    return this.frame.width;
+  }
+
+  get clientHeight(): number {
+    return this.frame.height;
+  }
+
+  /**
+   * Scroll offsets, readable AND writable — reanimated saves them before its
+   * exiting flow reparents things and restores them afterwards, so a read-only
+   * pair would silently zero a list's position. Only a scroll node has any;
+   * everything else reads 0 and ignores writes.
+   *
+   * A write clamps at 0 but not at the content maximum: content size may not be
+   * measured yet, and `syncLayout` already clamps against it every flush.
+   */
+  get scrollTop(): number {
+    return this.type === 'scroll' ? this.scrollY : 0;
+  }
+
+  set scrollTop(value: number) {
+    if (this.type !== 'scroll') return;
+    this.scrollY = Number.isFinite(value) ? Math.max(0, value) : 0;
+    this.markDirty();
+  }
+
+  get scrollLeft(): number {
+    return this.type === 'scroll' ? this.scrollX : 0;
+  }
+
+  set scrollLeft(value: number) {
+    if (this.type !== 'scroll') return;
+    this.scrollX = Number.isFinite(value) ? Math.max(0, value) : 0;
+    this.markDirty();
+  }
+
+  /**
+   * Always null, on purpose. reanimated's exiting path does
+   * `parent = element.offsetParent; …; parent?.appendChild(dummy)`, and
+   * `fixElementPosition` calls `getComputedStyle(element.parentElement)`.
+   * Handing either one a CNode would push a detached clone into the live tree
+   * or throw inside a browser API we do not implement; null makes both no-op.
+   * The real parent is still reachable as `.parent` for engine code.
+   */
+  get offsetParent(): null {
+    return null;
+  }
+
+  get parentElement(): null {
+    return null;
+  }
+
+  /**
+   * Always null — the single most dangerous member in this facade.
+   *
+   * reanimated's exiting flow does
+   * `while (element.firstChild) { dummy.appendChild(element.firstChild) }`,
+   * because on the web `appendChild` MOVES a node rather than copying it.
+   * Exposing real children here would drain this node's entire live subtree
+   * into a detached clone and destroy everything it renders. Reporting "no
+   * children" makes that loop a no-op, which is precisely the outcome we want:
+   * the clone stays empty and the real tree is never touched.
+   *
+   * `children` stays a real array (libraries only ever read it, and
+   * `Array.from(node.children)` already works).
+   */
+  get firstChild(): null {
+    return null;
+  }
+
+  /** `Node.contains`: this node or one of its descendants. */
+  contains(other: unknown): boolean {
+    return nodeContains(this, other);
+  }
+
+  /** `ChildNode.remove`. Detaches from the parent; the tree stays consistent. */
+  remove(): void {
+    this.parent?.removeChild(this);
+  }
+
+  /**
+   * A detached, inert stub — never a CNode, never in the render tree. See
+   * ClonedElementStub in engine/domFacade.ts. `deep` is accepted and ignored:
+   * the stub has no children either way.
+   */
+  cloneNode(_deep?: boolean): ClonedElementStub {
+    return new ClonedElementStub(this.tagName);
+  }
+
   /** zIndex-sorted children for painting (stable for equal zIndex). */
   paintOrderedChildren(): CNode[] {
     const kids = this.children.filter((c) => c.participatesInYoga);
@@ -479,4 +731,14 @@ export class CNode {
     for (const c of this.children) if (c.isTextish) out += c.textContent();
     return out;
   }
+}
+
+/**
+ * Tree mutations only accept CNodes. A web-targeted library will hand us a
+ * detached DOM-like object (reanimated's exiting flow builds one and appends
+ * to whatever it thinks the parent is); pushing that into `children` corrupts
+ * layout, paint and hit-testing far from the call that caused it.
+ */
+function assertCNode(value: CNode, method: string): void {
+  if (!(value instanceof CNode)) throw new ForeignNodeError(method, value);
 }

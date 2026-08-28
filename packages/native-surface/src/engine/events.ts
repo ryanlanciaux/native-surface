@@ -1,5 +1,6 @@
 import type { CNode } from './node';
 import { applyToPoint, invert, transformMatrix } from './matrix';
+import { inlineChildrenOf } from './text';
 import { now } from '../env/index';
 import type { Insets, PressEvent, ScrollEvent } from '../types';
 import {
@@ -87,10 +88,15 @@ function hitPath(node: CNode, x: number, y: number, out: PathEntry[]): boolean {
 
   const entry: PathEntry = { node, localX: lx, localY: ly };
 
-  if (pe !== 'box-only' && node.type !== 'text') {
+  // A text node's children are runs the paragraph drew, with nothing to hit —
+  // except its inline views, which are real nodes with their own frames and
+  // their own handlers (an interactive badge inside a display name). Those are
+  // gathered from the whole text subtree, since a nested <Text> is folded into
+  // the paragraph and its own children are positioned in THIS node's space.
+  if (pe !== 'box-only' && (node.type !== 'text' || node.isTextRoot)) {
     const cx = lx + (node.type === 'scroll' ? node.scrollX : 0);
     const cy = ly + (node.type === 'scroll' ? node.scrollY : 0);
-    const kids = node.paintOrderedChildren();
+    const kids = node.type === 'text' ? inlineChildrenOf(node) : node.paintOrderedChildren();
     for (let i = kids.length - 1; i >= 0; i--) {
       const sub: PathEntry[] = [];
       if (hitPath(kids[i]!, cx, cy, sub)) {

@@ -9,6 +9,17 @@ const absoluteFillObject: ViewStyle = {
   bottom: 0,
 };
 
+/**
+ * Shared across duplicate module copies, for the reason spelled out in
+ * api/Dimensions.ts: a bundler inlines this module into every prebundled
+ * dependency that imports it, so the renderer would set ITS copy's hairline
+ * from the surface's dpr while the app kept reading its own copy's 0.5 default
+ * and drew every hairline border at the wrong width.
+ */
+const hairline = (globalThis as unknown as { __nativeSurfaceHairline?: { width: number } }).__nativeSurfaceHairline ??= {
+  width: 0.5,
+};
+
 export const StyleSheet = {
   // RN's constrained signature: the NamedStyles bound gives TS a contextual
   // type, so string literals in style objects stay narrow ('row', not string).
@@ -29,11 +40,16 @@ export const StyleSheet = {
   /**
    * 1/dpr of the primary root. 0.5 until the first root exists (module-load
    * time), then updated — like RN, capture it at render time, not import time.
+   *
+   * A getter, not a value, so every copy of this module reads the one the
+   * renderer actually set (see `hairline` above).
    */
-  hairlineWidth: 0.5,
+  get hairlineWidth(): number {
+    return hairline.width;
+  },
 };
 
 /** Internal: called by the renderer when the primary root is (re)established. */
 export function setHairlineWidth(w: number): void {
-  StyleSheet.hairlineWidth = w;
+  hairline.width = w;
 }

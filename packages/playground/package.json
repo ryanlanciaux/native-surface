@@ -1,25 +1,41 @@
 {
-  "name": "playground",
-  "version": "0.1.0",
+  "name": "@native-surface/playground",
+  "version": "0.1.0-alpha.1",
   "license": "MIT",
+  "description": "Component playground for native-surface: serve any React Native app's stories on the canvas engine - real Yoga layout, Skia paint, shareable URLs, no device.",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanlanciaux/native-surface.git",
+    "directory": "packages/playground"
+  },
   "type": "module",
+  "bin": {
+    "native-surface-playground": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "index.html",
+    "README.md"
+  ],
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'no tests in playground yet'"
+    "test": "vitest run"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
     "native-surface": "workspace:*",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "vite": "^6.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vitest": "^3.0.0"
   }
 }

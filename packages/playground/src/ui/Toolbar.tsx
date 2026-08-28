@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Theme } from '../story-types';
 import { VIEWPORTS } from '../viewports';
 
@@ -22,6 +23,38 @@ function clampSize(raw: string, current: number): number {
   const value = Number.parseInt(raw, 10);
   if (!Number.isFinite(value)) return current;
   return Math.min(2000, Math.max(80, value));
+}
+
+/** The story id already lives in the URL hash, so "copy link" is just the
+ *  current address — shareable deep link included. */
+function CopyLink(): React.JSX.Element {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const copy = async (): Promise<void> => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Clipboard API needs a secure context; fall back to execCommand.
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+    }
+    setCopied(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button type="button" className="chip" title="Copy a shareable link to this story" onClick={() => void copy()}>
+      {copied ? 'Copied' : 'Copy link'}
+    </button>
+  );
 }
 
 export function Toolbar(props: ToolbarProps): React.JSX.Element {
@@ -117,6 +150,10 @@ export function Toolbar(props: ToolbarProps): React.JSX.Element {
             {option === 'ios' ? 'iOS' : 'Android'}
           </button>
         ))}
+      </div>
+
+      <div className="tool-group">
+        <CopyLink />
       </div>
     </header>
   );

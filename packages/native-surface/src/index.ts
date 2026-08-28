@@ -1,5 +1,7 @@
 // Engine lifecycle
 export { initEngine } from './engine/init';
+// Raw-pixel image registration (compat placeholders: blurhash/thumbhash)
+export { putImagePixels, hasImage } from './engine/init';
 export { createNativeRoot, snapshotPNG } from './engine/renderer';
 
 // Embed component
@@ -15,7 +17,12 @@ export {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
 } from './components/primitives';
+export { Switch } from './components/Switch';
+export type { SwitchProps } from './components/Switch';
+export { Modal } from './components/Modal';
+export type { ModalProps } from './components/Modal';
 
 // Auxiliary RN surface for third-party libraries (see api/extras.tsx policy)
 export {
@@ -43,6 +50,19 @@ export {
   useColorScheme,
   KeyboardAvoidingView,
   LayoutAnimation,
+  requireNativeComponent,
+  unstable_batchedUpdates,
+  DeviceEventEmitter,
+  Vibration,
+  Systrace,
+  DevSettings,
+  ToastAndroid,
+  PermissionsAndroid,
+  Settings,
+  ActionSheetIOS,
+  DynamicColorIOS,
+  codegenNativeComponent,
+  codegenNativeCommands,
 } from './api/extras';
 export type {
   FlatListProps,
@@ -58,8 +78,38 @@ export type {
 // APIs
 export { StyleSheet } from './api/StyleSheet';
 export { Platform, setPlatformOS } from './api/Platform';
-export { Dimensions, useWindowDimensions, PixelRatio } from './api/Dimensions';
+export { Dimensions, useWindowDimensions, PixelRatio, useSurfaceInsets } from './api/Dimensions';
+export type { SurfaceInsets } from './api/Dimensions';
 export { Animated, Easing, useAnimatedValue, AnimatedValue } from './api/Animated';
+export { Appearance } from './api/Appearance';
+export type { ColorSchemeName, AppearancePreferences } from './api/Appearance';
+export { AppState } from './api/AppState';
+export type { AppStateStatus, AppStateEvent, AppStateSubscription } from './api/AppState';
+export { Alert } from './api/Alert';
+export type { AlertButton, AlertButtonStyle, AlertOptions, AlertPromptType } from './api/Alert';
+export { Share } from './api/Share';
+export type { ShareContent, ShareOptions, ShareAction } from './api/Share';
+export { PanResponder } from './api/PanResponder';
+export type {
+  PanResponderCallbacks,
+  PanResponderCallback,
+  PanResponderEvent,
+  PanResponderGestureState,
+  PanResponderHandlers,
+  PanResponderInstance,
+  PanResponderShouldSet,
+  PanResponderTouch,
+} from './api/PanResponder';
+export { AppRegistry } from './api/AppRegistry';
+export type {
+  AppComponent,
+  AppConfig,
+  AppParameters,
+  Application,
+  ComponentProvider,
+  Runnable,
+  WrapperComponentProvider,
+} from './api/AppRegistry';
 export { processColor } from './engine/colors';
 
 // Types

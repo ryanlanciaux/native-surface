@@ -9,8 +9,9 @@
  */
 import * as React from 'react';
 import { Pressable, View } from '../components/primitives';
+import { Appearance, type ColorSchemeName } from './Appearance';
 import { dismissKeyboard, setKeyboardEmitter } from '../engine/textInputState';
-import type { PressableProps, StyleProp, ViewStyle } from '../types';
+import type { PressableProps, StyleProp, ViewProps, ViewStyle } from '../types';
 
 interface Subscription {
   remove(): void;
@@ -99,6 +100,83 @@ export function TouchableHighlight(props: TouchableHighlightProps): React.JSX.El
   );
 }
 
+/**
+ * requireNativeComponent — RN's escape hatch for a view implemented natively.
+ * There are no native views here, so the returned component degrades to an
+ * empty box: children still render, View-safe props still apply, and the first
+ * render warns once NAMING the component so the gap is findable.
+ *
+ * Degrading beats throwing for this one specifically. Libraries call it at
+ * module scope for views they may never render (a video surface, a map, an ad
+ * slot), and a throw would take out the importing module — the failure this
+ * whole surface exists to prevent. A missing native view should be an empty
+ * box in the layout, not a dead screen.
+ *
+ * Props are filtered rather than forwarded wholesale: native props (source,
+ * onNativeEvent, driver-specific config) mean nothing to a canvas node, so only
+ * layout/identity/accessibility props pass through.
+ */
+const VIEW_SAFE_PROPS = new Set(['ref', 'style', 'children', 'testID', 'pointerEvents', 'onLayout']);
+const warnedNativeComponents = new Set<string>();
+
+export function requireNativeComponent<P extends object>(name: string): React.ComponentType<P> {
+  const NativeViewFallback: React.FC<Record<string, unknown>> = (props) => {
+    if (!warnedNativeComponents.has(name)) {
+      warnedNativeComponents.add(name);
+      console.warn(
+        `native-surface: requireNativeComponent('${name}') — no native views exist on the canvas host; rendering an empty View in its place.`
+      );
+    }
+    const safe: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(props)) {
+      if (VIEW_SAFE_PROPS.has(key) || key === 'role' || key.startsWith('accessibility') || key.startsWith('aria-')) {
+        safe[key] = value;
+      }
+    }
+    return <View {...(safe as ViewProps)} />;
+  };
+  NativeViewFallback.displayName = `NativeView(${name})`;
+  return NativeViewFallback as React.ComponentType<P>;
+}
+
+/**
+ * codegenNativeComponent — the Fabric-era spelling of the same escape hatch.
+ * Libraries built for the new architecture (reanimated 4, screens, pager-view)
+ * declare their host views this way, at module scope, and the name is what
+ * the codegen would have registered. Same degrade-don't-throw contract as
+ * requireNativeComponent, for the same reason.
+ */
+export function codegenNativeComponent<P extends object>(
+  name: string,
+  _options?: Record<string, unknown>
+): React.ComponentType<P> {
+  return requireNativeComponent<P>(name);
+}
+
+/**
+ * codegenNativeCommands — imperative commands dispatched at a native view's
+ * ref (scrollToIndex on a native list, setPage on a native pager). There is
+ * no native view to receive them, so each command is an inert function that
+ * warns once. Returning an object rather than throwing keeps the library's
+ * module-scope `const Commands = codegenNativeCommands({...})` alive.
+ */
+export function codegenNativeCommands<T extends Record<string, unknown>>(options: {
+  supportedCommands: ReadonlyArray<string>;
+}): T {
+  const commands: Record<string, unknown> = {};
+  for (const command of options?.supportedCommands ?? []) {
+    commands[command] = (..._args: unknown[]) => {
+      if (!warnedNativeComponents.has(`cmd:${command}`)) {
+        warnedNativeComponents.add(`cmd:${command}`);
+        console.warn(
+          `native-surface: native command '${command}' has no receiver on the canvas host; the call is a no-op.`
+        );
+      }
+    };
+  }
+  return commands as T;
+}
+
 function throwingComponent(name: string, why: string): React.ComponentType<Record<string, unknown>> {
   const Throwing: React.FC<Record<string, unknown>> = () => {
     throw new Error(`native-surface: <${name}> is not supported in v1 (${why}). It may be imported but not rendered.`);
@@ -142,9 +220,21 @@ export const NativeModules: Record<string, unknown> = new Proxy(
 );
 const warnedNativeModules = new Set<string>();
 
-/** Color scheme: the canvas host renders the embedding page; report light. */
-export function useColorScheme(): 'light' | 'dark' | null {
-  return 'light';
+/**
+ * Color scheme: RN's hook over the Appearance module, so a setColorScheme()
+ * override and the page's prefers-color-scheme reach hook consumers the same
+ * way they reach Appearance.getColorScheme() callers.
+ */
+export function useColorScheme(): ColorSchemeName {
+  const [scheme, setScheme] = React.useState<ColorSchemeName>(() => Appearance.getColorScheme());
+  React.useEffect(() => {
+    // Re-read on subscribe: the scheme can change between the initial render
+    // and the effect (a theme provider calling setColorScheme on mount).
+    setScheme(Appearance.getColorScheme());
+    const sub = Appearance.addChangeListener((preferences) => setScheme(preferences.colorScheme));
+    return () => sub.remove();
+  }, []);
+  return scheme;
 }
 
 /** No OS keyboard on a canvas host: behaves as a plain View (documented RN props accepted). */
@@ -188,10 +278,35 @@ export const I18nManager = {
   getConstants: () => ({ isRTL: false, doLeftAndRightSwapInRTL: true, localeIdentifier: 'en-US' }),
 };
 
+/**
+ * AccessibilityInfo — the assistive-technology state, which a canvas surface
+ * genuinely does not have: the tree the screen reader would walk is pixels, not
+ * a11y nodes. Every query therefore answers "off" and every command is inert.
+ *
+ * The whole documented surface is present rather than the two members that
+ * happen to be common, because a MISSING member is a TypeError at the call
+ * site — `AccessibilityInfo.setAccessibilityFocus(tag)` on a focus trap takes
+ * down whatever opened the dialog, where an inert one costs nothing. Reduced
+ * motion is the one signal a browser can answer, and Appearance/useReducedMotion
+ * are where that already comes from.
+ */
 export const AccessibilityInfo = {
   isScreenReaderEnabled: (): Promise<boolean> => Promise.resolve(false),
   isReduceMotionEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isReduceTransparencyEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isBoldTextEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isGrayscaleEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isInvertColorsEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isAccessibilityServiceEnabled: (): Promise<boolean> => Promise.resolve(false),
+  prefersCrossFadeTransitions: (): Promise<boolean> => Promise.resolve(false),
+  /** RN's default when no assistive timeout is set: the caller's own value. */
+  getRecommendedTimeoutMillis: (original: number): Promise<number> => Promise.resolve(original),
   addEventListener: (_event: string, _cb: (...args: unknown[]) => void): Subscription => ({ remove() {} }),
+  /** No a11y focus ring to move — there is no accessibility tree to move it in. */
+  setAccessibilityFocus: (_reactTag: number): void => {},
+  announceForAccessibility: (_announcement: string): void => {},
+  announceForAccessibilityWithOptions: (_announcement: string, _options?: Record<string, unknown>): void => {},
+  sendAccessibilityEvent: (_handle: unknown, _action: string): void => {},
 };
 
 export const InteractionManager = {
@@ -271,6 +386,17 @@ export const Linking = {
   }),
   openURL: async (_url: string): Promise<void> => {},
   canOpenURL: async (_url: string): Promise<boolean> => false,
+  /**
+   * iOS's "open this app's page in Settings.app". There is no OS settings page
+   * for a web page, and no browser API grants one — a site cannot open the
+   * user's notification or permission settings. Apps reach for this from a
+   * "permission denied → Open Settings" button, so it resolves inertly rather
+   * than throwing: the button does nothing, which is the truth, instead of
+   * taking down the screen it is on.
+   */
+  openSettings: async (): Promise<void> => {},
+  /** Android intents. No Android, no intents. */
+  sendIntent: async (_action: string, _extras?: Array<{ key: string; value: string | number | boolean }>): Promise<void> => {},
 };
 
 /**
@@ -280,4 +406,165 @@ export const Linking = {
  */
 export function PlatformColor(..._names: string[]): string {
   return '#000000';
+}
+
+// ---------------------------------------------------------------------------
+// Remaining react-native surface that libraries import at module scope.
+//
+// The rule these all follow: a missing NAME breaks the importing module at
+// link time, which takes out far more than the feature it belongs to. Each of
+// these is either genuinely implementable here or an honest, documented inert
+// stand-in — never a throw at import.
+// ---------------------------------------------------------------------------
+
+/**
+ * React 18+ batches automatically, so this is a passthrough rather than a
+ * no-op wrapper: callers rely on the callback running synchronously.
+ */
+export function unstable_batchedUpdates<T, R>(callback: (arg: T) => R, arg?: T): R {
+  return callback(arg as T);
+}
+
+/** RN's global event bus. Real emitter — app code both emits and listens. */
+class DeviceEventEmitterImpl {
+  private listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  addListener(event: string, listener: (...args: unknown[]) => void): { remove(): void } {
+    let set = this.listeners.get(event);
+    if (!set) this.listeners.set(event, (set = new Set()));
+    set.add(listener);
+    return { remove: () => void set!.delete(listener) };
+  }
+  removeAllListeners(event?: string): void {
+    if (event) this.listeners.get(event)?.clear();
+    else this.listeners.clear();
+  }
+  removeSubscription(sub: { remove(): void }): void {
+    sub.remove();
+  }
+  listenerCount(event: string): number {
+    return this.listeners.get(event)?.size ?? 0;
+  }
+  emit(event: string, ...args: unknown[]): void {
+    for (const l of [...(this.listeners.get(event) ?? [])]) l(...args);
+  }
+}
+export const DeviceEventEmitter = new DeviceEventEmitterImpl();
+
+/** navigator.vibrate where available; silently absent otherwise (as on a device with it disabled). */
+export const Vibration = {
+  vibrate(pattern: number | number[] = 400, _repeat = false): void {
+    try {
+      (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(pattern);
+    } catch {
+      /* refused without a user gesture */
+    }
+  },
+  cancel(): void {
+    try {
+      (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(0);
+    } catch {
+      /* nothing to cancel */
+    }
+  },
+};
+
+/** RN's internal profiler hooks; inert but shaped, because libraries call them in hot paths. */
+export const Systrace = {
+  installReactHook(): void {},
+  setEnabled(_enabled: boolean): void {},
+  beginEvent(_name?: string | (() => string), _args?: unknown): void {},
+  endEvent(_args?: unknown): void {},
+  beginAsyncEvent(_name?: string | (() => string)): number {
+    return 0;
+  },
+  endAsyncEvent(): void {},
+  counterEvent(): void {},
+  isEnabled(): boolean {
+    return false;
+  },
+};
+
+/** Dev-menu controls; no dev menu exists on this host. */
+export const DevSettings = {
+  addMenuItem(_title: string, _handler: () => void): void {},
+  reload(_reason?: string): void {
+    if (typeof location !== 'undefined') location.reload();
+  },
+  onFastRefresh(): void {},
+  setHotLoadingEnabled(_enabled: boolean): void {},
+  setIsDebuggingRemotely(_enabled: boolean): void {},
+  setProfilingEnabled(_enabled: boolean): void {},
+};
+
+/** Android-only in RN; accepted and inert so cross-platform code links. */
+export const ToastAndroid = {
+  SHORT: 0,
+  LONG: 1,
+  TOP: 0,
+  BOTTOM: 1,
+  CENTER: 2,
+  show(_message: string, _duration: number): void {},
+  showWithGravity(_m: string, _d: number, _g: number): void {},
+  showWithGravityAndOffset(_m: string, _d: number, _g: number, _x: number, _y: number): void {},
+};
+
+/** Android runtime permissions; the browser brokers its own at point of use. */
+export const PermissionsAndroid = {
+  PERMISSIONS: new Proxy({} as Record<string, string>, { get: (_t, p) => String(p) }),
+  RESULTS: { GRANTED: 'granted', DENIED: 'denied', NEVER_ASK_AGAIN: 'never_ask_again' } as const,
+  async check(_permission: string): Promise<boolean> {
+    return true;
+  },
+  async request(_permission: string): Promise<string> {
+    return 'granted';
+  },
+  async requestMultiple(permissions: string[]): Promise<Record<string, string>> {
+    return Object.fromEntries(permissions.map((p) => [p, 'granted']));
+  },
+};
+
+/** iOS Settings.bundle values; none exist here, so reads are null. */
+export const Settings = {
+  get(_key: string): unknown {
+    return null;
+  },
+  set(_settings: Record<string, unknown>): void {},
+  watchKeys(_keys: string | string[], _callback: () => void): number {
+    return 0;
+  },
+  clearWatch(_watchId: number): void {},
+};
+
+/** iOS action sheets — browser-native chrome, same trade as Alert. */
+export const ActionSheetIOS = {
+  showActionSheetWithOptions(
+    options: { options: string[]; cancelButtonIndex?: number; title?: string; message?: string },
+    callback: (index: number) => void
+  ): void {
+    const { options: labels, cancelButtonIndex, title, message } = options;
+    if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
+      callback(cancelButtonIndex ?? 0);
+      return;
+    }
+    const list = labels.map((l, i) => `${i}: ${l}`).join('\n');
+    const answer = window.prompt(`${title ?? ''}${message ? `\n${message}` : ''}\n${list}`.trim(), '');
+    const index = answer === null ? cancelButtonIndex ?? 0 : Number.parseInt(answer, 10);
+    callback(Number.isFinite(index) && index >= 0 && index < labels.length ? index : cancelButtonIndex ?? 0);
+  },
+  showShareActionSheetWithOptions(
+    _options: unknown,
+    _onError: (e: Error) => void,
+    onSuccess: (completed: boolean, method: string | null) => void
+  ): void {
+    onSuccess(false, null);
+  },
+  dismissActionSheet(): void {},
+};
+
+/**
+ * iOS dynamic colors resolve per appearance. The engine paints one scheme at
+ * a time, so this collapses to the light value — Appearance drives the rest.
+ */
+export function DynamicColorIOS(tuple: { light: string; dark: string; highContrastLight?: string; highContrastDark?: string }): string {
+  return tuple.light;
 }

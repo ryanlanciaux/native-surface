@@ -60,8 +60,46 @@ export function useKeyboardState(): typeof CLOSED_STATE {
   return CLOSED_STATE;
 }
 
-function staticValue(v: number): { value: number } {
-  return { value: v };
+/**
+ * A reanimated SharedValue that nothing ever drives.
+ *
+ * The SHAPE is the load-bearing part. This used to return `{ value: 0 }`, and
+ * reanimated 3 code reading `.value` was happy — but reanimated 4 renamed the
+ * accessors, and every real caller now writes `height.get()`. Bluesky's
+ * `Dialog.FlatListFooter`, `KeyboardStickyView` and its message composer all
+ * do. A bare `{value}` therefore threw `height.get is not a function` the
+ * moment one of those rendered, which is a crash rather than a missing
+ * feature — the exact "a missing MEMBER fails late" shape that has now cost
+ * this project several round-trips.
+ *
+ * So the whole documented SharedValue surface is here. `set` really does
+ * write and really does notify, because a caller that writes to a keyboard
+ * value and reads it back should see what it wrote; nothing else will ever
+ * move it, since there is no OS keyboard on a canvas host.
+ */
+export interface InertSharedValue<T> {
+  value: T;
+  get(): T;
+  set(next: T | ((current: T) => T)): void;
+  addListener(id: number, listener: (current: T) => void): void;
+  removeListener(id: number): void;
+  modify(modifier?: (current: T) => T, forceUpdateUI?: boolean): void;
+}
+
+function staticValue<T>(initial: T): InertSharedValue<T> {
+  const listeners = new Map<number, (current: T) => void>();
+  const shared: InertSharedValue<T> = {
+    value: initial,
+    get: () => shared.value,
+    set: (next) => {
+      shared.value = typeof next === 'function' ? (next as (c: T) => T)(shared.value) : next;
+      for (const listener of [...listeners.values()]) listener(shared.value);
+    },
+    addListener: (id, listener) => void listeners.set(id, listener),
+    removeListener: (id) => void listeners.delete(id),
+    modify: (modifier) => shared.set(modifier ? modifier(shared.value) : shared.value),
+  };
+  return shared;
 }
 
 export function useKeyboardAnimation() {
@@ -76,3 +114,118 @@ export const KeyboardEvents = {
 };
 
 export const KeyboardGestureArea: React.FC<ViewProps & { children?: React.ReactNode }> = (props) => <View {...props} />;
+
+// ---------------------------------------------------------------------------
+// The rest of the package's documented surface.
+//
+// Everything below follows the same truth as above: no OS keyboard exists on
+// a canvas host, so the avoiding/sticky/toolbar views are layout passthroughs
+// and every measurement is zero. They exist as real exports because a missing
+// NAME breaks the whole ESM module at link time — and apps wrap their ROOT in
+// these, so that failure is total rather than local.
+// ---------------------------------------------------------------------------
+
+export interface KeyboardAvoidingViewProps extends ViewProps {
+  behavior?: 'height' | 'position' | 'padding' | 'translate-with-padding';
+  contentContainerStyle?: ViewProps['style'];
+  keyboardVerticalOffset?: number;
+  enabled?: boolean;
+  children?: React.ReactNode;
+}
+
+/** With a permanently-closed keyboard there is nothing to avoid: a plain View. */
+export const KeyboardAvoidingView: React.FC<KeyboardAvoidingViewProps> = ({
+  behavior: _behavior,
+  contentContainerStyle: _contentContainerStyle,
+  keyboardVerticalOffset: _keyboardVerticalOffset,
+  enabled: _enabled,
+  children,
+  ...rest
+}) => <View {...rest}>{children}</View>;
+
+export interface KeyboardChatScrollViewProps extends ScrollViewProps {
+  children?: React.ReactNode;
+}
+export const KeyboardChatScrollView: React.FC<KeyboardChatScrollViewProps> = (props) => (
+  <ScrollView {...props} />
+);
+
+export interface KeyboardToolbarProps {
+  children?: React.ReactNode;
+  content?: React.ReactNode;
+  doneText?: React.ReactNode;
+  showArrows?: boolean;
+  opacity?: string;
+  onDoneCallback?: () => void;
+  onNextCallback?: () => void;
+  onPrevCallback?: () => void;
+  [key: string]: unknown;
+}
+
+/** The toolbar docks to a keyboard that never appears, so it renders nothing. */
+export const KeyboardToolbar: React.FC<KeyboardToolbarProps> = () => null;
+
+export const DefaultKeyboardToolbarTheme = {
+  dark: { primary: '#FFFFFF', disabled: '#555555', background: '#232323', ripple: '#FFFFFF' },
+  light: { primary: '#000000', disabled: '#B4B4B4', background: '#F0F0F0', ripple: '#000000' },
+} as const;
+
+/**
+ * Views that render ABOVE the keyboard in a separate native window. There is
+ * no such window here; children render inline so their content is at least
+ * reachable, which beats dropping it.
+ */
+export const OverKeyboardView: React.FC<{ visible?: boolean; children?: React.ReactNode }> = ({
+  visible = true,
+  children,
+}) => (visible ? <View>{children}</View> : null);
+
+export const KeyboardExtender: React.FC<{ enabled?: boolean; children?: React.ReactNode }> = ({
+  children,
+}) => <View>{children}</View>;
+
+/** KeyboardStickyView's documented offset shape, for consumers that type it. */
+export interface KeyboardStickyViewProps extends ViewProps {
+  offset?: { closed?: number; opened?: number };
+  enabled?: boolean;
+  children?: React.ReactNode;
+}
+
+export const AndroidSoftInputModes = {
+  SOFT_INPUT_ADJUST_NOTHING: 48,
+  SOFT_INPUT_ADJUST_PAN: 32,
+  SOFT_INPUT_ADJUST_RESIZE: 16,
+  SOFT_INPUT_ADJUST_UNSPECIFIED: 0,
+  SOFT_INPUT_IS_FORWARD_NAVIGATION: 256,
+  SOFT_INPUT_MASK_ADJUST: 240,
+  SOFT_INPUT_MASK_STATE: 15,
+  SOFT_INPUT_MODE_CHANGED: 512,
+  SOFT_INPUT_STATE_ALWAYS_HIDDEN: 3,
+  SOFT_INPUT_STATE_ALWAYS_VISIBLE: 5,
+  SOFT_INPUT_STATE_HIDDEN: 2,
+  SOFT_INPUT_STATE_UNCHANGED: 1,
+  SOFT_INPUT_STATE_UNSPECIFIED: 0,
+  SOFT_INPUT_STATE_VISIBLE: 4,
+} as const;
+
+/** Focused-input controls; the engine's own TextInput owns focus here. */
+export const FocusedInputEvents = {
+  addListener: (_event: string, _cb: (e: unknown) => void) => ({ remove: () => {} }),
+};
+
+export function useFocusedInputHandler(_handlers: Record<string, unknown>, _deps?: unknown[]): void {}
+export function useKeyboardHandler(_handlers: Record<string, unknown>, _deps?: unknown[]): void {}
+export function useFocusedInputLayout() {
+  return React.useMemo(() => ({ value: null }), []);
+}
+export function useKeyboardContext() {
+  return React.useMemo(
+    () => ({
+      animated: { progress: staticValue(0), height: staticValue(0) },
+      reanimated: { progress: staticValue(0), height: staticValue(0) },
+      layout: { value: null },
+      setEnabled: (_enabled: boolean) => {},
+    }),
+    []
+  );
+}

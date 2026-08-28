@@ -12,7 +12,7 @@
  * like they do on a device).
  */
 import * as React from 'react';
-import { View, useWindowDimensions } from 'native-surface';
+import { View, useSurfaceInsets, useWindowDimensions } from 'native-surface';
 import type { StyleProp, ViewStyle } from 'native-surface';
 
 export interface EdgeInsets {
@@ -74,7 +74,25 @@ export interface SafeAreaProviderProps {
 
 export function SafeAreaProvider({ children, initialMetrics, style }: SafeAreaProviderProps): React.JSX.Element {
   const window = useWindowDimensions();
-  const insets = initialMetrics?.insets ?? ZERO;
+  /**
+   * The SURFACE's declared insets are the fallback, not zero.
+   *
+   * Apps overwhelmingly write `<SafeAreaProvider initialMetrics={initialWindowMetrics}>`,
+   * and `initialWindowMetrics` is `null` here — honestly so: at module-eval
+   * time no surface exists yet, which is the same "not measured yet" the real
+   * package reports on Android. But that meant an embedder standing a surface
+   * in for a device viewport had NO way to give the app that device's insets:
+   * `simulatedDeviceMetrics()` only reaches an app that opts into calling it,
+   * and no real app does. So the app laid out flush to the bezel, and a
+   * `fullHeight` sheet — sized `screenHeight - insets.top` — covered the whole
+   * surface with no backdrop left to dismiss it by.
+   *
+   * `<NativeSurface safeAreaInsets={...}>` is where the embedder declares them
+   * now, and this is where they arrive. Explicit `initialMetrics` still wins:
+   * an app passing real values means them.
+   */
+  const surfaceInsets = useSurfaceInsets();
+  const insets = initialMetrics?.insets ?? surfaceInsets;
   const frame = initialMetrics?.frame ?? { x: 0, y: 0, width: window.width, height: window.height };
   return (
     <SafeAreaInsetsContext.Provider value={insets}>

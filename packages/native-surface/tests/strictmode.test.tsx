@@ -41,6 +41,7 @@ vi.mock('../src/engine/renderer', () => {
       dispatchPointerEvent: () => {},
       setTheme: () => {},
       setOnAction: () => {},
+      setSafeAreaInsets: () => {},
       resolveFlush: resolve,
     };
   };

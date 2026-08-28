@@ -5,7 +5,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "dev": "pnpm --filter playground dev",
+    "dev": "pnpm --filter @native-surface/playground dev",
     "demo": "pnpm --filter embed-demo dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",

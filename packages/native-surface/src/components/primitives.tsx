@@ -30,6 +30,19 @@ export function View(props: ViewProps): React.JSX.Element {
   return createElement(CnView, rest, children);
 }
 
+/**
+ * SafeAreaView — a plain View passthrough. RN's component is a View plus the
+ * OS chrome insets, and a canvas surface has no OS chrome: no notch, no status
+ * bar, no home indicator, so every inset is 0 and the passthrough is the
+ * FAITHFUL rendering, not a degraded one. Apps that want the embedding page's
+ * real insets (env(safe-area-inset-*) on a full-bleed web host) use the
+ * react-native-safe-area-context compat shim, which the preset aliases — this
+ * export exists so `import { SafeAreaView } from 'react-native'` links at all.
+ */
+export function SafeAreaView(props: ViewProps): React.JSX.Element {
+  return createElement(View, props);
+}
+
 export function Text(props: TextProps): React.JSX.Element {
   const { children, onPress, ...rest } = props;
   const pressProps = onPress
@@ -98,8 +111,15 @@ export function TouchableOpacity(props: TouchableOpacityProps): React.JSX.Elemen
   );
 }
 
-export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps>(function ScrollView(
-  props: ScrollViewProps,
+/** Typed here (not in ScrollViewProps) to keep the paging plumbing scoped to
+ *  this file; the engine reads it off the scroll spec (scrollPhysics.ts). */
+type PagingScrollViewProps = ScrollViewProps & {
+  /** Snap releases to viewport-sized page boundaries (UIScrollView pagingEnabled). */
+  pagingEnabled?: boolean;
+};
+
+export const ScrollView = React.forwardRef<ScrollViewHandle, PagingScrollViewProps>(function ScrollView(
+  props: PagingScrollViewProps,
   ref
 ): React.JSX.Element {
   const {
@@ -112,6 +132,7 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps>(fu
     showsHorizontalScrollIndicator = true,
     decelerationRate = 'normal',
     bounces = true,
+    pagingEnabled = false,
     scrollEventThrottle: _scrollEventThrottle, // engine emits per painted frame
     onScroll,
     onScrollBeginDrag,
@@ -137,6 +158,7 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps>(fu
     horizontal,
     enabled: scrollEnabled,
     bounces,
+    pagingEnabled,
     decelerationRate,
     onScroll,
     onScrollBeginDrag,

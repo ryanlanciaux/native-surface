@@ -1,8 +1,8 @@
 import type { Canvas, CanvasKit } from 'canvaskit-wasm';
-import { Edge } from 'yoga-layout/load';
 import { parseColor, type RGBA } from './colors';
+import { makeGradientShader, paintDrawOps, type DrawSpec, type GradientStop } from './drawOps';
 import type { CNode } from './node';
-import { getParagraph, getInputParagraph } from './text';
+import { contentInsetsOf, getParagraph, getInputParagraph, inlineChildrenOf } from './text';
 import { hasDomOverlay } from './textInputState';
 import { transformMatrix } from './matrix';
 import { now } from '../env/index';
@@ -29,6 +29,54 @@ function rrectFor(node: CNode, inset: number): Float32Array {
     inset, inset, width - inset, height - inset,
     cl(tl), cl(tl), cl(tr), cl(tr), cl(br), cl(br), cl(bl), cl(bl)
   );
+}
+
+/**
+ * Engine channel for compat/linear-gradient (expo-linear-gradient +
+ * react-native-linear-gradient union). start/end are FRACTIONS of the box.
+ */
+interface GradientChannel {
+  colors: Array<string | number>;
+  locations?: number[] | null;
+  start?: { x: number; y: number } | null;
+  end?: { x: number; y: number } | null;
+  angle?: number;
+  useAngle?: boolean;
+  angleCenter?: { x: number; y: number };
+}
+
+function paintGradient(ctx: PaintContext, node: CNode, spec: GradientChannel): void {
+  const { ck, canvas } = ctx;
+  const n = spec.colors.length;
+  if (n === 0) return;
+  const stops: GradientStop[] = spec.colors.map((color, i) => ({
+    color,
+    offset: spec.locations?.[i] ?? (n > 1 ? i / (n - 1) : 0),
+  }));
+  let start = spec.start ?? { x: 0.5, y: 0 };
+  let end = spec.end ?? { x: 0.5, y: 1 };
+  if (spec.useAngle) {
+    // react-native-linear-gradient: degrees clockwise, 0 points up. The
+    // gradient line spans √2 box units through angleCenter (Android impl).
+    const c = spec.angleCenter ?? { x: 0.5, y: 0.5 };
+    const rad = (((spec.angle ?? 0) - 90) * Math.PI) / 180;
+    const vx = (Math.cos(rad) * Math.SQRT2) / 2;
+    const vy = (Math.sin(rad) * Math.SQRT2) / 2;
+    start = { x: c.x - vx, y: c.y - vy };
+    end = { x: c.x + vx, y: c.y + vy };
+  }
+  const shader = makeGradientShader(
+    ck,
+    { type: 'linear', x1: start.x, y1: start.y, x2: end.x, y2: end.y, stops, units: 'objectBoundingBox' },
+    Float32Array.of(0, 0, node.frame.width, node.frame.height)
+  );
+  if (!shader) return;
+  const paint = new ck.Paint();
+  paint.setAntiAlias(true);
+  paint.setShader(shader);
+  canvas.drawRRect(rrectFor(node, 0), paint);
+  paint.delete();
+  shader.delete();
 }
 
 function paintBox(ctx: PaintContext, node: CNode): void {
@@ -63,6 +111,61 @@ function paintBox(ctx: PaintContext, node: CNode): void {
     canvas.drawRRect(rrectFor(node, 0), paint);
     paint.delete();
   }
+
+  const gradient = node.props.__gradient as GradientChannel | undefined;
+  if (gradient) paintGradient(ctx, node, gradient);
+}
+
+/** Engine channel for compat/blur (expo-blur + @react-native-community/blur). */
+interface BackdropBlurChannel {
+  /** expo-blur semantics: 0–100. */
+  intensity?: number;
+  /** 'light' | 'dark' | 'default', or a color string to tint with directly. */
+  tint?: string;
+}
+
+const BLUR_TINTS: Record<string, RGBA> = {
+  light: { r: 255, g: 255, b: 255, a: 0.55 },
+  dark: { r: 0, g: 0, b: 0, a: 0.45 },
+  default: { r: 255, g: 255, b: 255, a: 0.3 },
+};
+
+/**
+ * Frosted glass: a saveLayer whose backdrop ImageFilter blurs the scene
+ * already painted beneath the node, confined to the node's rounded rect,
+ * then a tint wash approximating the platform material. Runs BEFORE the
+ * node's own box/opacity layer — a fresh layer has no backdrop to read.
+ */
+function paintBackdropBlur(ctx: PaintContext, node: CNode, spec: BackdropBlurChannel): void {
+  const { ck, canvas } = ctx;
+  const { width, height } = node.frame;
+  if (width <= 0 || height <= 0) return;
+  const intensity = Math.min(Math.max(spec.intensity ?? 50, 0), 100);
+  // Calibrated so intensity 50 (expo's default) reads like a frosted bar.
+  const sigma = intensity * 0.3;
+  if (sigma > 0) {
+    canvas.save();
+    canvas.clipRRect(rrectFor(node, 0), ck.ClipOp.Intersect, true);
+    const blur = ck.ImageFilter.MakeBlur(sigma, sigma, ck.TileMode.Clamp, null);
+    // The backdrop filter seeds the layer with the blurred prior contents;
+    // restoring composites it back inside the clip. Nothing else is drawn
+    // into the layer. (The flag is what init-from-previous falls back to
+    // when a backdrop filter is absent; harmless alongside one.)
+    canvas.saveLayer(undefined, null, blur, ck.SaveLayerInitWithPrevious);
+    canvas.restore();
+    canvas.restore();
+    blur.delete();
+  }
+  const tint = spec.tint ?? 'default';
+  const preset = BLUR_TINTS[tint];
+  const color = preset ? { ...preset, a: preset.a * (intensity / 100) } : parseColor(tint);
+  if (color && color.a > 0) {
+    const paint = new ck.Paint();
+    paint.setAntiAlias(true);
+    paint.setColor(ckColor(ck, color));
+    canvas.drawRRect(rrectFor(node, 0), paint);
+    paint.delete();
+  }
 }
 
 function paintBorder(ctx: PaintContext, node: CNode): void {
@@ -91,14 +194,8 @@ function paintBorder(ctx: PaintContext, node: CNode): void {
 }
 
 function contentInsets(node: CNode): { l: number; t: number; r: number; b: number } {
-  const y = node.yoga;
-  if (!y) return { l: 0, t: 0, r: 0, b: 0 };
-  return {
-    l: y.getComputedPadding(Edge.Left) + y.getComputedBorder(Edge.Left),
-    t: y.getComputedPadding(Edge.Top) + y.getComputedBorder(Edge.Top),
-    r: y.getComputedPadding(Edge.Right) + y.getComputedBorder(Edge.Right),
-    b: y.getComputedPadding(Edge.Bottom) + y.getComputedBorder(Edge.Bottom),
-  };
+  const i = contentInsetsOf(node);
+  return { l: i.left, t: i.top, r: i.right, b: i.bottom };
 }
 
 function paintText(ctx: PaintContext, node: CNode): void {
@@ -218,12 +315,16 @@ export function paintNode(ctx: PaintContext, node: CNode): void {
     canvas.concat(Float32Array.from(m));
   }
 
+  if (p.opacity <= 0) {
+    canvas.restore();
+    return;
+  }
+
+  const backdropBlur = node.props.__backdropBlur as BackdropBlurChannel | undefined;
+  if (backdropBlur) paintBackdropBlur(ctx, node, backdropBlur);
+
   let didLayer = false;
   if (p.opacity < 1) {
-    if (p.opacity <= 0) {
-      canvas.restore();
-      return;
-    }
     const layerPaint = new ck.Paint();
     layerPaint.setAlphaf(p.opacity);
     canvas.saveLayer(layerPaint);
@@ -244,12 +345,49 @@ export function paintNode(ctx: PaintContext, node: CNode): void {
     canvas.translate(-node.scrollX, -node.scrollY);
   }
 
+  // Generic draw-op channel (engine/drawOps): vector content sits between the
+  // box and children, inside this node's clip when overflow hides.
+  const draw = node.props.__draw as DrawSpec | undefined;
+  if (draw) paintDrawOps(ctx, draw, f.width, f.height);
+
   if (node.type === 'text') paintText(ctx, node);
   else if (node.type === 'image') paintImage(ctx, node);
   else if (node.type === 'textinput') paintTextInput(ctx, node);
 
+  // A text node's children are its runs, which the paragraph already drew —
+  // except its INLINE VIEWS, which are real nodes the paragraph only reserved
+  // space for. They paint over the text, the way an inline attachment does.
+  //
+  // Collected from the whole text SUBTREE, not just direct children: a nested
+  // <Text> is folded into the same paragraph and is not painted itself, so an
+  // inline view inside one would otherwise never be drawn at all. Their
+  // offsets are already in this root's space, which is why they can be painted
+  // here as if they were direct children.
+  if (node.type === 'text' && node.isTextRoot) {
+    for (const child of inlineChildrenOf(node)) paintNode(ctx, child);
+  }
+
   if (node.type !== 'text' && node.type !== 'textinput') {
-    for (const child of node.paintOrderedChildren()) paintNode(ctx, child);
+    const kids = node.paintOrderedChildren();
+    // compat/masked-view: the FIRST child (tree order) is the mask element;
+    // its ALPHA channel gates the remaining children — the native module's
+    // rule (iOS maskView), not luminance masking.
+    const mask = node.props.__maskedView === true
+      ? node.children.find((c) => c.participatesInYoga)
+      : undefined;
+    if (mask) {
+      canvas.saveLayer();
+      for (const child of kids) if (child !== mask) paintNode(ctx, child);
+      const maskPaint = new ck.Paint();
+      maskPaint.setBlendMode(ck.BlendMode.DstIn);
+      canvas.saveLayer(maskPaint);
+      maskPaint.delete();
+      paintNode(ctx, mask);
+      canvas.restore();
+      canvas.restore();
+    } else {
+      for (const child of kids) paintNode(ctx, child);
+    }
   }
 
   if (isScroll) canvas.restore();

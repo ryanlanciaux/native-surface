@@ -15,6 +15,7 @@ Everything here is organized by symptom. "Host app" means your web application
 | Navigation transitions snap instead of animating | [Snap instead of animate](#transitions-snap-instead-of-animating) |
 | Sheet/animation snaps after changing `reanimated` mode | [Stale optimizer cache](#stale-optimizer-cache) |
 | Production build fails on an RN library import | [optimizeDeps and aliasing other RN libraries](#optimizedeps-hygiene-for-other-rn-libraries) |
+| Paper components show placeholder boxes, or render dark | [React Native Paper](#react-native-paper) |
 | Images never appear | [Images](#images-never-appear) |
 | Headers/tab bars flush against the edge | [Safe area simulation](#safe-area-insets-are-all-zero) |
 | Real `react-native` showed up in node_modules | [Peer react-native](#npm-installed-the-real-react-native) |
@@ -245,6 +246,44 @@ own; make sure the replacement path is a defined string (an undefined variable
 in `resolve.alias` crashes Vite at config load —
 `fileURLToPath(new URL('./src/my-shim.tsx', import.meta.url))` is the
 reliable form in an ESM config).
+
+## React Native Paper
+
+`react-native-paper` (5.15.x, MD3) renders **stock** on the engine as of this
+release: install it, wrap your tree in `PaperProvider`, and its Buttons, Cards,
+Chips, FABs, Appbars (BackAction included) and SegmentedButtons paint. The
+preset already excludes paper from prebundling and includes its
+`@callstack/react-theme-provider` leaf — you do not need `optimizeDeps` entries
+or aliases of your own.
+
+**Icons.** Paper's default icon component is whatever its module-scope probe
+finds first among `@react-native-vector-icons/material-design-icons`,
+`@expo/vector-icons/MaterialCommunityIcons`, and
+`react-native-vector-icons/MaterialCommunityIcons`. Only the first two are real
+icon sets here — `react-native-vector-icons` subpaths reach the compat shim,
+which warns once and paints a placeholder box (`□`), because the alias cannot
+know which icon set a subpath meant. Nothing crashes either way, but to *choose*
+the set, pass paper's `settings.icon`:
+
+```tsx
+import { PaperProvider } from 'react-native-paper';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+
+<PaperProvider settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}>
+  <App />
+</PaperProvider>;
+```
+
+**What paper needs from the engine.** Paper imports `Appearance`,
+`SafeAreaView`, and `Switch` from `react-native`; all three now ship in the
+engine, and a *missing name breaks the whole ESM index at link time*, not just
+the feature — so a paper upgrade that fails with "does not provide an export
+named X" is telling you exactly which export to add. `Switch` (used directly
+and by `SegmentedButtons`) is engine-painted and controlled: it moves only when
+you pass a new `value`. Dark mode follows `Appearance` / `useColorScheme`, which
+report the **embedding page's** `prefers-color-scheme` — a paper app with no
+explicit `theme` renders dark on a dark host page. Pin it with
+`Appearance.setColorScheme('light')` or by passing `theme={MD3LightTheme}`.
 
 ## Stale optimizer cache
 
