@@ -1,6 +1,7 @@
 import type { Canvas, CanvasKit } from 'canvaskit-wasm';
 import { Edge } from 'yoga-layout/load';
 import { parseColor, type RGBA } from './colors';
+import { paintDrawOps, type DrawSpec } from './drawOps';
 import type { CNode } from './node';
 import { getParagraph, getInputParagraph } from './text';
 import { hasDomOverlay } from './textInputState';
@@ -243,6 +244,11 @@ export function paintNode(ctx: PaintContext, node: CNode): void {
     canvas.save();
     canvas.translate(-node.scrollX, -node.scrollY);
   }
+
+  // Generic draw-op channel (engine/drawOps): vector content sits between the
+  // box and children, inside this node's clip when overflow hides.
+  const draw = node.props.__draw as DrawSpec | undefined;
+  if (draw) paintDrawOps(ctx, draw, f.width, f.height);
 
   if (node.type === 'text') paintText(ctx, node);
   else if (node.type === 'image') paintImage(ctx, node);
