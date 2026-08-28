@@ -20,6 +20,7 @@
   "homepage": "https://github.com/ryanlanciaux/native-surface#readme",
   "bugs": "https://github.com/ryanlanciaux/native-surface/issues",
   "files": [
+    "bin",
     "src",
     "dist",
     "types",
@@ -29,6 +30,9 @@
     "TROUBLESHOOTING.md"
   ],
   "type": "module",
+  "bin": {
+    "native-surface": "./bin/native-surface.mjs"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./vite": "./src/vite.ts",

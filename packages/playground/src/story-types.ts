@@ -29,16 +29,28 @@ export interface StoryContext {
 /** Wraps a story's element tree — theme frames, safe-area padding, canvas chrome. */
 export type Decorator = (Story: () => ReactElement, context: StoryContext) => ReactElement;
 
-/** `export const meta = { title, component }` */
+/**
+ * `export const meta = { title, component }` — or CSF's `export default`.
+ *
+ * CSF3 coverage is deliberately scoped to args/argTypes/render/decorators/
+ * parameters. `play` functions, `loaders`, and `globals` are NOT supported;
+ * stories using them load, but those fields are ignored.
+ */
 export interface Meta {
-  title: string;
+  /** Optional in CSF3 — when absent the registry derives it from the file name. */
+  title?: string;
   // Stories render `<meta.component {...args} />`, so the prop type is per-story.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component?: ComponentType<any>;
   /** Args shared by every story in the file; each story's own args win. */
   args?: Args;
   argTypes?: Record<string, ArgType>;
+  /** Fallback renderer for stories that define neither `render` nor rely on
+   *  `meta.component` (CSF3 component-level render). */
+  render?: (args: Args) => ReactElement;
   decorators?: Decorator[];
+  /** Opaque passthrough — stored on each entry, unknown keys ignored. */
+  parameters?: Record<string, unknown>;
   /**
    * Sidebar order, by export name. ES module namespace objects are always
    * key-sorted, so a story file's declaration order cannot be recovered at
@@ -56,4 +68,6 @@ export interface Story {
   /** Used instead of `<meta.component {...args} />` when present. */
   render?: (args: Args) => ReactElement;
   decorators?: Decorator[];
+  /** Opaque passthrough — merged over meta.parameters, unknown keys ignored. */
+  parameters?: Record<string, unknown>;
 }
