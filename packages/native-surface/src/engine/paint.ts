@@ -1,9 +1,8 @@
 import type { Canvas, CanvasKit } from 'canvaskit-wasm';
-import { Edge } from 'yoga-layout/load';
 import { parseColor, type RGBA } from './colors';
 import { makeGradientShader, paintDrawOps, type DrawSpec, type GradientStop } from './drawOps';
 import type { CNode } from './node';
-import { getParagraph, getInputParagraph } from './text';
+import { contentInsetsOf, getParagraph, getInputParagraph, inlineChildrenOf } from './text';
 import { hasDomOverlay } from './textInputState';
 import { transformMatrix } from './matrix';
 import { now } from '../env/index';
@@ -195,14 +194,8 @@ function paintBorder(ctx: PaintContext, node: CNode): void {
 }
 
 function contentInsets(node: CNode): { l: number; t: number; r: number; b: number } {
-  const y = node.yoga;
-  if (!y) return { l: 0, t: 0, r: 0, b: 0 };
-  return {
-    l: y.getComputedPadding(Edge.Left) + y.getComputedBorder(Edge.Left),
-    t: y.getComputedPadding(Edge.Top) + y.getComputedBorder(Edge.Top),
-    r: y.getComputedPadding(Edge.Right) + y.getComputedBorder(Edge.Right),
-    b: y.getComputedPadding(Edge.Bottom) + y.getComputedBorder(Edge.Bottom),
-  };
+  const i = contentInsetsOf(node);
+  return { l: i.left, t: i.top, r: i.right, b: i.bottom };
 }
 
 function paintText(ctx: PaintContext, node: CNode): void {
@@ -360,6 +353,19 @@ export function paintNode(ctx: PaintContext, node: CNode): void {
   if (node.type === 'text') paintText(ctx, node);
   else if (node.type === 'image') paintImage(ctx, node);
   else if (node.type === 'textinput') paintTextInput(ctx, node);
+
+  // A text node's children are its runs, which the paragraph already drew —
+  // except its INLINE VIEWS, which are real nodes the paragraph only reserved
+  // space for. They paint over the text, the way an inline attachment does.
+  //
+  // Collected from the whole text SUBTREE, not just direct children: a nested
+  // <Text> is folded into the same paragraph and is not painted itself, so an
+  // inline view inside one would otherwise never be drawn at all. Their
+  // offsets are already in this root's space, which is why they can be painted
+  // here as if they were direct children.
+  if (node.type === 'text' && node.isTextRoot) {
+    for (const child of inlineChildrenOf(node)) paintNode(ctx, child);
+  }
 
   if (node.type !== 'text' && node.type !== 'textinput') {
     const kids = node.paintOrderedChildren();

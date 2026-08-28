@@ -5,20 +5,59 @@ import { ensureEngine, getEngine } from './init';
 import { CNode, type RootHooks } from './node';
 import { paintNode, type PaintContext } from './paint';
 import { PointerPipeline } from './events';
+import { IDENTITY, applyToPoint, multiply, transformMatrix, translation, type Mat3 } from './matrix';
 import { getReconciler, type ContainerHost } from '../reconciler/hostConfig';
 import { setOverlayFactory, syncFocusedOverlay } from './textInputState';
 import { createDomInputOverlay } from './textInputOverlay';
 import { installIntersectionObserver } from './intersectionObserver';
+import { inlineChildrenOf } from './text';
 import { destroyPortalOverlays, syncPortalOverlays } from './portalHost';
 import {
   DimensionsContext,
+  SurfaceInsetsContext,
+  ZERO_INSETS,
   setPrimaryDimensions,
   pushActiveRenderDimensions,
   popActiveRenderDimensions,
+  type SurfaceInsets,
+  type WindowDimensions,
 } from '../api/Dimensions';
 import { setHairlineWidth } from '../api/StyleSheet';
 import { isNode, scheduleFrame } from '../env/index';
 import type { LayoutNode, NativeRoot, PointerEventType, RootOptions, SyntheticPointer } from '../types';
+
+/** Partial insets fill in from zero — an embedder declaring only `top` means it. */
+function resolveInsets(insets: RootOptions['safeAreaInsets']): SurfaceInsets {
+  return insets ? { ...ZERO_INSETS, ...insets } : ZERO_INSETS;
+}
+
+/** Sub-pixel noise must not make an untransformed node look transformed. */
+const PAINT_EPSILON = 0.01;
+
+/**
+ * A node's box under `m`, in surface coordinates.
+ *
+ * Under a pure translate/scale this is exact. Under a rotation or skew the
+ * painted region is not axis-aligned at all, so the honest answer is the
+ * bounding box of the four transformed corners plus a flag saying so — a
+ * caller aiming a press still wants the center, and the center of the bounding
+ * box IS the transformed center.
+ */
+function paintedRect(
+  m: Mat3,
+  width: number,
+  height: number
+): { x: number; y: number; width: number; height: number; rotated?: boolean } {
+  const corners = [applyToPoint(m, 0, 0), applyToPoint(m, width, 0), applyToPoint(m, 0, height), applyToPoint(m, width, height)];
+  const xs = corners.map((p) => p.x);
+  const ys = corners.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  const rect = { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+  // Off-diagonal terms are what a rotation or skew puts in; a translate/scale
+  // leaves them at zero.
+  return Math.abs(m[1]!) > PAINT_EPSILON || Math.abs(m[3]!) > PAINT_EPSILON ? { ...rect, rotated: true } : rect;
+}
 
 let firstRoot: RootImpl | null = null;
 /** Insertion-ordered live roots; the oldest is the "primary" for Dimensions. */
@@ -30,6 +69,7 @@ setOverlayFactory(createDomInputOverlay);
 
 export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
   cssWidth: number;
+  private safeAreaInsets: SurfaceInsets;
   cssHeight: number;
   dpr: number;
   theme: 'ios' | 'android';
@@ -55,6 +95,7 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     this.cssHeight = opts.height;
     this.dpr = opts.dpr ?? (typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1);
     this.theme = opts.theme ?? 'ios';
+    this.safeAreaInsets = resolveInsets(opts.safeAreaInsets);
     this.onAction = opts.onAction;
     this.canvas = typeof HTMLCanvasElement !== 'undefined' && target instanceof HTMLCanvasElement ? target : null;
     // A canvas root means app code is about to run in a browser, where
@@ -86,8 +127,31 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     });
   }
 
-  private windowDimensions() {
-    return { width: this.cssWidth, height: this.cssHeight, scale: this.dpr, fontScale: 1 };
+  /**
+   * Cached so its IDENTITY is stable while the numbers are.
+   *
+   * This object is the value of `DimensionsContext`, and `render()` re-provides
+   * it on every commit of the embedding tree. A fresh object each time makes
+   * React treat the context as changed, so every `useWindowDimensions()`
+   * consumer re-renders — and any of them running an effect keyed on that
+   * value re-runs it, sets state, and renders again. That is a "Maximum update
+   * depth exceeded" waiting to happen, and it only became reachable once app
+   * components could actually SEE this context (see api/Dimensions.ts on the
+   * duplicate-module bug that had been hiding them from it).
+   */
+  private cachedDimensions: WindowDimensions | null = null;
+
+  private windowDimensions(): WindowDimensions {
+    const cached = this.cachedDimensions;
+    if (cached && cached.width === this.cssWidth && cached.height === this.cssHeight && cached.scale === this.dpr) {
+      return cached;
+    }
+    return (this.cachedDimensions = {
+      width: this.cssWidth,
+      height: this.cssHeight,
+      scale: this.dpr,
+      fontScale: 1,
+    });
   }
 
   private initGraphics(): void {
@@ -280,7 +344,11 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     }
     this.mounted = true;
     const dims = this.windowDimensions();
-    const wrapped = createElement(DimensionsContext.Provider, { value: dims }, element);
+    const wrapped = createElement(
+      DimensionsContext.Provider,
+      { value: dims },
+      createElement(SurfaceInsetsContext.Provider, { value: this.safeAreaInsets }, element)
+    );
     // While this root renders, module-level Dimensions.get answers with THIS
     // root's dims — libraries read it at mount (gorhom's initial position).
     const prevDims = pushActiveRenderDimensions(dims);
@@ -354,6 +422,17 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     this.scheduleFlush();
   }
 
+  setSafeAreaInsets(insets: RootOptions['safeAreaInsets']): void {
+    const next = resolveInsets(insets);
+    const cur = this.safeAreaInsets;
+    if (next.top === cur.top && next.right === cur.right && next.bottom === cur.bottom && next.left === cur.left) return;
+    this.safeAreaInsets = next;
+    // The context value is built in mount(), so the tree has to be re-provided
+    // for consumers to see the change.
+    if (this.mounted && this.pendingElement) this.mount(this.pendingElement);
+    this.scheduleFlush();
+  }
+
   getLayoutTree(): LayoutNode {
     if (this.ready && this.dirty) {
       this.cancelFrame?.();
@@ -361,21 +440,51 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
       this.frameScheduled = false;
       this.doFlush();
     }
-    const toLayoutNode = (node: CNode, absX: number, absY: number): LayoutNode => {
+    /**
+     * Two positions are carried down at once, and they are not the same thing:
+     * `absX/absY` is where Yoga put the node, and `paintM` is the composed
+     * transform that decides where it is actually drawn. The composition below
+     * is the exact inverse of the hit path in events.ts — parent matrix, then
+     * the parent's scroll, then this node's own frame offset, then its own
+     * transform about its center — so `painted` and "what a press hits" cannot
+     * drift apart.
+     */
+    const toLayoutNode = (node: CNode, absX: number, absY: number, paintM: Mat3): LayoutNode => {
       const x = absX + node.frame.x;
       const y = absY + node.frame.y;
+      let m = multiply(paintM, translation(node.frame.x, node.frame.y));
+      if (node.paint.transform?.length) {
+        m = multiply(m, transformMatrix(node.paint.transform, node.frame.width / 2, node.frame.height / 2));
+      }
       const children: LayoutNode[] = [];
-      for (const c of node.children) {
+      const scrollX = node.type === 'scroll' ? node.scrollX : 0;
+      const scrollY = node.type === 'scroll' ? node.scrollY : 0;
+      const childM = scrollX || scrollY ? multiply(m, translation(-scrollX, -scrollY)) : m;
+      // A text node's real children are its INLINE VIEWS, gathered from the
+      // whole subtree: a nested <Text> is folded into the same paragraph and
+      // has no box of its own, so walking `children` would lose anything
+      // inline inside one. Everything else walks its laid-out children.
+      const kids = node.type === 'text' ? inlineChildrenOf(node) : node.children;
+      for (const c of kids) {
         if (!c.participatesInYoga) continue;
-        children.push(
-          toLayoutNode(c, x - (node.type === 'scroll' ? node.scrollX : 0), y - (node.type === 'scroll' ? node.scrollY : 0))
-        );
+        children.push(toLayoutNode(c, x - scrollX, y - scrollY, childM));
       }
       const out: LayoutNode = {
         type: node.type === 'rawtext' ? 'RawText' : node.type.charAt(0).toUpperCase() + node.type.slice(1),
         frame: { x, y, width: node.frame.width, height: node.frame.height },
         children,
       };
+      const painted = paintedRect(m, node.frame.width, node.frame.height);
+      // Only when it actually differs: an untransformed tree must serialize
+      // exactly as it did before this existed.
+      if (
+        Math.abs(painted.x - x) > PAINT_EPSILON ||
+        Math.abs(painted.y - y) > PAINT_EPSILON ||
+        Math.abs(painted.width - node.frame.width) > PAINT_EPSILON ||
+        Math.abs(painted.height - node.frame.height) > PAINT_EPSILON
+      ) {
+        out.painted = painted;
+      }
       if (node.type === 'text') out.text = node.textContent();
       // Drivers (e2e, validation harnesses) locate elements by testID, role,
       // label, or placeholder and synthesize pointer events at frame centers.
@@ -387,7 +496,7 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
       if (typeof node.props.placeholder === 'string') out.placeholder = node.props.placeholder;
       return out;
     };
-    return toLayoutNode(this.rootNode, 0, 0);
+    return toLayoutNode(this.rootNode, 0, 0, IDENTITY);
   }
 
   dispatchPointerEvent(type: PointerEventType, e: SyntheticPointer): void {

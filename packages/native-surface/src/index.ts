@@ -78,7 +78,8 @@ export type {
 // APIs
 export { StyleSheet } from './api/StyleSheet';
 export { Platform, setPlatformOS } from './api/Platform';
-export { Dimensions, useWindowDimensions, PixelRatio } from './api/Dimensions';
+export { Dimensions, useWindowDimensions, PixelRatio, useSurfaceInsets } from './api/Dimensions';
+export type { SurfaceInsets } from './api/Dimensions';
 export { Animated, Easing, useAnimatedValue, AnimatedValue } from './api/Animated';
 export { Appearance } from './api/Appearance';
 export type { ColorSchemeName, AppearancePreferences } from './api/Appearance';

@@ -278,10 +278,35 @@ export const I18nManager = {
   getConstants: () => ({ isRTL: false, doLeftAndRightSwapInRTL: true, localeIdentifier: 'en-US' }),
 };
 
+/**
+ * AccessibilityInfo — the assistive-technology state, which a canvas surface
+ * genuinely does not have: the tree the screen reader would walk is pixels, not
+ * a11y nodes. Every query therefore answers "off" and every command is inert.
+ *
+ * The whole documented surface is present rather than the two members that
+ * happen to be common, because a MISSING member is a TypeError at the call
+ * site — `AccessibilityInfo.setAccessibilityFocus(tag)` on a focus trap takes
+ * down whatever opened the dialog, where an inert one costs nothing. Reduced
+ * motion is the one signal a browser can answer, and Appearance/useReducedMotion
+ * are where that already comes from.
+ */
 export const AccessibilityInfo = {
   isScreenReaderEnabled: (): Promise<boolean> => Promise.resolve(false),
   isReduceMotionEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isReduceTransparencyEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isBoldTextEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isGrayscaleEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isInvertColorsEnabled: (): Promise<boolean> => Promise.resolve(false),
+  isAccessibilityServiceEnabled: (): Promise<boolean> => Promise.resolve(false),
+  prefersCrossFadeTransitions: (): Promise<boolean> => Promise.resolve(false),
+  /** RN's default when no assistive timeout is set: the caller's own value. */
+  getRecommendedTimeoutMillis: (original: number): Promise<number> => Promise.resolve(original),
   addEventListener: (_event: string, _cb: (...args: unknown[]) => void): Subscription => ({ remove() {} }),
+  /** No a11y focus ring to move — there is no accessibility tree to move it in. */
+  setAccessibilityFocus: (_reactTag: number): void => {},
+  announceForAccessibility: (_announcement: string): void => {},
+  announceForAccessibilityWithOptions: (_announcement: string, _options?: Record<string, unknown>): void => {},
+  sendAccessibilityEvent: (_handle: unknown, _action: string): void => {},
 };
 
 export const InteractionManager = {
@@ -361,6 +386,17 @@ export const Linking = {
   }),
   openURL: async (_url: string): Promise<void> => {},
   canOpenURL: async (_url: string): Promise<boolean> => false,
+  /**
+   * iOS's "open this app's page in Settings.app". There is no OS settings page
+   * for a web page, and no browser API grants one — a site cannot open the
+   * user's notification or permission settings. Apps reach for this from a
+   * "permission denied → Open Settings" button, so it resolves inertly rather
+   * than throwing: the button does nothing, which is the truth, instead of
+   * taking down the screen it is on.
+   */
+  openSettings: async (): Promise<void> => {},
+  /** Android intents. No Android, no intents. */
+  sendIntent: async (_action: string, _extras?: Array<{ key: string; value: string | number | boolean }>): Promise<void> => {},
 };
 
 /**
