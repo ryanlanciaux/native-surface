@@ -227,6 +227,8 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: /^expo-blur(\/.*)?$/, replacement: compat('blur.tsx') },
     { find: /^@react-native-community\/blur(\/.*)?$/, replacement: compat('blur.tsx') },
     { find: /^@react-native-masked-view\/masked-view(\/.*)?$/, replacement: compat('masked-view.tsx') },
+    { find: /^react-native-webview(\/.*)?$/, replacement: compat('webview.tsx') },
+    { find: /^react-native-pager-view(\/.*)?$/, replacement: compat('pager-view.tsx') },
     reactNativeAlias()
   );
   return aliases;

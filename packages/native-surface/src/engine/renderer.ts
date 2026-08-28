@@ -8,6 +8,7 @@ import { PointerPipeline } from './events';
 import { getReconciler, type ContainerHost } from '../reconciler/hostConfig';
 import { setOverlayFactory, syncFocusedOverlay } from './textInputState';
 import { createDomInputOverlay } from './textInputOverlay';
+import { destroyPortalOverlays, syncPortalOverlays } from './portalHost';
 import {
   DimensionsContext,
   setPrimaryDimensions,
@@ -189,6 +190,8 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     // controlled-value changes and layout/scroll movement must reach a live
     // TextInput overlay (repositions the DOM element, syncs its value)
     syncFocusedOverlay(this.rootNode);
+    // same beat for portal elements (iframes, videos): create/diff/reposition
+    syncPortalOverlays(this.rootNode);
     // continuous repaint for time-based paints (spinners, fading indicators) —
     // browser only; in Node a test drives frames explicitly via flush()
     if (ctx.needsAnimationFrame && !isNode) this.scheduleFlush();
@@ -277,6 +280,7 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
     this.cancelFrame = null;
     this.frameScheduled = false;
     this.detachListeners?.();
+    destroyPortalOverlays(this.rootNode);
     this.rootNode.destroy();
     this.surface?.delete();
     this.surface = null;

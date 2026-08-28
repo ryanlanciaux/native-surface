@@ -14,6 +14,12 @@
  *   offset(raw) = (1 - 1 / (raw * c / dim + 1)) * dim
  * Bounce-back is a critically damped spring (ω below) — an approximation
  * tuned to UIScrollView feel (~350 ms settle), not a ported constant.
+ *
+ * pagingEnabled replaces free deceleration on release: the view animates
+ * straight to a page boundary (page size = the viewport extent on the
+ * scrolled axis). A flick past PAGING_FLICK_VELOCITY advances exactly one
+ * page in the flick direction; a slower release settles on the nearest
+ * boundary (UIScrollView paging never skips pages on a swipe).
  */
 import type { CNode } from './node';
 import { now } from '../env/index';
@@ -27,6 +33,8 @@ export const RUBBER_BAND_COEFF = 0.55;
 export const BOUNCE_OMEGA = 0.012;
 /** Below this release speed (px/ms) a drag ends without momentum. */
 export const MIN_FLING_VELOCITY = 0.05;
+/** Release speed (px/ms) past which a paging release advances one page. */
+export const PAGING_FLICK_VELOCITY = 0.5;
 /** RN DecayAnimation's rest threshold: per-frame displacement in px. */
 const DECAY_REST_DELTA = 0.1;
 const INDICATOR_MS = 900;
@@ -36,6 +44,7 @@ export interface ScrollSpec {
   horizontal?: boolean;
   enabled?: boolean;
   bounces?: boolean;
+  pagingEnabled?: boolean;
   decelerationRate?: 'normal' | 'fast' | number;
   showsIndicator?: boolean;
   onScroll?: (e: ScrollEvent) => void;
@@ -74,6 +83,21 @@ export function decaySettleTarget(from: number, v0: number, d: number): number {
 export function rubberBand(raw: number, dim: number, c: number = RUBBER_BAND_COEFF): number {
   if (raw <= 0 || dim <= 0) return 0;
   return (1 - 1 / ((raw * c) / dim + 1)) * dim;
+}
+
+/**
+ * Rest offset for a paging release: the nearest page boundary, except a flick
+ * past PAGING_FLICK_VELOCITY advances exactly one page in the flick direction.
+ * `dim` is the viewport extent on the scrolled axis (= the page size).
+ */
+export function pageSnapTarget(off: number, velocity: number, dim: number, max: number): number {
+  const clamp = (v: number) => Math.min(max, Math.max(0, v));
+  if (dim <= 0) return clamp(off);
+  let page: number;
+  if (velocity > PAGING_FLICK_VELOCITY) page = Math.floor(off / dim) + 1;
+  else if (velocity < -PAGING_FLICK_VELOCITY) page = Math.ceil(off / dim) - 1;
+  else page = Math.round(off / dim);
+  return clamp(page * dim);
 }
 
 /** Critically damped spring displacement/velocity around 0. t in ms. */
@@ -145,6 +169,7 @@ class Motion implements ScrollMotionHandle {
     opts:
       | { kind: 'release'; velocity: number }
       | { kind: 'scrollTo'; target: number }
+      | { kind: 'pageSnap'; target: number }
   ) {
     const spec = specOf(node);
     this.horizontal = !!spec.horizontal;
@@ -153,11 +178,16 @@ class Motion implements ScrollMotionHandle {
     this.startT = now();
     this.from = getOffset(node, this.horizontal);
 
-    if (opts.kind === 'scrollTo') {
+    if (opts.kind === 'scrollTo' || opts.kind === 'pageSnap') {
       this.phase = 'scrollTo';
       this.v0 = 0;
-      this.momentumCallbacks = false;
+      // A page snap announces itself as momentum: it replaces the deceleration
+      // a release would have had, and pagers detect settle via momentum-end
+      // (matching RN iOS, where an animated offset change ends in
+      // onMomentumScrollEnd).
+      this.momentumCallbacks = opts.kind === 'pageSnap';
       this.target = Math.min(maxOffset(node, this.horizontal), Math.max(0, opts.target));
+      if (this.momentumCallbacks) spec.onMomentumScrollBegin?.(scrollEventFor(node));
     } else {
       this.momentumCallbacks = true;
       const max = maxOffset(node, this.horizontal);
@@ -256,6 +286,18 @@ export function startRelease(node: CNode, velocity: number): ScrollMotionHandle 
   const max = maxOffset(node, horizontal);
   const off = getOffset(node, horizontal);
   const overscrolled = off < 0 || off > max;
+  if (spec.pagingEnabled && !overscrolled) {
+    // Paging replaces free deceleration. Rubber-banded releases fall through
+    // to the bounce path below — its edges are page rest positions.
+    const dim = horizontal ? node.frame.width : node.frame.height;
+    const target = pageSnapTarget(off, velocity, dim, max);
+    if (Math.abs(target - off) < 0.5) {
+      // released resting on a boundary: no motion (and no momentum events)
+      if (target !== off) setOffset(node, horizontal, target, true);
+      return null;
+    }
+    return new Motion(node, { kind: 'pageSnap', target });
+  }
   if (!overscrolled && Math.abs(velocity) < MIN_FLING_VELOCITY) return null;
   if (overscrolled && spec.bounces === false) {
     setOffset(node, horizontal, Math.min(max, Math.max(0, off)), true);
@@ -279,7 +321,10 @@ export function scrollNodeTo(node: CNode, x: number, y: number, animated: boolea
     setOffset(node, horizontal, clamped, true);
     return;
   }
-  new Motion(node, { kind: 'scrollTo', target });
+  // On a paging node an animated programmatic glide runs as a page snap so it
+  // announces momentum begin/end (how pagers detect a setPage settling); free
+  // scroll views keep the momentum channel gesture-only.
+  new Motion(node, { kind: spec.pagingEnabled ? 'pageSnap' : 'scrollTo', target });
 }
 
 export function scrollNodeToEnd(node: CNode, animated: boolean): void {

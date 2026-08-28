@@ -1,5 +1,7 @@
 // Engine lifecycle
 export { initEngine } from './engine/init';
+// Raw-pixel image registration (compat placeholders: blurhash/thumbhash)
+export { putImagePixels, hasImage } from './engine/init';
 export { createNativeRoot, snapshotPNG } from './engine/renderer';
 
 // Embed component
