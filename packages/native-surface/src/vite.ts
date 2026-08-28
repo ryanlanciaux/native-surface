@@ -198,6 +198,8 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
     { find: 'expo-application', replacement: compat('expo.tsx') },
     { find: 'expo-splash-screen', replacement: compat('expo.tsx') },
     { find: 'expo-system-ui', replacement: compat('expo.tsx') },
+    // Before the bare 'expo' find, which would otherwise swallow the subpath.
+    { find: /^expo-modules-core(\/.*)?$/, replacement: compat('expo-modules-core.tsx') },
     { find: 'expo', replacement: compat('expo.tsx') },
     { find: 'reactotron-react-native-mmkv', replacement: compat('reactotron.tsx') },
     { find: 'reactotron-react-native', replacement: compat('reactotron.tsx') },
@@ -248,7 +250,11 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
  *
  * NOTE: hoisting makes conditional requires (`if (__DEV__) require(x)`)
  * unconditional. Acceptable at this boundary — such modules are dev tooling
- * that must already be inert/aliased on this platform.
+ * that must already be inert/aliased on this platform. A bare specifier that
+ * does NOT resolve is left as a literal `require()` instead: libraries probe
+ * for OPTIONAL packages through try/catch'd requires (paper's icon loader
+ * tries three icon packages), and hoisting an uninstalled one turns its
+ * caught ReferenceError into an unresolvable import that kills the module.
  */
 export interface RnRequireOptions {
   /** node_modules package prefixes the transform also applies to. */
@@ -263,17 +269,116 @@ export interface RnRequireOptions {
 export function rnRequirePlugin(opts: RnRequireOptions = {}): {
   name: string;
   enforce: 'pre';
-  transform(code: string, id: string): { code: string; map: null } | null;
+  transform(code: string, id: string): Promise<{ code: string; map: null } | null>;
 } {
   // @expo/vector-icons: FontAwesome5/6 entries carry `require('./….ttf')`
   // (the other sets use ESM ttf imports Vite already treats as assets).
-  const includePackages = opts.includePackages ?? ['@expo-google-fonts/', '@expo/vector-icons/'];
+  // react-native-paper: Appbar.BackIcon's ios branch does a RENDER-TIME
+  // `require('../../assets/back-chevron.png')` — the only way that asset
+  // reaches the surface is as a hoisted URL import.
+  const includePackages = opts.includePackages ?? [
+    '@expo-google-fonts/',
+    '@expo/vector-icons/',
+    'react-native-paper/',
+  ];
   const assetAliases = opts.assetAliases ?? {};
   const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
   const assetExts = new Set(
     (opts.assetExtensions ?? []).concat(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ttf', 'otf', 'woff', 'woff2'])
   );
   const REQUIRE_RE = /require\(\s*(['"])([^'"\n]+)\1\s*\)/g;
+
+  /** Characters after which a `/` opens a regex literal rather than dividing. */
+  const REGEX_AFTER = /[({[,;:=!&|?+\-*%~^<>]/;
+  const REGEX_AFTER_KEYWORD = /(?:^|[^\w$.])(return|typeof|case|in|of|do|else|yield|await|delete|void|new|instanceof)\s*$/;
+
+  /**
+   * Comment text blanked to spaces, every other offset (and every newline)
+   * left in place, so a match found in the masked copy indexes straight into
+   * the original. Needed because RN library JSDoc is full of EXAMPLE requires:
+   * paper's `<Avatar.Image source={require('../assets/avatar.png')} />` names
+   * a file that doesn't exist, and hoisting it breaks the module.
+   *
+   * A lexer-lite, not a regex strip: strings and template literals must be
+   * tracked or `'https://x'` would open a bogus line comment, and regex
+   * literals must be too or `/a\/\/b/` would. Regex-vs-division uses the
+   * classic previous-token heuristic; template `${…}` interiors are treated
+   * as string body, so a require inside one stays un-hoisted (the safe way to
+   * be wrong).
+   */
+  const maskComments = (code: string): string => {
+    const out = code.split('');
+    const n = code.length;
+    let i = 0;
+    let prev = '';
+    const blank = (from: number, to: number): void => {
+      for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+    };
+    while (i < n) {
+      const c = code[i]!;
+      const next = code[i + 1];
+      if (c === '/' && next === '/') {
+        let j = i + 2;
+        while (j < n && code[j] !== '\n') j++;
+        blank(i, j);
+        i = j;
+        continue;
+      }
+      if (c === '/' && next === '*') {
+        let j = i + 2;
+        while (j < n && !(code[j] === '*' && code[j + 1] === '/')) j++;
+        j = Math.min(n, j + 2);
+        blank(i, j);
+        i = j;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') {
+        let j = i + 1;
+        while (j < n) {
+          if (code[j] === '\\') {
+            j += 2;
+            continue;
+          }
+          if (code[j] === c) {
+            j++;
+            break;
+          }
+          j++;
+        }
+        i = j;
+        prev = c;
+        continue;
+      }
+      if (
+        c === '/' &&
+        (prev === '' || REGEX_AFTER.test(prev) || REGEX_AFTER_KEYWORD.test(code.slice(Math.max(0, i - 16), i)))
+      ) {
+        let j = i + 1;
+        let inClass = false;
+        while (j < n) {
+          const d = code[j]!;
+          if (d === '\\') {
+            j += 2;
+            continue;
+          }
+          if (d === '\n') break; // unterminated: it wasn't a regex after all
+          if (d === '[') inClass = true;
+          else if (d === ']') inClass = false;
+          else if (d === '/' && !inClass) {
+            j++;
+            break;
+          }
+          j++;
+        }
+        i = j;
+        prev = '/';
+        continue;
+      }
+      if (!/\s/.test(c)) prev = c;
+      i++;
+    }
+    return out.join('');
+  };
 
   /** Metro asset resolution: prefer the densest @Nx sibling on disk and carry
    *  its scale, so `require('icon.png')` yields `{uri, scale}` like RN's
@@ -299,42 +404,71 @@ export function rnRequirePlugin(opts: RnRequireOptions = {}): {
   return {
     name: 'native-surface:rn-require',
     enforce: 'pre',
-    transform(code: string, id: string) {
+    async transform(code: string, id: string) {
       const file = id.split('?')[0]!;
       if (!/\.(ts|tsx|js|jsx|mjs)$/.test(file)) return null;
       if (file.includes('node_modules') && !includePackages.some((p) => file.includes(`node_modules/${p}`)))
         return null;
       if (!code.includes('require(')) return null;
 
+      // Optional-dependency probe: only hoist a bare specifier that actually
+      // resolves. Uses the plugin container (aliases + conditions included);
+      // where there is none, every specifier is assumed resolvable, which is
+      // the pre-guard behavior.
+      const ctx = this as unknown as {
+        resolve?(s: string, i: string, o: object): Promise<{ id: string } | null>;
+      };
+      const resolves = async (spec: string): Promise<boolean> => {
+        if (typeof ctx.resolve !== 'function') return true;
+        try {
+          const hit = await ctx.resolve(spec, file, { skipSelf: true });
+          // A REAL module, not just an answer: a host tool may resolve every
+          // bare specifier to a virtual stub (the playground's not-bridged
+          // auditor does, so missing packages fail per story instead of 500ing
+          // the server), and satisfying an optional-dependency probe with one
+          // would make the library's FIRST candidate always win.
+          return hit != null && existsSync(hit.id.split('?')[0]!);
+        } catch {
+          return false;
+        }
+      };
+
       const imports: string[] = [];
       let n = 0;
       const importerDir = file.slice(0, file.lastIndexOf('/'));
-      const out = code.replace(REQUIRE_RE, (whole, _q: string, spec: string) => {
+      const masked = maskComments(code);
+      let out = '';
+      let cursor = 0;
+      // matchAll, not exec-in-a-loop: this loop awaits, and Vite transforms
+      // files concurrently — a shared /g regex's lastIndex would interleave.
+      for (const m of masked.matchAll(REQUIRE_RE)) {
+        const spec = m[2]!;
         const ext = spec.split('.').pop()?.toLowerCase() ?? '';
-        const ident = `__rnReq${n++}`;
+        const bare = !spec.startsWith('.') && !spec.startsWith('/');
+        let replacement: string;
         if (IMAGE_EXTS.has(ext)) {
+          const ident = `__rnReq${n++}`;
           const variant = resolveVariant(spec, importerDir);
-          if (variant) {
-            imports.push(`import ${ident} from ${JSON.stringify(variant.spec)};`);
-            return `Object.freeze({ uri: ${ident}, scale: ${variant.scale} })`;
-          }
+          imports.push(`import ${ident} from ${JSON.stringify(variant?.spec ?? spec)};`);
+          replacement = `Object.freeze({ uri: ${ident}, scale: ${variant?.scale ?? 1} })`;
+        } else if (assetExts.has(ext)) {
+          const ident = `__rnReq${n++}`;
           imports.push(`import ${ident} from ${JSON.stringify(spec)};`);
-          return `Object.freeze({ uri: ${ident}, scale: 1 })`;
-        }
-        if (assetExts.has(ext)) {
-          imports.push(`import ${ident} from ${JSON.stringify(spec)};`);
-          return ident;
-        }
-        if (!spec.startsWith('.') && !spec.startsWith('/')) {
+          replacement = ident;
+        } else if (bare && !(await resolves(spec))) {
+          continue; // left literal: the library's own try/catch handles it
+        } else {
+          // Bare package or relative non-asset require (dev-tooling side
+          // effects): hoisted namespace import; value rarely used.
+          const ident = `__rnReq${n++}`;
           imports.push(`import * as ${ident} from ${JSON.stringify(spec)};`);
-          return ident;
+          replacement = ident;
         }
-        // Relative non-asset require (dev-tooling side effects): hoisted
-        // namespace import; value rarely used.
-        imports.push(`import * as ${ident} from ${JSON.stringify(spec)};`);
-        return ident;
-      });
+        out += code.slice(cursor, m.index) + replacement;
+        cursor = m.index + m[0]!.length;
+      }
       if (imports.length === 0) return null;
+      out += code.slice(cursor);
       return { code: `${imports.join('\n')}\n${out}`, map: null };
     },
   };
@@ -415,14 +549,20 @@ export function rnWorkletsPlugin(opts: PresetResolveOptions = {}): {
  */
 interface RootedRequire {
   req: NodeJS.Require;
+  /** Directory `req` currently resolves from — for error messages. */
+  root: string;
   onConfigResolved(config: { root?: string }): void;
 }
 
 function rootedRequire(resolveFrom?: string): RootedRequire {
   const holder: RootedRequire = {
     req: createRequire(`${resolveFrom ?? process.cwd()}/`),
+    root: resolveFrom ?? process.cwd(),
     onConfigResolved(config) {
-      if (!resolveFrom && config?.root) holder.req = createRequire(`${config.root}/`);
+      if (!resolveFrom && config?.root) {
+        holder.req = createRequire(`${config.root}/`);
+        holder.root = config.root;
+      }
     },
   };
   return holder;
@@ -498,13 +638,24 @@ export function rnLibJsxPlugin(opts: PresetResolveOptions = {}): {
         try {
           vite = rooted.req('vite') as ViteTransformers;
         } catch {
-          // A raw-JSX library file reached this transform, so the project
-          // needs it: failing loud beats a cryptic esbuild JSX parse error
-          // downstream.
-          throw new Error(
-            `native-surface: cannot resolve 'vite' from the project root to JSX-transform ${path}; ` +
-              `pass rnLibJsxPlugin({ resolveFrom }) pointing at the app's directory`
-          );
+          try {
+            // Host-first, then OURS: the transformer only has to be a vite,
+            // not the app's vite (unlike reanimated's babel plugin, which must
+            // match the app's runtime version). A real RN host ships no vite
+            // of its own — the playground drives one from outside the app —
+            // so resolving from the preset's own location is what makes the
+            // raw-JSX path work there at all.
+            vite = selfRequire('vite') as ViteTransformers;
+          } catch {
+            // A raw-JSX library file reached this transform, so the project
+            // needs it: failing loud beats a cryptic esbuild JSX parse error
+            // downstream.
+            throw new Error(
+              `native-surface: cannot resolve 'vite' to JSX-transform ${path} — tried the project root ` +
+                `(${rooted.root}) and the preset's own location (${PKG_ROOT}); ` +
+                `pass rnLibJsxPlugin({ resolveFrom }) pointing at a directory whose node_modules has vite`
+            );
+          }
         }
         if (typeof vite.transformWithOxc === 'function') {
           try {
@@ -634,6 +785,10 @@ const RN_ECOSYSTEM_EXCLUDES = [
   // plugin pipeline, so rnLibJsxPlugin can't help it) dies parsing the
   // package unless it's marked external here.
   '@expo/vector-icons',
+  // Paper's ESM index imports the aliased 'react-native' like the navigation
+  // packages do; prebundled, its frozen engine copy also carries dead
+  // import.meta.url wasm paths (the dep chunk is not where the .wasm lives).
+  'react-native-paper',
 ];
 
 /** A second copy of any of these = raw-CJS imports outside the include list
@@ -666,6 +821,9 @@ const CJS_LEAF_INCLUDES = [
   'escape-string-regexp',
   'fast-deep-equal',
   'query-string',
+  // react-native-paper's CJS leaf: served raw next to an excluded paper, its
+  // named exports (withTheme, createTheming) have no ESM bindings to import.
+  '@callstack/react-theme-provider',
   'nanoid/non-secure',
   'use-sync-external-store/shim',
   'use-sync-external-store/with-selector',
@@ -676,6 +834,8 @@ const CJS_LEAF_INCLUDES = [
   'react/jsx-runtime',
   'react/jsx-dev-runtime',
 ];
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * One-call preset: everything a Vite app needs to render React Native
@@ -711,7 +871,8 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
       // servers); when unresolvable, restate Vite's defaults ourselves —
       // setting resolve.conditions REPLACES them, so an empty fallback would
       // break every bare-specifier resolve.
-      const req = createRequire(`${opts.resolveFrom ?? user?.root ?? process.cwd()}/`);
+      const appRoot = opts.resolveFrom ?? user?.root ?? process.cwd();
+      const req = createRequire(`${appRoot}/`);
       const resolvable = (id: string): boolean => {
         try {
           req.resolve(id);
@@ -730,6 +891,25 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
         if (live?.length) defaults = live as string[];
       } catch {
         /* fall back to the hardcoded list above */
+      }
+      // Vite resolves optimizeDeps.include entries from ITS OWN root, which is
+      // not always the app root: a tool can serve an app from outside it (the
+      // playground does — root is the playground package, the host app's
+      // node_modules is a separate tree). A leaf that lives only in the app's
+      // tree then fails the optimizer AND, served raw, has no ESM bindings for
+      // its named imports. Pin those onto the app-resolved file so the
+      // optimizer's include resolver and runtime imports land on one module.
+      const include = CJS_LEAF_INCLUDES.filter(resolvable);
+      const includeAliases: NativeSurfaceAlias[] = [];
+      if (user?.root && user.root !== appRoot) {
+        const fromViteRoot = createRequire(`${user.root}/`);
+        for (const id of include) {
+          try {
+            fromViteRoot.resolve(id);
+          } catch {
+            includeAliases.push({ find: new RegExp(`^${escapeRegExp(id)}$`), replacement: req.resolve(id) });
+          }
+        }
       }
       return {
         // Scope the optimizer cache to the reanimated mode: the cache can
@@ -751,13 +931,15 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
           conditions: [...nativeSurfaceConditions(), ...defaults],
           // Two Reacts = broken hooks; a second reanimated = two UI runtimes.
           dedupe: ['react', 'react-dom', 'react-native-reanimated', ...RN_ECOSYSTEM_DEDUPE],
-          alias: nativeSurfaceAliases({ reanimated, screens: opts.screens }),
+          // Exact-match include pins first: they name whole packages, so no RN
+          // alias below can shadow them, and none of them can swallow subpaths.
+          alias: [...includeAliases, ...nativeSurfaceAliases({ reanimated, screens: opts.screens })],
         },
         optimizeDeps: {
           // Reanimated stays conditional: in 'real' mode it imports the
           // aliased 'react-native' and must not be prebundled either.
           exclude: [...RN_ECOSYSTEM_EXCLUDES, ...(reanimated === 'real' ? ['react-native-reanimated'] : [])],
-          include: CJS_LEAF_INCLUDES.filter(resolvable),
+          include,
         },
       };
     },

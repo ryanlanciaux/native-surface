@@ -8,9 +8,15 @@
  * aliases the whole package — subpaths included — onto this single file, so
  * by the time an import lands here the subpath (which icon set was meant) is
  * gone, and the fonts live in the real package's tarball, which ships raw JSX
- * the bundler can't parse. The DEFAULT export therefore renders nothing but a
- * clear error pointing at @expo/vector-icons, which bundles the very same
- * icon sets and works over the expo-font seam.
+ * the bundler can't parse. The DEFAULT export therefore DEGRADES: it warns
+ * once, pointing at @expo/vector-icons (same icon sets, works over the
+ * expo-font seam), and paints a placeholder glyph at the caller's size/color.
+ *
+ * It degrades rather than throws because it is reached by libraries PROBING
+ * for an icon package, not only by app code asking for one: react-native-paper
+ * try/require()s this package at module scope and uses whatever it gets as its
+ * default icon component, so a throwing component would crash every paper
+ * screen with a default icon instead of drawing paper's own placeholder box.
  *
  * The named `createIconSet(glyphMap, fontFamily, fontFile?)` export IS
  * functional: apps that build their own icon sets get a working Icon
@@ -145,24 +151,46 @@ export function createIconSet(glyphMap: GlyphMap, fontFamily: string, fontFile?:
   return Full;
 }
 
-const SUBPATH_ERROR =
-  "react-native-vector-icons subpath imports can't be bridged — the alias reaches one shim file that cannot know which icon set a subpath meant, and the package's bundled fonts aren't loadable here. Use @expo/vector-icons (it bundles the same icon sets: MaterialIcons, Ionicons, FontAwesome, ...) instead.";
+export const SUBPATH_GUIDANCE =
+  "vector-icons compat: react-native-vector-icons subpath imports can't be bridged — the alias reaches one shim file that cannot know which icon set a subpath meant, and the package's bundled fonts aren't loadable here. Rendering a placeholder glyph instead. Use @expo/vector-icons (it bundles the same icon sets: MaterialIcons, Ionicons, FontAwesome, ...), or, under react-native-paper, pass settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}.";
 
-function UnbridgeableSubpathIcon(): React.ReactElement {
-  throw new Error(SUBPATH_ERROR);
+/** Same box react-native-paper's own FallbackIcon draws — a missing icon
+ *  should read as "icon missing", not as a blank gap in the layout. */
+const PLACEHOLDER_GLYPH = '□';
+
+function UnbridgeableSubpathIcon({
+  size = DEFAULT_ICON_SIZE,
+  color = DEFAULT_ICON_COLOR,
+  style,
+  allowFontScaling: _afs,
+  children: _children,
+  name: _name,
+  ...rest
+}: IconProps): React.ReactElement {
+  warnOnce('subpath', SUBPATH_GUIDANCE);
+  return (
+    <Text selectable={false} {...rest} style={[{ fontSize: size, color }, style]}>
+      {PLACEHOLDER_GLYPH}
+    </Text>
+  );
 }
-// Statics a subpath default is commonly touched for: fail with the same
+// Statics a subpath default is commonly touched for: degrade with the same
 // guidance rather than an undefined-property error.
 UnbridgeableSubpathIcon.Button = UnbridgeableSubpathIcon;
-UnbridgeableSubpathIcon.getImageSource = async (): Promise<never> => {
-  throw new Error(SUBPATH_ERROR);
+UnbridgeableSubpathIcon.getImageSource = async (
+  _name?: string,
+  _size?: number,
+  _color?: string
+): Promise<null> => {
+  warnOnce('subpath', SUBPATH_GUIDANCE);
+  return null;
 };
-UnbridgeableSubpathIcon.loadFont = async (): Promise<never> => {
-  throw new Error(SUBPATH_ERROR);
+UnbridgeableSubpathIcon.loadFont = async (): Promise<void> => {
+  warnOnce('subpath', SUBPATH_GUIDANCE);
 };
 
 /**
  * Default export: what `react-native-vector-icons/<AnySet>` resolves to.
- * Importing is harmless; RENDERING it throws the guidance above.
+ * Importing is harmless; RENDERING it warns once and paints a placeholder.
  */
 export default UnbridgeableSubpathIcon;
