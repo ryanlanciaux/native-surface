@@ -33,7 +33,7 @@ existing RN codebase on the canvas.
 | Package | Version | Notes |
 | --- | --- | --- |
 | `react` | `^19` | |
-| `react-native-reanimated` | `^3` (tested on `3.19.5`) | **Pin to v3.** v4 renamed the `SharedValue` accessors to `.get()`/`.set()`; the engine bridges the v3 shape, and on v4 worklets fail silently rather than erroring. Only needed with `reanimated: 'real'`. |
+| `react-native-reanimated` | `^3` or `^4` (tested on `3.19.5` and `4.5.3`) | One major per app. The preset detects it: v3 uses the default `setNativeProps` path; v4 prefers `.web` files plus `react-native-worklets`. Only needed with `reanimated: 'real'`. |
 
 ```ts
 // vite.config.ts
