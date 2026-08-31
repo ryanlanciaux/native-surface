@@ -4,8 +4,8 @@
  */
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
-import { Image, ScrollView, SectionList, Text, View } from '../src/index';
-import type { SectionListHandle } from '../src/components/lists';
+import { FlatList, Image, ScrollView, SectionList, Text, View } from '../src/index';
+import type { FlatListHandle, SectionListHandle } from '../src/components/lists';
 import { asImpl, createTestRoot } from './helpers';
 
 async function makeDataUri(w: number, h: number, backgroundColor: string): Promise<string> {
@@ -91,6 +91,27 @@ describe('acceptance-app boundary features', () => {
       Image.getSize(uri, (w, h) => resolve({ w, h }), reject);
     });
     expect(size).toEqual({ w: 32, h: 18 });
+  });
+
+  it('FlatList.scrollToOffset drives the underlying ScrollView', async () => {
+    const root = createTestRoot(200, 200);
+    const ref = React.createRef<FlatListHandle>();
+    const offsets: number[] = [];
+    root.render(
+      <FlatList
+        ref={ref}
+        style={{ width: 200, height: 200 }}
+        data={[0, 1, 2, 3, 4, 5]}
+        renderItem={() => <View style={{ height: 80 }} />}
+        onScroll={(e) => offsets.push(e.nativeEvent.contentOffset.y)}
+      />
+    );
+    await root.flush();
+    expect(typeof ref.current?.scrollToOffset).toBe('function');
+    ref.current!.scrollToOffset({ offset: 120, animated: false });
+    await root.flush();
+    expect(offsets[offsets.length - 1]).toBe(120);
+    root.unmount();
   });
 
   it('SectionList.scrollToLocation lands on the section header offset', async () => {

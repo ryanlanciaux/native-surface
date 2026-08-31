@@ -150,6 +150,18 @@ function FlatListInner<ItemT>(
 
   const items = React.useMemo(() => (data ? Array.from(data) : []), [data]);
   const key = keyExtractor ?? defaultKey;
+  const scrollRef = React.useRef<ScrollViewHandle | null>(null);
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      scrollTo: (opts) => scrollRef.current?.scrollTo(opts),
+      scrollToEnd: (opts) => scrollRef.current?.scrollToEnd(opts),
+      scrollToOffset({ offset, animated = true }) {
+        scrollRef.current?.scrollTo(horizontal ? { x: offset, animated } : { y: offset, animated });
+      },
+    }),
+    [horizontal]
+  );
   const handleScroll = useEndReached(
     onEndReached as FlatListProps<unknown>['onEndReached'],
     onEndReachedThreshold,
@@ -192,7 +204,7 @@ function FlatListInner<ItemT>(
 
   return (
     <ScrollView
-      ref={ref}
+      ref={scrollRef}
       horizontal={horizontal}
       contentContainerStyle={contentContainerStyle}
       onScroll={handleScroll}
