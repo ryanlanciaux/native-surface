@@ -3,7 +3,6 @@
   "version": "0.1.0-alpha.1",
   "license": "MIT",
   "description": "Component playground for native-surface: serve any React Native app's stories on the canvas engine - real Yoga layout, Skia paint, shareable URLs, no device.",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ryanlanciaux/native-surface.git",
