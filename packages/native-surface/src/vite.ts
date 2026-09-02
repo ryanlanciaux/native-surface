@@ -992,7 +992,8 @@ export function rnCjsInteropPlugin(extraPackages: string[] = []): {
       return {
         code:
           `${requireImports.join('\n')}\n` +
-          `const module = { exports: {} }; const exports = module.exports;\n${body}${tail}`,
+          // `let` — CJS like semver/internal/re.js does `exports = module.exports = {}`.
+          `const module = { exports: {} }; let exports = module.exports;\n${body}${tail}`,
         map: null,
       };
     },

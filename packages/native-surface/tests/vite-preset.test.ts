@@ -473,6 +473,14 @@ describe('standard-boundary optimizeDeps ownership', () => {
     expect(plugin.transform(cjs, '/x/node_modules/.vite/deps/chunk.js')).toBeNull();
   });
 
+  it('lets CJS reassign exports (semver/internal/re.js)', () => {
+    const plugin = rnCjsInteropPlugin();
+    const file = '/x/node_modules/semver/internal/re.js';
+    const out = plugin.transform('exports = module.exports = {};\nexports.re = [];\n', file)!;
+    const runnable = out.code.replace(/\nexport .*/g, '');
+    expect(() => new Function(runnable)()).not.toThrow();
+  });
+
   it('dedupes the nav singletons alongside react and reanimated', () => {
     const { dedupe } = runConfig({ resolveFrom: EMBED_ROOT }).resolve;
     for (const pkg of [
