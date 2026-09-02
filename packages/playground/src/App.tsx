@@ -10,6 +10,7 @@ import { publishShootError, publishShootIndex, publishShootSelection, shootParam
 import { useHashSelection } from './useHashSelection';
 import { useStoryNav } from './useStoryNav';
 import { DEFAULT_VIEWPORT, matchViewport } from './viewports';
+import { storyPadding } from 'virtual:playground-config';
 import { Sidebar } from './ui/Sidebar';
 import { Toolbar } from './ui/Toolbar';
 import type { DprMode } from './ui/Toolbar';
@@ -202,6 +203,7 @@ function Playground({ index }: { index: StoryIndex }): React.JSX.Element {
             onAction={onSurfaceAction}
             title={entry.title}
             storyName={entry.name}
+            padding={storyPadding}
           />
         ) : (
           <main className="stage">

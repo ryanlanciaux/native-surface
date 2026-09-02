@@ -44,6 +44,27 @@ export function hostStoriesPlugin({ hostRoot, globs }) {
   };
 }
 
+
+const CONFIG_ID = 'virtual:playground-config';
+const CONFIG_RESOLVED = '\0virtual:playground-config';
+
+export const DEFAULT_STORY_PADDING = 16;
+
+/** `virtual:playground-config` — `{ storyPadding }` from the host config. */
+export function playgroundConfigPlugin({ storyPadding = DEFAULT_STORY_PADDING } = {}) {
+  const padding = Number.isFinite(storyPadding) && storyPadding >= 0 ? storyPadding : DEFAULT_STORY_PADDING;
+  return {
+    name: 'native-surface-playground:config',
+    resolveId(id) {
+      return id === CONFIG_ID ? CONFIG_RESOLVED : null;
+    },
+    load(id) {
+      if (id !== CONFIG_RESOLVED) return null;
+      return `export const storyPadding = ${padding};\n`;
+    },
+  };
+}
+
 const STUB_PREFIX = '\0ns-stub:';
 
 /** True for `pkg`, `@scope/pkg`, `pkg/deep` — not relative/absolute paths,

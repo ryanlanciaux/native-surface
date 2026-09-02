@@ -72,7 +72,8 @@ else `/usr/bin/chromium`) and `puppeteer-core` resolvable from
 export default {
   stories: ['src/**/*.stories.tsx'], // optional; CLI --stories wins
   port: 5170,                        // optional; CLI --port wins
-  decorators: 'none',                // reserved: opts out of future auto decorators
+  storyPadding: 16,                  // inset between device chrome and canvas (0 = flush)
+  decorators: 'none',                // sets storyPadding to 0 unless storyPadding is also set
   optimizeDeps: {                    // optional Vite escape hatch:
     exclude: ['react-native-paper'], //   host UI kits importing 'react-native'
     include: ['@callstack/react-theme-provider'], // their bare-CJS leaves

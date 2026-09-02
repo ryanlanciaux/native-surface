@@ -94,10 +94,14 @@ interface PreviewProps {
   onAction: (name: string, payload?: unknown) => void;
   title: string;
   storyName: string;
+  /** Inset between device chrome and canvas, CSS px. */
+  padding?: number;
 }
 
 export function Preview(props: PreviewProps): React.JSX.Element {
-  const { surfaceKey, element, width, height, dpr, theme, onAction, title, storyName } = props;
+  const { surfaceKey, element, width, height, dpr, theme, onAction, title, storyName, padding = 16 } = props;
+  const innerWidth = Math.max(1, width - padding * 2);
+  const innerHeight = Math.max(1, height - padding * 2);
   // Keyed by surfaceKey so switching stories (or toggling theme) retries.
   const [innerError, setInnerError] = useState<{ key: string; error: Error } | null>(null);
   const activeError = innerError && innerError.key === surfaceKey ? innerError.error : null;
@@ -106,15 +110,15 @@ export function Preview(props: PreviewProps): React.JSX.Element {
     <main className="stage">
       <div className="stage-scroll">
         <div className={`device ${theme}`} style={{ width: width + 16, height: height + 16 }}>
-          <div className="device-screen" style={{ width, height }}>
+          <div className="device-screen" style={{ width, height, padding }}>
             {activeError ? (
               <StoryErrorPanel error={activeError} />
             ) : (
               <PreviewBoundary resetKey={surfaceKey}>
                 <NativeSurface
                   key={surfaceKey}
-                  width={width}
-                  height={height}
+                  width={innerWidth}
+                  height={innerHeight}
                   dpr={dpr}
                   theme={theme}
                   onAction={onAction}

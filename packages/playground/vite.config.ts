@@ -3,6 +3,8 @@ import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { designPlane } from '@native-surface/design-plane';
+// @ts-expect-error untyped internal module
+import { playgroundConfigPlugin } from './src/server/plugins.mjs';
 import { reactNativeAlias } from 'native-surface/vite';
 
 const playgroundRoot = fileURLToPath(new URL('.', import.meta.url));
@@ -33,7 +35,7 @@ export default defineConfig(({ mode }) => {
   const allowedHosts = (env.VITE_ALLOWED_HOSTS ?? '').split(',').filter(Boolean);
 
   return {
-    plugins: [react(), hostStoriesStub(), designPlane({ hostRoot: playgroundRoot })],
+    plugins: [react(), hostStoriesStub(), playgroundConfigPlugin(), designPlane({ hostRoot: playgroundRoot })],
     resolve: {
       // Story components are real React Native source: `import { View } from 'react-native'`
       // resolves to the canvas renderer instead of the native/RNW implementations.

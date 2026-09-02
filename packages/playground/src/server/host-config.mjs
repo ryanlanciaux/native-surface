@@ -8,11 +8,13 @@ import { pathToFileURL } from 'node:url';
 /**
  * `.native-surface/playground.config.{mjs,js}` in the host root. Shape (all
  * optional, default export):
- *   { stories?: string[], port?: number, decorators?: 'none',
+ *   { stories?: string[], port?: number, storyPadding?: number,
+ *     decorators?: 'none',
  *     optimizeDeps?: { include?: string[], exclude?: string[] },
  *     aliases?: Record<string, string> }
- * `decorators: 'none'` is accepted for forward-compat (it will opt out of
- * auto-applied environment decorators once those exist); today it is a no-op.
+ * `storyPadding` is CSS px inset between the device chrome and the canvas
+ * (default 16). `decorators: 'none'` sets storyPadding to 0 unless storyPadding
+ * is also set.
  * `optimizeDeps` merges into the Vite config — the escape hatch the engine
  * preset's docs assign to the consumer config layer: exclude host UI kits
  * that import the aliased 'react-native' (prebundling would freeze a private
@@ -45,8 +47,17 @@ export async function loadHostConfig(hostRoot) {
       if (Number.isInteger(port) && port > 0) clean.port = port;
       else warnings.push(`${path}: "port" must be a positive integer; ignoring`);
     }
-    if (config.decorators !== undefined && config.decorators !== 'none') {
-      warnings.push(`${path}: "decorators" only supports 'none' for now; ignoring`);
+    if (config.storyPadding !== undefined) {
+      const n = Number(config.storyPadding);
+      if (Number.isFinite(n) && n >= 0) clean.storyPadding = n;
+      else warnings.push(`${path}: "storyPadding" must be a number >= 0; ignoring`);
+    }
+    if (config.decorators !== undefined) {
+      if (config.decorators === 'none') {
+        if (clean.storyPadding === undefined) clean.storyPadding = 0;
+      } else {
+        warnings.push(`${path}: "decorators" only supports 'none'; ignoring`);
+      }
     }
     if (config.optimizeDeps !== undefined) {
       const deps = config.optimizeDeps;

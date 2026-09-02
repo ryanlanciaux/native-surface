@@ -12,7 +12,7 @@ import { createServer, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react';
 import { loadHostConfig, storybookStoryGlobs } from './host-config.mjs';
 import { designPlane } from '@native-surface/design-plane';
-import { hostStoriesPlugin, importAuditPlugin } from './plugins.mjs';
+import { hostStoriesPlugin, importAuditPlugin, playgroundConfigPlugin } from './plugins.mjs';
 import { tsconfigAliases } from './tsconfig-paths.mjs';
 
 const PLAYGROUND_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -144,6 +144,7 @@ export async function createPlaygroundServer(options = {}) {
       ...nativeSurface({ platform, resolveFrom: hostRoot }),
       react(reanimatedBabelPlugin ? { babel: { plugins: [reanimatedBabelPlugin] } } : {}),
       hostStoriesPlugin({ hostRoot, globs }),
+      playgroundConfigPlugin({ storyPadding: config.storyPadding ?? 16 }),
       importAuditPlugin({ hostRoot, audit }),
       designPlane({ hostRoot }),
       ...(aliasOverrides.length

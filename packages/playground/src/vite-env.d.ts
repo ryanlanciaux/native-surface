@@ -8,3 +8,7 @@ declare module 'virtual:host-stories' {
   export const hostMode: boolean;
   export const modules: Record<string, () => Promise<Record<string, unknown>>>;
 }
+
+declare module 'virtual:playground-config' {
+  export const storyPadding: number;
+}

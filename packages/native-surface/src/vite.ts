@@ -915,6 +915,9 @@ const CJS_INTEROP_PACKAGES = [
   // that its own ESM modules default-import. It is excluded from prebundling
   // in 'real' mode, so Vite serves those raw and the import has no binding.
   'react-native-reanimated',
+  // reanimated's validate-worklets-version.js does `import satisfies from
+  // 'semver/functions/satisfies.js'` — that file is CJS `module.exports = fn`.
+  'semver',
 ];
 
 /**

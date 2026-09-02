@@ -50,3 +50,24 @@ describe('loadHostConfig optimizeDeps', () => {
     expect(warnings.some((w: string) => w.includes('optimizeDeps'))).toBe(true);
   });
 });
+
+describe('loadHostConfig storyPadding', () => {
+  it('adopts a non-negative number', async () => {
+    const root = hostWith(`export default { storyPadding: 24 };`);
+    const { config, warnings } = await loadHostConfig(root);
+    expect(warnings).toEqual([]);
+    expect(config.storyPadding).toBe(24);
+  });
+
+  it('decorators none implies storyPadding 0', async () => {
+    const root = hostWith(`export default { decorators: 'none' };`);
+    const { config } = await loadHostConfig(root);
+    expect(config.storyPadding).toBe(0);
+  });
+
+  it('explicit storyPadding wins over decorators none', async () => {
+    const root = hostWith(`export default { decorators: 'none', storyPadding: 8 };`);
+    const { config } = await loadHostConfig(root);
+    expect(config.storyPadding).toBe(8);
+  });
+});
