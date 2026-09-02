@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/playground",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "license": "MIT",
   "description": "Component playground for native-surface: serve any React Native app's stories on the canvas engine - real Yoga layout, Skia paint, shareable URLs, no device.",
   "repository": {
