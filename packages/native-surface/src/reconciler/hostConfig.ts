@@ -24,7 +24,35 @@ let currentUpdatePriority: number = 0;
 
 const HostTransitionContext = createContext<unknown>(null);
 
-function createNode(type: string, props: Record<string, unknown>): CNode {
+const SKIP_OWNERS = new Set([
+  '',
+  'Anonymous',
+  'Wrapper',
+  'InnerBoundary',
+  'NativeSurface',
+]);
+
+function compositeName(fiber: { return?: unknown; type?: unknown; elementType?: unknown } | null | undefined): string | undefined {
+  let current: any = fiber?.return;
+  while (current) {
+    const type = current.type ?? current.elementType;
+    if (typeof type === 'string') {
+      current = current.return;
+      continue;
+    }
+    const name =
+      typeof type === 'function'
+        ? type.displayName || type.name
+        : type && typeof type === 'object'
+          ? type.displayName || type.render?.displayName || type.render?.name
+          : undefined;
+    if (name && !SKIP_OWNERS.has(name)) return name;
+    current = current.return;
+  }
+  return undefined;
+}
+
+function createNode(type: string, props: Record<string, unknown>, fiber?: unknown): CNode {
   const mapped = HOST_TYPE_MAP[type];
   if (!mapped) {
     throw new Error(
@@ -33,6 +61,8 @@ function createNode(type: string, props: Record<string, unknown>): CNode {
   }
   const node = new CNode(mapped, props);
   node.updateProps(props);
+  const name = compositeName(fiber as { return?: unknown; type?: unknown } | undefined);
+  if (name) node.ownerName = name;
   return node;
 }
 
@@ -60,7 +90,7 @@ const hostConfig: Record<string, unknown> = {
   resetAfterCommit: (container: ContainerHost) => container.scheduleFlush(),
   preparePortalMount: () => {},
 
-  createInstance: (type: string, props: Record<string, unknown>) => createNode(type, props),
+  createInstance: (type: string, props: Record<string, unknown>, _root: unknown, _ctx: unknown, fiber: unknown) => createNode(type, props, fiber),
   createTextInstance: (text: string) => new CNode('rawtext', { text }),
   shouldSetTextContent: () => false,
 

@@ -349,3 +349,30 @@ export function resolveTextStyle(flat: FlatStyle, inherited: ResolvedTextStyle):
     lineThrough: decoration != null ? decoration.includes('line-through') : inherited.lineThrough,
   };
 }
+
+export type LayoutEdges = { top: number; right: number; bottom: number; left: number };
+export type LayoutFont = { size?: number; family?: string; weight?: string; lineHeight?: number; color?: string };
+
+/** Own padding or margin from a flattened RN style. Omitted when nothing was set. */
+export function layoutEdges(flat: FlatStyle, kind: 'padding' | 'margin'): LayoutEdges | undefined {
+  const all = num(flat[kind]);
+  const h = num(flat[`${kind}Horizontal`]) ?? all;
+  const v = num(flat[`${kind}Vertical`]) ?? all;
+  const top = num(flat[`${kind}Top`]) ?? v;
+  const right = num(flat[`${kind}Right`]) ?? h;
+  const bottom = num(flat[`${kind}Bottom`]) ?? v;
+  const left = num(flat[`${kind}Left`]) ?? h;
+  if (top == null && right == null && bottom == null && left == null) return undefined;
+  return { top: top ?? 0, right: right ?? 0, bottom: bottom ?? 0, left: left ?? 0 };
+}
+
+/** Own font keys from a flattened RN style. Omitted when none were set. */
+export function layoutFont(flat: FlatStyle): LayoutFont | undefined {
+  const font: LayoutFont = {};
+  if (typeof flat.fontSize === 'number') font.size = flat.fontSize;
+  if (typeof flat.fontFamily === 'string') font.family = flat.fontFamily;
+  if (flat.fontWeight != null) font.weight = String(flat.fontWeight);
+  if (typeof flat.lineHeight === 'number') font.lineHeight = flat.lineHeight;
+  if (typeof flat.color === 'string') font.color = flat.color;
+  return Object.keys(font).length > 0 ? font : undefined;
+}

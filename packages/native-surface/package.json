@@ -1,6 +1,6 @@
 {
   "name": "native-surface",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "license": "MIT",
   "description": "Run real React Native component trees inside any React DOM app - a canvas renderer (Yoga WASM layout + Skia/CanvasKit paint, custom reconciler) with a one-call Vite preset. Not react-native-web.",
   "keywords": [

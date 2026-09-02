@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/compat",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "license": "MIT",
   "description": "Compat shims for native-surface: high-level, boundary-general stand-ins for RN community packages (gesture-handler, safe-area, expo modules, ...) that need engine wiring.",
   "keywords": [

@@ -75,8 +75,13 @@ export function designPlane({ hostRoot }) {
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split('?')[0];
         if (url !== '/plane' && url !== '/plane/') return next();
-        res.setHeader('content-type', 'text/html; charset=utf-8');
-        res.end(html);
+        server
+          .transformIndexHtml(url, html)
+          .then((transformed) => {
+            res.setHeader('content-type', 'text/html; charset=utf-8');
+            res.end(transformed);
+          })
+          .catch(next);
       });
     },
   };

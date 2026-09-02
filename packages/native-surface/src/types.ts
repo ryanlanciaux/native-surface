@@ -286,6 +286,8 @@ export interface LayoutNode {
    */
   painted?: { x: number; y: number; width: number; height: number; rotated?: boolean };
   text?: string;
+  /** Nearest composite React component name (e.g. Button), when known. */
+  name?: string;
   /** The component's testID prop, when set — the driver-facing address. */
   testID?: string;
   /** accessibilityRole (or RN 0.71+ `role`), when set. */
@@ -294,6 +296,13 @@ export interface LayoutNode {
   label?: string;
   /** TextInput placeholder, when set. */
   placeholder?: string;
+  /** Own padding edges, when any padding style is set. */
+  padding?: { top: number; right: number; bottom: number; left: number };
+  /** Own margin edges, when any margin style is set. */
+  margin?: { top: number; right: number; bottom: number; left: number };
+  gap?: number;
+  /** Own font styles, when any font/color key is set. */
+  font?: { size?: number; family?: string; weight?: string; lineHeight?: number; color?: string };
   children: LayoutNode[];
 }
 

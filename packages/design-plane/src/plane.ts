@@ -4,20 +4,28 @@ export type HitNode = {
   type: string;
   frame: Rect;
   painted?: Rect;
+  name?: string;
   testID?: string;
   role?: string;
   label?: string;
   text?: string;
   placeholder?: string;
+  padding?: { top: number; right: number; bottom: number; left: number };
+  margin?: { top: number; right: number; bottom: number; left: number };
+  gap?: number;
+  font?: { size?: number; family?: string; weight?: string; lineHeight?: number; color?: string };
   children: HitNode[];
 };
 
 export type FrameSize = { width?: number; height?: number };
 
 export const DEFAULT_FRAME = { width: 390, height: 720 };
+export const DEFAULT_COMPONENT = { width: 320, height: 400 };
 export const FRAME_GAP = 80;
+export const FRAME_CHROME = 28;
 export const MIN_ZOOM = 0.15;
 export const MAX_ZOOM = 3;
+export const WRAP_WIDTH = 1640;
 
 export function nodeRect(node: HitNode): Rect {
   return node.painted ?? node.frame;
@@ -56,14 +64,79 @@ export function layoutFrames(
   routes: readonly FrameSize[],
   gap = FRAME_GAP
 ): Array<{ x: number; y: number; width: number; height: number }> {
+  return layoutWrap(routes, { gap, wrapWidth: Number.POSITIVE_INFINITY });
+}
+
+export const GROUP_HEADER = 40;
+export const GROUP_GAP = 96;
+
+export type GroupSpec = { title: string; items: readonly FrameSize[] };
+export type GroupBox = { title: string; x: number; y: number; width: number; height: number };
+
+/** Stack groups vertically; variants of one screen sit in a single row. */
+export function layoutGroups(
+  groups: readonly GroupSpec[],
+  opts: { gap?: number; groupGap?: number; header?: number; fallback?: { width: number; height: number } } = {}
+): { frames: Array<{ x: number; y: number; width: number; height: number }>; boxes: GroupBox[] } {
+  const gap = opts.gap ?? FRAME_GAP;
+  const groupGap = opts.groupGap ?? GROUP_GAP;
+  const header = opts.header ?? GROUP_HEADER;
+  const fallback = opts.fallback ?? DEFAULT_FRAME;
+  const frames: Array<{ x: number; y: number; width: number; height: number }> = [];
+  const boxes: GroupBox[] = [];
+  let y = 0;
+  for (const group of groups) {
+    let x = 0;
+    let rowH = 0;
+    for (const item of group.items) {
+      const width = item.width ?? fallback.width;
+      const height = item.height ?? fallback.height;
+      frames.push({ x, y: y + header, width, height });
+      x += width + gap;
+      rowH = Math.max(rowH, height);
+    }
+    const width = Math.max(x - gap, group.items[0] ? (group.items[0].width ?? fallback.width) : fallback.width);
+    boxes.push({ title: group.title, x: 0, y, width, height: header + rowH });
+    y += header + rowH + groupGap;
+  }
+  return { frames, boxes };
+}
+
+/** Left-to-right, wrap onto the next row when a frame would exceed wrapWidth. */
+export function layoutWrap(
+  items: readonly FrameSize[],
+  opts: { gap?: number; wrapWidth?: number; originY?: number; fallback?: { width: number; height: number } } = {}
+): Array<{ x: number; y: number; width: number; height: number }> {
+  const gap = opts.gap ?? FRAME_GAP;
+  const wrapWidth = opts.wrapWidth ?? WRAP_WIDTH;
+  const fallback = opts.fallback ?? DEFAULT_FRAME;
   let x = 0;
-  return routes.map((route) => {
-    const width = route.width ?? DEFAULT_FRAME.width;
-    const height = route.height ?? DEFAULT_FRAME.height;
-    const frame = { x, y: 0, width, height };
+  let y = opts.originY ?? 0;
+  let rowH = 0;
+  return items.map((item) => {
+    const width = item.width ?? fallback.width;
+    const height = item.height ?? fallback.height;
+    if (x > 0 && x + width > wrapWidth) {
+      x = 0;
+      y += rowH + gap;
+      rowH = 0;
+    }
+    const frame = { x, y, width, height };
     x += width + gap;
+    rowH = Math.max(rowH, height);
     return frame;
   });
+}
+
+export function boundsOf(frames: readonly Rect[]): Rect {
+  if (frames.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+  let x2 = 0;
+  let y2 = 0;
+  for (const frame of frames) {
+    x2 = Math.max(x2, frame.x + frame.width);
+    y2 = Math.max(y2, frame.y + frame.height);
+  }
+  return { x: 0, y: 0, width: x2, height: y2 };
 }
 
 export function clampZoom(zoom: number): number {
@@ -111,6 +184,35 @@ export function fitRect(
   };
 }
 
+export function worldView(
+  panX: number,
+  panY: number,
+  zoom: number,
+  viewW: number,
+  viewH: number,
+  overscan = 0.35
+): Rect {
+  const width = viewW / zoom;
+  const height = viewH / zoom;
+  const ox = width * overscan;
+  const oy = height * overscan;
+  return {
+    x: -panX / zoom - ox,
+    y: -panY / zoom - oy,
+    width: width + ox * 2,
+    height: height + oy * 2,
+  };
+}
+
+export function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+/** True when a frame (plus chrome) should keep its NativeSurface mounted. */
+export function frameLive(frame: Rect, view: Rect, chrome = FRAME_CHROME): boolean {
+  return overlaps({ ...frame, height: frame.height + chrome }, view);
+}
+
 export function surfacePoint(
   clientX: number,
   clientY: number,
@@ -123,4 +225,9 @@ export function surfacePoint(
     x: ((clientX - box.left) / box.width) * surfaceWidth,
     y: ((clientY - box.top) / box.height) * surfaceHeight,
   };
+}
+
+export function formatEdges(box: { top: number; right: number; bottom: number; left: number }): string {
+  if (box.top === box.right && box.right === box.bottom && box.bottom === box.left) return `${box.top}`;
+  return `${box.top} ${box.right} ${box.bottom} ${box.left}`;
 }

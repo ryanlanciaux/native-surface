@@ -11,6 +11,7 @@ import { setOverlayFactory, syncFocusedOverlay } from './textInputState';
 import { createDomInputOverlay } from './textInputOverlay';
 import { installIntersectionObserver } from './intersectionObserver';
 import { inlineChildrenOf } from './text';
+import { layoutEdges, layoutFont } from './styles';
 import { destroyPortalOverlays, syncPortalOverlays } from './portalHost';
 import {
   DimensionsContext,
@@ -486,6 +487,7 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
         out.painted = painted;
       }
       if (node.type === 'text') out.text = node.textContent();
+      if (node.ownerName) out.name = node.ownerName;
       // Drivers (e2e, validation harnesses) locate elements by testID, role,
       // label, or placeholder and synthesize pointer events at frame centers.
       if (typeof node.props.testID === 'string') out.testID = node.props.testID;
@@ -494,6 +496,14 @@ export class RootImpl implements NativeRoot, RootHooks, ContainerHost {
       const label = node.props.accessibilityLabel ?? node.props['aria-label'];
       if (typeof label === 'string') out.label = label;
       if (typeof node.props.placeholder === 'string') out.placeholder = node.props.placeholder;
+      const padding = layoutEdges(node.flatStyle, 'padding');
+      if (padding) out.padding = padding;
+      const margin = layoutEdges(node.flatStyle, 'margin');
+      if (margin) out.margin = margin;
+      const gap = typeof node.flatStyle.gap === 'number' ? node.flatStyle.gap : undefined;
+      if (gap != null) out.gap = gap;
+      const font = layoutFont(node.flatStyle);
+      if (font) out.font = font;
       return out;
     };
     return toLayoutNode(this.rootNode, 0, 0, IDENTITY);

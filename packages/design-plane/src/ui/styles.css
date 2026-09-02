@@ -106,3 +106,57 @@ dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12
 .empty { color: var(--text-dim); padding: 24px; width: 420px; }
 .empty code { color: var(--accent); }
 .err { margin: 0; padding: 12px; color: #ff6b6b; white-space: pre-wrap; font-size: 12px; }
+
+.section {
+  position: absolute;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.dormant {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  background: repeating-linear-gradient(-45deg, #14161a, #14161a 8px, #1a1d22 8px, #1a1d22 16px);
+  font-size: 12px;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 40%;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+.rail button {
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  padding: 3px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.rail button:hover, .rail button.on { color: var(--text); background: var(--bg-sunken); }
+
+.group-label {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.show-story {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.show-story:hover { background: var(--bg-sunken); }

@@ -16,6 +16,9 @@ const nav = StyleSheet.create({
   chipText: { color: '#e2e8f0', fontSize: 13, fontWeight: '600' },
   screen: { flex: 1, backgroundColor: '#f8fafc' },
   pad: { paddingTop: 24, gap: 16 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  emptyBody: { fontSize: 14, color: '#64748b', textAlign: 'center' },
 });
 
 function Nav({ current }: { current: string }) {
@@ -39,6 +42,30 @@ function Home() {
     <View testID="home" style={nav.screen}>
       <Nav current="home" />
       <Feed count={8} avatars={[ada, grace]} unreadEvery={3} />
+    </View>
+  );
+}
+
+function HomeEmpty() {
+  return (
+    <View testID="home" style={nav.screen}>
+      <Nav current="home" />
+      <View style={nav.empty}>
+        <Text style={nav.emptyTitle}>Inbox zero</Text>
+        <Text style={nav.emptyBody}>No threads yet. Pull to refresh.</Text>
+      </View>
+    </View>
+  );
+}
+
+function HomeError() {
+  return (
+    <View testID="home" style={nav.screen}>
+      <Nav current="home" />
+      <View style={nav.empty}>
+        <Text style={nav.emptyTitle}>Couldn't load inbox</Text>
+        <Text style={nav.emptyBody}>Check your connection and try again.</Text>
+      </View>
     </View>
   );
 }
@@ -74,7 +101,9 @@ function Compose() {
 }
 
 export const routes = [
-  { id: 'home', title: 'Home', component: Home },
-  { id: 'profile', title: 'Profile', component: Profile },
-  { id: 'compose', title: 'Compose', component: Compose },
+  { id: 'home', title: 'Default', group: 'Home', component: Home },
+  { id: 'home-empty', title: 'No data', group: 'Home', component: HomeEmpty },
+  { id: 'home-error', title: 'Error', group: 'Home', component: HomeError },
+  { id: 'profile', title: 'Default', group: 'Profile', component: Profile },
+  { id: 'compose', title: 'Default', group: 'Compose', component: Compose },
 ];

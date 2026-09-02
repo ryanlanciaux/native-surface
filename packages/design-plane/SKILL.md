@@ -25,15 +25,18 @@ import { HomeScreen } from '../src/screens/Home';
 import { ProfileScreen } from '../src/screens/Profile';
 
 export const routes = [
-  { id: 'home', title: 'Home', component: HomeScreen },
-  { id: 'profile', title: 'Profile', component: ProfileScreen, props: { userId: 'demo' } },
+  { id: 'home', title: 'Default', group: 'Home', component: HomeScreen },
+  { id: 'home-empty', title: 'No data', group: 'Home', component: HomeEmpty },
+  { id: 'home-error', title: 'Error', group: 'Home', component: HomeError },
+  { id: 'profile', title: 'Default', group: 'Profile', component: ProfileScreen },
 ];
 ```
 
+- `group` clusters variants in one labeled row (Default / No data / Error).
 - `id` is the jump target. Put that same string as `testID` on the control that should jump there (tab, link, row).
 - Optional: `width`, `height` (default 390×720), `props`.
 - Do not mount the real navigator. Each route is one screen, isolated.
-- Prefer 3–8 main routes. More frames = more canvases.
+- Prefer a handful of screens, a few variants each. Off-screen frames unmount.
 
 Shift-click a node whose `testID` matches a route `id` to pan/zoom to that frame. Click (Inspect on) shows type, testID, role, label, text, frame.
 

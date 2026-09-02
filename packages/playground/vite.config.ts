@@ -19,7 +19,9 @@ function hostStoriesStub(): Plugin {
       return id === 'virtual:host-stories' ? RESOLVED : null;
     },
     load(id) {
-      return id === RESOLVED ? 'export const hostMode = false;\nexport const modules = {};\n' : null;
+      return id === RESOLVED
+        ? "export const hostMode = true;\nexport const modules = import.meta.glob('/src/stories/*.stories.tsx');\n"
+        : null;
     },
   };
 }

@@ -69,6 +69,9 @@ export class CNode {
   flatStyle: FlatStyle = {};
   paint: PaintStyle = resolvePaintStyle({});
 
+  /** Nearest composite React component name (Button, Feed, …), when known. */
+  ownerName: string | null = null;
+
   /** rawtext content */
   text = '';
 

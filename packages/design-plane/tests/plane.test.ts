@@ -5,10 +5,14 @@ import {
   hitNode,
   hitPath,
   jumpId,
+  frameLive,
   layoutFrames,
+  layoutGroups,
+  layoutWrap,
   MAX_ZOOM,
   MIN_ZOOM,
   screenToWorld,
+  worldView,
   zoomAt,
   type HitNode,
 } from '../src/plane';
@@ -96,5 +100,37 @@ describe('layout + camera', () => {
     expect(cam.zoom).toBe(2);
     expect(cam.panX).toBe(0);
     expect(cam.panY).toBe(100);
+  });
+});
+
+describe('virtualize', () => {
+  it('wraps frames onto the next row', () => {
+    const frames = layoutWrap(
+      [{ width: 100, height: 10 }, { width: 100, height: 10 }, { width: 100, height: 10 }],
+      { gap: 10, wrapWidth: 220 }
+    );
+    expect(frames.map((f) => [f.x, f.y])).toEqual([[0, 0], [110, 0], [0, 20]]);
+  });
+
+  it('unmounts frames outside the overscanned view', () => {
+    const view = worldView(0, 0, 1, 200, 200, 0);
+    expect(frameLive({ x: 0, y: 0, width: 50, height: 50 }, view)).toBe(true);
+    expect(frameLive({ x: 500, y: 0, width: 50, height: 50 }, view)).toBe(false);
+  });
+});
+
+describe('layoutGroups', () => {
+  it('puts variants of one screen in a row under a header', () => {
+    const { frames, boxes } = layoutGroups(
+      [
+        { title: 'Home', items: [{ width: 100, height: 50 }, { width: 100, height: 50 }] },
+        { title: 'Profile', items: [{ width: 80, height: 40 }] },
+      ],
+      { gap: 10, groupGap: 20, header: 20 }
+    );
+    expect(boxes.map((b) => b.title)).toEqual(['Home', 'Profile']);
+    expect(frames[0]).toEqual({ x: 0, y: 20, width: 100, height: 50 });
+    expect(frames[1]).toEqual({ x: 110, y: 20, width: 100, height: 50 });
+    expect(frames[2]?.y).toBe(20 + 50 + 20 + 20);
   });
 });
