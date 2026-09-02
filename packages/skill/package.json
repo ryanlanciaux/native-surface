@@ -1,0 +1,20 @@
+{
+  "name": "@native-surface/skill",
+  "version": "0.1.0-alpha.1",
+  "license": "MIT",
+  "description": "Agent skill: write native-surface stories and design-plane screen routes for a React Native app.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanlanciaux/native-surface.git",
+    "directory": "packages/skill"
+  },
+  "files": [
+    "skills",
+    "README.md"
+  ],
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
+  }
+}
