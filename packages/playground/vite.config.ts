@@ -1,7 +1,11 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { designPlane } from '@native-surface/design-plane';
 import { reactNativeAlias } from 'native-surface/vite';
+
+const playgroundRoot = fileURLToPath(new URL('.', import.meta.url));
 
 // Standalone dev serves the in-repo demo stories: the registry's
 // 'virtual:host-stories' import resolves to an empty stub (hostMode=false),
@@ -27,7 +31,7 @@ export default defineConfig(({ mode }) => {
   const allowedHosts = (env.VITE_ALLOWED_HOSTS ?? '').split(',').filter(Boolean);
 
   return {
-    plugins: [react(), hostStoriesStub()],
+    plugins: [react(), hostStoriesStub(), designPlane({ hostRoot: playgroundRoot })],
     resolve: {
       // Story components are real React Native source: `import { View } from 'react-native'`
       // resolves to the canvas renderer instead of the native/RNW implementations.

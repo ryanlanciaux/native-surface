@@ -15,6 +15,7 @@
   "files": [
     "bin",
     "src",
+    ".native-surface",
     "index.html",
     "README.md"
   ],
@@ -25,6 +26,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@native-surface/design-plane": "workspace:*",
     "@vitejs/plugin-react": "^4.3.0",
     "native-surface": "workspace:*",
     "react": "^19.0.0",

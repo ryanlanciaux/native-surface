@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react';
 import { loadHostConfig, storybookStoryGlobs } from './host-config.mjs';
+import { designPlane } from '@native-surface/design-plane';
 import { hostStoriesPlugin, importAuditPlugin } from './plugins.mjs';
 import { tsconfigAliases } from './tsconfig-paths.mjs';
 
@@ -144,6 +145,7 @@ export async function createPlaygroundServer(options = {}) {
       react(reanimatedBabelPlugin ? { babel: { plugins: [reanimatedBabelPlugin] } } : {}),
       hostStoriesPlugin({ hostRoot, globs }),
       importAuditPlugin({ hostRoot, audit }),
+      designPlane({ hostRoot }),
       ...(aliasOverrides.length
         ? [
             {

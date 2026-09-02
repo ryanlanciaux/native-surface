@@ -1,0 +1,44 @@
+{
+  "name": "@native-surface/design-plane",
+  "version": "0.1.0-alpha.1",
+  "license": "MIT",
+  "description": "Pan/zoom design plane for native-surface: mock app routes on one canvas, inspect layout, jump between frames.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanlanciaux/native-surface.git",
+    "directory": "packages/design-plane"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/plugin.d.ts",
+      "default": "./src/plugin.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "SKILL.md",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "native-surface": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "native-surface": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}
