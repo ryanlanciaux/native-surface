@@ -66,7 +66,7 @@ importers:
   packages/compat:
     dependencies:
       native-surface:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../native-surface
     devDependencies:
       '@expo/vector-icons':
@@ -203,6 +203,8 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.7(@types/node@26.2.0)(jsdom@30.0.1)(lightningcss@1.33.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/skill: {}
 
 packages:
 

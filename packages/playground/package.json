@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/playground",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "license": "MIT",
   "description": "Component playground for native-surface: serve any React Native app's stories on the canvas engine - real Yoga layout, Skia paint, shareable URLs, no device.",
   "repository": {
@@ -23,7 +23,9 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/rewrite-workspace-protocol.mjs",
+    "postpack": "node ../../scripts/rewrite-workspace-protocol.mjs --restore"
   },
   "dependencies": {
     "@native-surface/design-plane": "workspace:*",

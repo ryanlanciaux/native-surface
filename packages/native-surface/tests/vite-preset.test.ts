@@ -16,6 +16,7 @@ import {
   nativeSurfaceAliases,
   rnCjsInteropPlugin,
   rnRequirePlugin,
+  rnWorkletsJsSyncPlugin,
   type NativeSurfaceAlias,
 } from '../src/vite';
 import type { NativeSurfacePresetOptions } from '../src/vite';
@@ -479,6 +480,65 @@ describe('standard-boundary optimizeDeps ownership', () => {
     const out = plugin.transform('exports = module.exports = {};\nexports.re = [];\n', file)!;
     const runnable = out.code.replace(/\nexport .*/g, '');
     expect(() => new Function(runnable)()).not.toThrow();
+  });
+
+  it('esbuild-bundles semver /@fs CJS to ESM (circular + exports reassignment)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ns-semver-'));
+    try {
+      const pkg = join(root, 'node_modules', 'semver');
+      mkdirSync(join(pkg, 'internal'), { recursive: true });
+      mkdirSync(join(pkg, 'classes'), { recursive: true });
+      writeFileSync(join(pkg, 'internal/re.js'), 'exports = module.exports = {};\nexports.re = [/x/];\n');
+      writeFileSync(
+        join(pkg, 'classes/comparator.js'),
+        'const semver = require("../index");\nmodule.exports = function Comparator() { return semver.clean(); };\n'
+      );
+      writeFileSync(
+        join(pkg, 'index.js'),
+        'const Comparator = require("./classes/comparator");\nmodule.exports = { Comparator, clean: () => 1 };\n'
+      );
+      const plugin = rnCjsInteropPlugin();
+      const code = await plugin.load(join(pkg, 'index.js'));
+      expect(code).toBeTruthy();
+      expect(code!).toMatch(/export/);
+      expect(code!).not.toMatch(/const exports = module\.exports/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('forces SHOULD_BE_USE_WEB so reanimated 4 takes the JS mapper on ios', () => {
+    const plugin = rnWorkletsJsSyncPlugin();
+    const src =
+      'export const SHOULD_BE_USE_WEB: boolean = IS_JEST || IS_WEB || IS_WINDOWS;\n' +
+      'export function shouldBeUseWeb() { return isJest() || isWeb(); }\n';
+    const out = plugin.transform(src, '/x/node_modules/react-native-worklets/src/PlatformChecker.ts');
+    expect(out).not.toBeNull();
+    expect(out!.code).toContain('SHOULD_BE_USE_WEB: boolean = true');
+    expect(out!.code).toContain('function shouldBeUseWeb() { return true; }');
+  });
+
+  it('shims worklets runOnUISync / executeOnUIRuntimeSync onto the JS thread', () => {
+    const plugin = rnWorkletsJsSyncPlugin();
+    const src = `
+export function runOnUISync() {
+  throw new WorkletsError('\`runOnUISync\` is not supported on web.');
+}
+export function executeOnUIRuntimeSync() {
+  throw new WorkletsError('\`executeOnUIRuntimeSync\` is not supported on web.');
+}
+`;
+    const out = plugin.transform(src, '/x/node_modules/react-native-worklets/src/threads.ts');
+    expect(out).not.toBeNull();
+    expect(out!.code).not.toMatch(/not supported on web/);
+    const runOnUISync = new Function(
+      `${out!.code.replace(/export /g, '')}; return { runOnUISync, executeOnUIRuntimeSync };`
+    )() as {
+      runOnUISync: (fn: (...a: number[]) => number, ...a: number[]) => number;
+      executeOnUIRuntimeSync: (fn: (...a: number[]) => number) => (...a: number[]) => number;
+    };
+    expect(runOnUISync.runOnUISync((a: number, b: number) => a + b, 2, 3)).toBe(5);
+    expect(runOnUISync.executeOnUIRuntimeSync((a: number) => a * 2)(4)).toBe(8);
   });
 
   it('dedupes the nav singletons alongside react and reanimated', () => {

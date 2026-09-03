@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/compat",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "license": "MIT",
   "description": "Compat shims for native-surface: high-level, boundary-general stand-ins for RN community packages (gesture-handler, safe-area, expo modules, ...) that need engine wiring.",
   "keywords": [
@@ -70,11 +70,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",
-    "test": "echo 'exercised by native-surface tests + embed-demo e2e'"
+    "test": "echo 'exercised by native-surface tests + embed-demo e2e'",
+    "prepack": "node ../../scripts/rewrite-workspace-protocol.mjs",
+    "postpack": "node ../../scripts/rewrite-workspace-protocol.mjs --restore"
   },
   "peerDependencies": {
     "@react-navigation/stack": "^7.0.0",
-    "native-surface": "workspace:*",
+    "native-surface": "workspace:^",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {

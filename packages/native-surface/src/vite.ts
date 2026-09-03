@@ -928,15 +928,48 @@ const CJS_INTEROP_PACKAGES = [
  * are left alone — they already interop through the module graph.
  * Part of the `nativeSurface()` preset; exported for à-la-carte configs.
  */
+async function bundleCjsToEsm(file: string): Promise<string> {
+  let esbuild: { build: (opts: object) => Promise<{ outputFiles?: Array<{ text: string }> }> };
+  try {
+    esbuild = await import('esbuild');
+  } catch {
+    esbuild = createRequire(`${process.cwd()}/`)('esbuild');
+  }
+  const result = await esbuild.build({
+    entryPoints: [file],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'neutral',
+    logLevel: 'silent',
+  });
+  const text = result.outputFiles?.[0]?.text;
+  if (!text) throw new Error(`native-surface: esbuild produced no output for ${file}`);
+  return text;
+}
+
 export function rnCjsInteropPlugin(extraPackages: string[] = []): {
   name: string;
   enforce: 'pre';
+  load(id: string): Promise<string | null>;
   transform(code: string, id: string): { code: string; map: null } | null;
 } {
   const packages = [...CJS_INTEROP_PACKAGES, ...extraPackages];
   return {
     name: 'native-surface:rn-cjs-interop',
     enforce: 'pre',
+    // Per-file CJS wrap cannot handle semver: Vite still serves raw /@fs CJS
+    // (`const exports` + `exports = module.exports`, circular __cjsReq TDZ).
+    // optimizeDeps.include misses those deep imports from excluded RN libs.
+    async load(id) {
+      const path = (id.split('?')[0] ?? id).replace(/\\/g, '/');
+      if (!path.includes('/node_modules/semver/') || !/\.c?js$/.test(path)) return null;
+      try {
+        return await bundleCjsToEsm(path);
+      } catch {
+        return null;
+      }
+    },
     transform(code: string, id: string) {
       const path = id.split('?')[0] ?? id;
       if (path.includes('/.vite/') || path.includes('/.vite-')) return null;
@@ -1264,6 +1297,45 @@ function detectWebVariantPackages(req: NodeJS.Require): string[] {
   return out;
 }
 
+/** Reanimated 4 / worklets gate the JS mapper on SHOULD_BE_USE_WEB, which is
+ *  `Platform.OS === 'web'` — false here (the engine reports ios). Native init
+ *  then calls runOnUISync (web stub throws) and animated styles drive a UI
+ *  runtime that does not exist (max call stack on a list of Animated.Views).
+ *  Force the web mapper; call leftover sync-UI APIs on the JS thread. */
+export function rnWorkletsJsSyncPlugin(): {
+  name: string;
+  transform(code: string, id: string): { code: string; map: null } | null;
+} {
+  return {
+    name: 'native-surface:worklets-js-sync',
+    transform(code, id) {
+      const path = (id.split('?')[0] ?? id).replace(/\\/g, '/');
+      if (path.includes('/.vite/') || path.includes('/.vite-')) return null;
+      if (!path.includes('react-native-worklets') && !path.includes('react-native-reanimated')) return null;
+      let out = code;
+      out = out.replace(
+        /export const SHOULD_BE_USE_WEB(\s*:\s*\w+)?\s*=\s*[^;]+;/,
+        'export const SHOULD_BE_USE_WEB$1 = true;'
+      );
+      out = out.replace(
+        /(export\s+)?function shouldBeUseWeb\(\)\s*(?::\s*[^{]+)?\{[^}]*\}/,
+        '$1function shouldBeUseWeb() { return true; }'
+      );
+      if (out.includes('is not supported on web')) {
+        out = out.replace(
+          /((?:export\s+)?function runOnUISync\([^)]*\)(?::\s*never)?\s*\{\s*)throw new \w+\([^)]*runOnUISync[^)]*\);/,
+          '$1return arguments[0](...Array.prototype.slice.call(arguments, 1));'
+        );
+        out = out.replace(
+          /((?:export\s+)?function executeOnUIRuntimeSync\([^)]*\)(?::\s*never)?\s*\{\s*)throw new \w+\([^)]*executeOnUIRuntimeSync[^)]*\);/,
+          '$1var f=arguments[0];return arguments.length>1?f(...Array.prototype.slice.call(arguments,1)):function(){return f.apply(void 0,arguments);};'
+        );
+      }
+      return out === code ? null : { code: out, map: null };
+    },
+  };
+}
+
 /**
  * One-call preset: everything a Vite app needs to render React Native
  * component trees with <NativeSurface>. Composes the platform-extension
@@ -1450,6 +1522,7 @@ export function nativeSurface(opts: NativeSurfacePresetOptions = {}): PluginOpti
       includePackages: opts.requireIncludePackages,
     }),
     rnCjsInteropPlugin(opts.cjsInteropPackages),
+    rnWorkletsJsSyncPlugin(),
     rnWorkletsPlugin({ resolveFrom: opts.resolveFrom }),
     configPlugin,
   ] as PluginOption[];

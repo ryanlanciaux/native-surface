@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { Text, View } from '../src/index';
+import { flattenStyle } from '../src/engine/styles';
 import { createTestRoot, findNode } from './helpers';
+
+describe('flattenStyle', () => {
+  it('does not walk reanimated viewDescriptor handles or circular style arrays', () => {
+    const cycle: unknown[] = [{ opacity: 1 }];
+    cycle.push(cycle);
+    expect(flattenStyle(cycle as never)).toEqual({ opacity: 1 });
+    expect(flattenStyle({ viewDescriptors: {}, opacity: 0.5 } as never)).toEqual({});
+    expect(flattenStyle([{ opacity: 1 }, { viewDescriptors: {} }, { width: 10 }] as never)).toEqual({
+      opacity: 1,
+      width: 10,
+    });
+  });
+});
 
 describe('getLayoutTree: spacing and font', () => {
   it('reports padding, margin, gap, and font from own style', async () => {

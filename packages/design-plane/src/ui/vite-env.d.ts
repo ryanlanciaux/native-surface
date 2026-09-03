@@ -13,8 +13,8 @@ declare module 'virtual:design-plane' {
     height?: number;
   };
 
-  export const routes: PlaneRoute[];
-  export function Wrapper(props: { children: ReactNode; route: PlaneRoute }): ReactNode;
+  export function loadPlane(): Promise<{ routes: PlaneRoute[] }>;
+  export function loadWrapper(): Promise<(props: { children: ReactNode; route: PlaneRoute }) => ReactNode>;
 }
 
 declare module 'virtual:host-stories' {

@@ -17,13 +17,15 @@ export type FlatStyle = Record<string, unknown>;
 
 export function flattenStyle(style: StyleProp<unknown>): FlatStyle {
   const out: FlatStyle = {};
-  const visit = (s: StyleProp<unknown>): void => {
-    if (!s) return;
+  const visit = (s: StyleProp<unknown>, depth: number): void => {
+    if (!s || depth > 16) return;
     if (Array.isArray(s)) {
-      for (const item of s) visit(item as StyleProp<unknown>);
+      for (const item of s) visit(item as StyleProp<unknown>, depth + 1);
       return;
     }
     if (typeof s === 'object') {
+      // Reanimated animated-style handle (native mapper). Not a Yoga style.
+      if ('viewDescriptors' in s) return;
       for (const [k, v] of Object.entries(s as Record<string, unknown>)) {
         // Assigning "__proto__" on a plain object swaps its prototype
         // (styles parsed from JSON can carry it as an own key) — never a
@@ -33,7 +35,7 @@ export function flattenStyle(style: StyleProp<unknown>): FlatStyle {
       }
     }
   };
-  visit(style);
+  visit(style, 0);
   return out;
 }
 

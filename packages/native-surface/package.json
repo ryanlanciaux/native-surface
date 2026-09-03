@@ -1,6 +1,6 @@
 {
   "name": "native-surface",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "license": "MIT",
   "description": "Run real React Native component trees inside any React DOM app - a canvas renderer (Yoga WASM layout + Skia/CanvasKit paint, custom reconciler) with a one-call Vite preset. Not react-native-web.",
   "keywords": [
@@ -48,7 +48,8 @@
     "build": "tsc --noEmit",
     "build:types": "tsc -p tsconfig.build.json",
     "build:vite-helper": "esbuild src/vite.ts --format=esm --platform=node --outfile=dist/vite.mjs",
-    "prepack": "pnpm run build:types && pnpm run build:vite-helper"
+    "prepack": "pnpm run build:types && pnpm run build:vite-helper && node ../../scripts/rewrite-workspace-protocol.mjs",
+    "postpack": "node ../../scripts/rewrite-workspace-protocol.mjs --restore"
   },
   "peerDependencies": {
     "react": "^19.0.0"

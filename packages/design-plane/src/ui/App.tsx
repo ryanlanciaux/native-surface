@@ -2,7 +2,7 @@ import { Component, createElement, useCallback, useEffect, useMemo, useRef, useS
 import type { ErrorInfo, ReactElement, ReactNode } from 'react';
 import { NativeSurface } from 'native-surface';
 import type { NativeRoot } from 'native-surface';
-import { routes, Wrapper, type PlaneRoute } from 'virtual:design-plane';
+import { loadPlane, loadWrapper, type PlaneRoute } from 'virtual:design-plane';
 import {
   DEFAULT_FRAME,
   fitRect,
@@ -29,6 +29,9 @@ function rootFor(canvas: HTMLCanvasElement | null): NativeRoot | null {
   for (const root of roots()) if (root.canvas === canvas) return root;
   return null;
 }
+
+type WrapperFn = (props: { children: ReactNode; route: PlaneRoute }) => ReactNode;
+const passthrough: WrapperFn = (props) => props.children;
 
 class InnerBoundary extends Component<{ onError: (error: Error) => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -79,6 +82,9 @@ export function App(): ReactElement {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<StoryRef[]>([]);
+  const [routes, setRoutes] = useState<PlaneRoute[] | null>(null);
+  const [Wrapper, setWrapper] = useState<WrapperFn>(() => passthrough);
+  const [planeError, setPlaneError] = useState<string | null>(null);
   const [view, setView] = useState({ width: 1200, height: 800 });
   const space = useRef(false);
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
@@ -88,16 +94,35 @@ export function App(): ReactElement {
     void loadStoryCatalog().then(setCatalog);
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    void Promise.all([loadPlane(), loadWrapper()]).then(
+      ([{ routes: next }, wrap]) => {
+        if (!live) return;
+        setRoutes(next ?? []);
+        setWrapper(() => wrap ?? passthrough);
+      },
+      (err: Error) => {
+        if (!live) return;
+        setPlaneError(err.message || String(err));
+        setRoutes([]);
+      }
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const groups = useMemo(() => {
     const map = new Map<string, PlaneRoute[]>();
-    for (const route of routes) {
+    for (const route of routes ?? []) {
       const key = route.group ?? route.title;
       const list = map.get(key) ?? [];
       list.push(route);
       map.set(key, list);
     }
     return [...map.entries()].map(([title, items]) => ({ title, items }));
-  }, []);
+  }, [routes]);
 
   const { frames, boxes } = useMemo(
     () => layoutGroups(groups.map((group) => ({ title: group.title, items: group.items }))),
@@ -282,7 +307,15 @@ export function App(): ReactElement {
           >
             {items.length === 0 ? (
               <div className="empty">
-                No routes. Add <code>.native-surface/plane.tsx</code>
+                {planeError ? (
+                  <pre className="err">{planeError}</pre>
+                ) : routes == null ? (
+                  'Loading…'
+                ) : (
+                  <>
+                    No routes. Add <code>.native-surface/plane.tsx</code>
+                  </>
+                )}
               </div>
             ) : (
               boxes.map((box) => (

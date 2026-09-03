@@ -28,15 +28,19 @@ function virtualModule(hostRoot) {
   const wrapper = join(hostRoot, '.native-surface/wrapper.tsx');
   const hasPlane = existsSync(plane);
   const hasWrapper = existsSync(wrapper);
-  const lines = [
+  // Dynamic import so the host graph is not a static dep of the react-dom chrome.
+  return [
+    'export function loadPlane() {',
     hasPlane
-      ? `export { routes } from ${JSON.stringify(plane)};`
-      : 'export const routes = [];',
+      ? `  return import(${JSON.stringify(plane)});`
+      : '  return Promise.resolve({ routes: [] });',
+    '}',
+    'export function loadWrapper() {',
     hasWrapper
-      ? `export { Wrapper } from ${JSON.stringify(wrapper)};`
-      : 'export function Wrapper(props) { return props.children; }',
-  ];
-  return lines.join('\n');
+      ? `  return import(${JSON.stringify(wrapper)}).then((m) => m.Wrapper);`
+      : '  return Promise.resolve(function Wrapper(props) { return props.children; });',
+    '}',
+  ].join('\n');
 }
 
 /**
