@@ -30,6 +30,25 @@ const SKIP_OWNERS = new Set([
   'Wrapper',
   'InnerBoundary',
   'NativeSurface',
+  // RN host wrappers: keep walking to the app composite (Button, not Pressable).
+  'View',
+  'Text',
+  'Image',
+  'Pressable',
+  'ScrollView',
+  'TextInput',
+  'TouchableOpacity',
+  'TouchableWithoutFeedback',
+  'TouchableHighlight',
+  'SafeAreaView',
+  'ActivityIndicator',
+  'KeyboardAvoidingView',
+  'FlatList',
+  'FlatListInner',
+  'SectionList',
+  'SectionListInner',
+  'VirtualizedList',
+  'RefreshControl',
 ]);
 
 function compositeName(fiber: { return?: unknown; type?: unknown; elementType?: unknown } | null | undefined): string | undefined {

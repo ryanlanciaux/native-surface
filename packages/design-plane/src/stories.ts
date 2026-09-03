@@ -52,3 +52,16 @@ export function matchStory(name: string | undefined, catalog: readonly StoryRef[
   const n = name.toLowerCase();
   return catalog.find((story) => story.group.toLowerCase() === n) ?? null;
 }
+
+/** Leaf-first: host type (Show Text), then owner name (Show Button), then ancestors. */
+export function matchStoryFromPath(
+  path: readonly { name?: string; type?: string }[],
+  catalog: readonly StoryRef[]
+): StoryRef | null {
+  for (let i = path.length - 1; i >= 0; i--) {
+    const node = path[i]!;
+    const hit = matchStory(node.type, catalog) ?? matchStory(node.name, catalog);
+    if (hit) return hit;
+  }
+  return null;
+}

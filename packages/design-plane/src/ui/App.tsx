@@ -15,7 +15,7 @@ import {
   zoomAt,
   type HitNode,
 } from '../plane';
-import { loadStoryCatalog, matchStory, type StoryRef } from '../stories';
+import { loadStoryCatalog, matchStoryFromPath, type StoryRef } from '../stories';
 
 type Camera = { zoom: number; panX: number; panY: number };
 type Selection = { routeId: string; node: HitNode; path: HitNode[] };
@@ -273,7 +273,7 @@ export function App(): ReactElement {
   };
 
   const selectedRect = selected?.node ? selected.node.painted ?? selected.node.frame : null;
-  const storyHit = selected ? matchStory(selected.node.name, catalog) : null;
+  const storyHit = selected ? matchStoryFromPath(selected.path, catalog) : null;
 
   let frameIndex = 0;
   return (
