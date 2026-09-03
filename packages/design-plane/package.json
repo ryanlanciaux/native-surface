@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/design-plane",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "license": "MIT",
   "description": "Pan/zoom design plane for native-surface: mock app routes on one canvas, inspect layout, jump between frames.",
   "repository": {
