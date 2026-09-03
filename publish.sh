@@ -15,6 +15,23 @@ else
   echo
 fi
 
+filters=()
+for pkgjson in packages/*/package.json; do
+  name=$(node -p "require('./$pkgjson').name")
+  ver=$(node -p "require('./$pkgjson').version")
+  if npm view "$name@$ver" version >/dev/null 2>&1; then
+    echo "skip $name@$ver (already on npm)"
+  else
+    echo "publish $name@$ver"
+    filters+=(--filter "$name")
+  fi
+done
+
+if [ ${#filters[@]} -eq 0 ]; then
+  echo "nothing to publish"
+  exit 0
+fi
+
 # --access public: scoped packages default to restricted.
 # --no-git-checks: do not require a version tag.
-pnpm --filter "./packages/**" -r publish --access public --no-git-checks "${extra[@]}"
+pnpm "${filters[@]}" -r publish --access public --no-git-checks "${extra[@]}"
