@@ -50,6 +50,12 @@ export interface Frame {
   height: number;
 }
 
+function styleInset(v: unknown, size: number): number | undefined {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+  if (typeof v === 'string' && /^-?\d*\.?\d+%$/.test(v)) return (parseFloat(v) / 100) * size;
+  return undefined;
+}
+
 let nextId = 1;
 
 export class CNode {
@@ -473,6 +479,15 @@ export class CNode {
       // style updates re-apply alignSelf; keep the fix pinned
       this.yoga.setAlignSelf(Align.FlexStart);
     }
+    // Horizontal __scrollContent is an auto-width row. `flex:1` sets basis 0, so
+    // children contribute 0 to that intrinsic width and Yoga stacks them at x=0.
+    // A definite width is the item's main size — use it as basis so the row
+    // sizes to the sum and each child advances along the main axis.
+    const scrollParent = this.parent.parent?.props.__scroll as { horizontal?: boolean } | undefined;
+    if (this.parent.props.__scrollContent === true && scrollParent?.horizontal) {
+      const w = this.flatStyle.width;
+      if (typeof w === 'number') this.yoga.setFlexBasis(w);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -486,9 +501,27 @@ export class CNode {
       // An inline view is the ROOT of its own Yoga tree, so Yoga's x/y are
       // always 0 — the paragraph decided where it goes (see placeInlineChildren).
       const at = this.inlineOffset;
-      this.frame = at
-        ? { x: at.x, y: at.y, width: l.width, height: l.height }
-        : { x: l.left, y: l.top, width: l.width, height: l.height };
+      let x = at ? at.x : l.left;
+      let y = at ? at.y : l.top;
+      // ponytail: `fixed` is Yoga Absolute (out of flow) with insets resolved
+      // against the surface root, not the parent. Overflow-hidden ancestors
+      // still clip; reparent+paint at root if a host needs true viewport stacking.
+      if (!at && this.flatStyle.position === 'fixed') {
+        let root: CNode = this;
+        while (root.parent) root = root.parent;
+        const rw = root.frame.width;
+        const rh = root.frame.height;
+        const left = styleInset(this.flatStyle.left, rw);
+        const right = styleInset(this.flatStyle.right, rw);
+        const top = styleInset(this.flatStyle.top, rh);
+        const bottom = styleInset(this.flatStyle.bottom, rh);
+        const origin = this.parent ? this.parent.absoluteRect() : { x: 0, y: 0 };
+        if (left != null) x = left - origin.x;
+        else if (right != null) x = rw - right - l.width - origin.x;
+        if (top != null) y = top - origin.y;
+        else if (bottom != null) y = rh - bottom - l.height - origin.y;
+      }
+      this.frame = { x, y, width: l.width, height: l.height };
       const onLayout = this.props.onLayout as ((e: { nativeEvent: { layout: Frame } }) => void) | undefined;
       if (onLayout) {
         const prev = this.lastReportedLayout;

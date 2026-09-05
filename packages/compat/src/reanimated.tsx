@@ -128,6 +128,28 @@ export function withTiming(
   return desc as unknown as number;
 }
 
+export function withDelay(delayMs: number, animation: number, _reduceMotion?: ReduceMotion): number {
+  const inner: AnimationDescriptor = isAnimationDescriptor(animation)
+    ? animation
+    : { __cnAnimation: true, toValue: Number(animation), make: () => () => ({ value: Number(animation), done: true }) };
+  const desc: AnimationDescriptor = {
+    __cnAnimation: true,
+    toValue: inner.toValue,
+    callback: inner.callback,
+    make(from: number) {
+      let start = -1;
+      let step: ReturnType<AnimationDescriptor['make']> | null = null;
+      return (nowMs: number) => {
+        if (start < 0) start = nowMs;
+        if (nowMs - start < delayMs) return { value: from, done: false };
+        step ??= inner.make(from);
+        return step(nowMs);
+      };
+    },
+  };
+  return desc as unknown as number;
+}
+
 export interface WithSpringConfig {
   damping?: number;
   mass?: number;
@@ -374,6 +396,48 @@ export function useAnimatedRef<T>(): React.RefObject<T> & ((instance: T | null) 
   return cbRef.current as never;
 }
 
+export interface MeasuredDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageX: number;
+  pageY: number;
+}
+
+/** Reanimated `measure(ref)` — layout of the host node, or null. Never throws. */
+export function measure(animatedRef: { current?: unknown } | null | undefined): MeasuredDimensions | null {
+  try {
+    if (animatedRef == null || typeof animatedRef !== 'object') return null;
+    const node = 'current' in animatedRef ? animatedRef.current : animatedRef;
+    if (node == null || typeof node !== 'object') return null;
+    const n = node as {
+      absoluteRect?: () => { x: number; y: number; w: number; h: number };
+      getBoundingClientRect?: () => { x: number; y: number; width: number; height: number; left?: number; top?: number };
+      frame?: { x: number; y: number; width: number; height: number };
+    };
+    if (typeof n.absoluteRect === 'function') {
+      const r = n.absoluteRect();
+      if (!r || !Number.isFinite(r.w) || !Number.isFinite(r.h)) return null;
+      return { x: n.frame?.x ?? 0, y: n.frame?.y ?? 0, width: r.w, height: r.h, pageX: r.x, pageY: r.y };
+    }
+    if (typeof n.getBoundingClientRect === 'function') {
+      const r = n.getBoundingClientRect();
+      if (!r || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
+      const x = r.x ?? r.left ?? 0;
+      const y = r.y ?? r.top ?? 0;
+      return { x, y, width: r.width, height: r.height, pageX: x, pageY: y };
+    }
+    const f = n.frame;
+    if (f && Number.isFinite(f.width) && Number.isFinite(f.height)) {
+      return { x: f.x, y: f.y, width: f.width, height: f.height, pageX: f.x, pageY: f.y };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 interface ScrollHandlers<Ctx> {
   onScroll?: (event: Record<string, unknown>, ctx: Ctx) => void;
   onBeginDrag?: (event: Record<string, unknown>, ctx: Ctx) => void;
@@ -483,7 +547,7 @@ function resolveStyle(style: AnyStyle, handles: AnimatedHandle[]): AnyStyle {
   return style;
 }
 
-export function createAnimatedComponent<P extends { style?: unknown }>(
+export function createAnimatedComponent<P>(
   Component: React.ComponentType<P>
 ): React.ComponentType<P & { animatedProps?: unknown }> {
   const Animated = React.forwardRef<unknown, P & { animatedProps?: unknown }>((props, ref) => {
@@ -505,7 +569,7 @@ export function createAnimatedComponent<P extends { style?: unknown }>(
       // subscription set is derived from render output; length is a good proxy
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [keys.length]);
-    return React.createElement(Component, {
+    return React.createElement(Component as React.ElementType, {
       ...(rest as unknown as P),
       ...extraProps,
       style: resolvedStyle,
@@ -513,6 +577,7 @@ export function createAnimatedComponent<P extends { style?: unknown }>(
     } as P & { ref: unknown });
   });
   Animated.displayName = `Animated(${Component.displayName ?? Component.name ?? 'Component'})`;
+  (Animated as unknown as { __nsInner: React.ComponentType<P> }).__nsInner = Component;
   return Animated as unknown as React.ComponentType<P & { animatedProps?: unknown }>;
 }
 

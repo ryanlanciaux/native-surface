@@ -245,4 +245,22 @@ describe('expo-image compat', () => {
     expect(bg.r).toBeLessThan(100);
     root.unmount();
   });
+
+  it('fires onLoad with fallback size when getSize fails', async () => {
+    const png = await makePng(8, 4, '#123456');
+    vi.stubGlobal('fetch', vi.fn(async () => pngResponse(png)));
+    const spy = vi.spyOn(NsImage, 'getSize').mockImplementation((_uri, _ok, fail) => {
+      fail?.(new Error('nope'));
+    });
+    const onLoad = vi.fn();
+    const root = createTestRoot(20, 20);
+    root.render(<Image source="https://img.test/ok.png" style={{ width: 20, height: 20 }} onLoad={onLoad} />);
+    await root.flush();
+    await sleep(30);
+    expect(onLoad).toHaveBeenCalledWith(
+      expect.objectContaining({ source: expect.objectContaining({ url: 'https://img.test/ok.png', width: 1, height: 1 }) })
+    );
+    spy.mockRestore();
+    root.unmount();
+  });
 });

@@ -358,22 +358,31 @@ export function Image(props: ImageProps): React.JSX.Element {
 
   const handleLoad = React.useMemo(() => {
     if (!uri) return undefined;
+    const fallbackW = resolved?.width && resolved.width > 0 ? resolved.width : 1;
+    const fallbackH = resolved?.height && resolved.height > 0 ? resolved.height : 1;
     return () => {
       if (duration > 0) Animated.timing(opacity, { toValue: 1, duration }).start();
-      EngineImage.getSize(
-        uri,
-        (width, height) => {
-          onLoadRef.current?.({
-            cacheType: 'none',
-            source: { url: uri, width, height, mediaType: null, isAnimated: false },
-          });
-          onDisplayRef.current?.();
-          onLoadEndRef.current?.();
-        },
-        () => onLoadEndRef.current?.()
-      );
+      const fire = (width: number, height: number) => {
+        onLoadRef.current?.({
+          cacheType: 'none',
+          source: { url: uri, width, height, mediaType: null, isAnimated: false },
+        });
+        onDisplayRef.current?.();
+        onLoadEndRef.current?.();
+      };
+      // Engine onLoad means pixels are in cache; getSize should hit. If it
+      // fails/throws, still fire onLoad so callers (Lightbox imageAspect) unhide.
+      try {
+        EngineImage.getSize(
+          uri,
+          (width, height) => fire(width > 0 ? width : fallbackW, height > 0 ? height : fallbackH),
+          () => fire(fallbackW, fallbackH)
+        );
+      } catch {
+        fire(fallbackW, fallbackH);
+      }
     };
-  }, [uri, duration, opacity, onLoadRef, onDisplayRef, onLoadEndRef]);
+  }, [uri, resolved?.width, resolved?.height, duration, opacity, onLoadRef, onDisplayRef, onLoadEndRef]);
 
   const handleError = React.useMemo(() => {
     return (e: { nativeEvent: { error: string } }) => {

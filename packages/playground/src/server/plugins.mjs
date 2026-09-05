@@ -14,8 +14,9 @@ const RESOLVED_ID = '\0virtual:host-stories';
  * dirs; a story file appearing or disappearing invalidates the module and
  * full-reloads (content edits ride normal HMR through the import chain).
  */
-export function hostStoriesPlugin({ hostRoot, globs }) {
+export function hostStoriesPlugin({ hostRoot, globs, setup = null }) {
   const matcher = createStoryMatcher(hostRoot, globs);
+  const setupHref = setup ? `/@fs${setup}` : null;
   return {
     name: 'native-surface-playground:host-stories',
     resolveId(id) {
@@ -26,9 +27,16 @@ export function hostStoriesPlugin({ hostRoot, globs }) {
       const files = findStoryFiles(matcher);
       const entries = files.map((file) => {
         const key = relative(hostRoot, file).replace(/\\/g, '/');
-        return `  ${JSON.stringify(key)}: () => import(${JSON.stringify(`/@fs${file}`)}),`;
+        const story = `import(${JSON.stringify(`/@fs${file}`)})`;
+        const loader = setupHref
+          ? `() => import(${JSON.stringify(setupHref)}).then(() => ${story})`
+          : `() => ${story}`;
+        return `  ${JSON.stringify(key)}: ${loader},`;
       });
-      return `export const hostMode = true;\nexport const modules = {\n${entries.join('\n')}\n};\n`;
+      // playground-config side-effect-imports setup + awaits initEngine({fonts})
+      // before this module finishes evaluating, so lazy story imports below
+      // cannot outrun boot on a full reload.
+      return `import 'virtual:playground-config';\nexport const hostMode = true;\nexport const modules = {\n${entries.join('\n')}\n};\n`;
     },
     configureServer(server) {
       for (const dir of matcher.baseDirs) server.watcher.add(dir);
@@ -50,9 +58,18 @@ const CONFIG_RESOLVED = '\0virtual:playground-config';
 
 export const DEFAULT_STORY_PADDING = 16;
 
-/** `virtual:playground-config` — `{ storyPadding }` from the host config. */
-export function playgroundConfigPlugin({ storyPadding = DEFAULT_STORY_PADDING } = {}) {
+/** `virtual:playground-config` — `{ storyPadding }` from the host config.
+ *  Optional `setup` (absolute host path) is imported as a side effect, and
+ *  optional `fonts` (`{family, url, weight?, style?}`) are passed to
+ *  `initEngine` via top-level await so both run before stories/plane paint. */
+export function playgroundConfigPlugin({
+  storyPadding = DEFAULT_STORY_PADDING,
+  setup = null,
+  fonts = [],
+} = {}) {
   const padding = Number.isFinite(storyPadding) && storyPadding >= 0 ? storyPadding : DEFAULT_STORY_PADDING;
+  const setupHref = setup ? `/@fs${setup}` : null;
+  const fontSpecs = Array.isArray(fonts) ? fonts : [];
   return {
     name: 'native-surface-playground:config',
     resolveId(id) {
@@ -60,7 +77,22 @@ export function playgroundConfigPlugin({ storyPadding = DEFAULT_STORY_PADDING } 
     },
     load(id) {
       if (id !== CONFIG_RESOLVED) return null;
-      return `export const storyPadding = ${padding};\n`;
+      const lines = [];
+      if (setupHref) lines.push(`import ${JSON.stringify(setupHref)};`);
+      if (fontSpecs.length) lines.push(`import { initEngine } from 'native-surface';`);
+      lines.push(`export const storyPadding = ${padding};`);
+      if (fontSpecs.length) lines.push(`await initEngine({ fonts: ${JSON.stringify(fontSpecs)} });`);
+      return `${lines.join('\n')}\n`;
+    },
+    transformIndexHtml() {
+      if (!setupHref && fontSpecs.length === 0) return;
+      return [
+        {
+          tag: 'script',
+          attrs: { type: 'module', src: `/@id/${CONFIG_ID}` },
+          injectTo: 'head-prepend',
+        },
+      ];
     },
   };
 }

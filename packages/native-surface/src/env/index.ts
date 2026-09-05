@@ -30,6 +30,9 @@ export async function loadCanvasKit(wasmUrlOverride?: string): Promise<CanvasKit
   return mod.loadCanvasKitBrowser(wasmUrlOverride);
 }
 
+/** Inter 400–700, always. Browser also fetches Noto Color Emoji (COLRv1 CDN);
+ *  Node/vitest skip that so tests stay offline. A failed emoji fetch must not
+ *  reject — see loadDefaultFontsBrowser. Hosts can still pass fonts via initEngine. */
 export async function loadDefaultFonts(): Promise<LoadedFont[]> {
   if (isNode) {
     const fs = await import(/* @vite-ignore */ 'node' + ':fs');

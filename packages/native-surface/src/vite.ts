@@ -401,6 +401,9 @@ export function nativeSurfaceAliases(opts: NativeSurfaceAliasOptions = {}): Nati
      * phone — which is the behaviour the shim restores.
      */
     { find: /^react-responsive(\/.*)?$/, replacement: compat('responsive.tsx') },
+    // FocusScope / DismissableLayer / FocusGuards call MutationObserver.observe
+    // on a DOM Node the canvas tree does not have.
+    { find: /^radix-ui\/internal(\/.*)?$/, replacement: compat('radix-internal.tsx') },
     reactNativeAlias()
   );
   return aliases.filter(shimExists);
@@ -1165,6 +1168,7 @@ const COMPAT_ALIASED_PACKAGES = [
   'expo-video-thumbnails',
   'react-native-compressor',
   'react-responsive',
+  'radix-ui/internal',
 ];
 
 const RN_ECOSYSTEM_EXCLUDES = [

@@ -89,6 +89,35 @@ describe('focused TextInput overlay', () => {
     expect(el.value).toBe('hi');
   });
 
+  it('isolates glyphs from host dark color-scheme / input { color: inherit }', async () => {
+    const hostCss = document.createElement('style');
+    hostCss.textContent =
+      ':root{color-scheme:dark}body{color:#e6e8ec;font:13px/1.45 sans-serif}input,textarea{font:inherit;color:inherit}';
+    document.head.appendChild(hostCss);
+
+    root = createTestRoot(300, 200);
+    withStretchedHost(root, 300, 200);
+    const handle = React.createRef<TextInputRef>();
+    root.render(
+      <TextInput
+        ref={handle}
+        placeholder="Type here…"
+        style={{ width: 100, height: 40, fontSize: 15, color: '#15181E' }}
+      />
+    );
+    await root.flush();
+    handle.current!.focus();
+    const el = document.querySelector('input')!;
+
+    expect(el.classList.contains('cn-input-overlay')).toBe(true);
+    expect(el.style.getPropertyValue('color-scheme')).toBe('light');
+    expect(el.style.color).toMatch(/rgb\(21,\s*24,\s*30\)/);
+    expect(el.style.getPropertyValue('-webkit-text-fill-color')).toMatch(/rgb\(21,\s*24,\s*30\)/);
+    expect(el.getAttribute('placeholder')).toBe('Type here…');
+    expect(el.style.fontSize).toBe('30px');
+    hostCss.remove();
+  });
+
   it('tracks re-layout through the flush, and removes the element on blur', async () => {
     root = createTestRoot(300, 200);
     withStretchedHost(root, 300, 200);

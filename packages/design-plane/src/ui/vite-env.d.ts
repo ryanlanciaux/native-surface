@@ -13,7 +13,7 @@ declare module 'virtual:design-plane' {
     height?: number;
   };
 
-  export function loadPlane(): Promise<{ routes: PlaneRoute[] }>;
+  export function loadPlane(): Promise<{ routes: PlaneRoute[]; frame?: { width: number; height: number } }>;
   export function loadWrapper(): Promise<(props: { children: ReactNode; route: PlaneRoute }) => ReactNode>;
 }
 

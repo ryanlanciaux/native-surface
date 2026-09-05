@@ -335,16 +335,37 @@ const KIND_BY_TYPE = new Map<unknown, SvgKind>([
   [SvgImage, 'image'],
 ]);
 
-function normalizeReactList(children: React.ReactNode): SNode[] {
+interface AnimatedPropsHandle {
+  get(): Record<string, unknown>;
+  subscribe(l: () => void): () => void;
+}
+
+function isAnimatedPropsHandle(v: unknown): v is AnimatedPropsHandle {
+  return typeof v === 'object' && v !== null && (v as { __cnAnimatedHandle?: boolean }).__cnAnimatedHandle === true;
+}
+
+function typeKind(t: unknown): SvgKind | undefined {
+  const direct = KIND_BY_TYPE.get(t);
+  if (direct) return direct;
+  if (typeof t === 'object' && t !== null && '__nsInner' in t) {
+    return KIND_BY_TYPE.get((t as { __nsInner: unknown }).__nsInner);
+  }
+  return undefined;
+}
+
+function normalizeReactList(
+  children: React.ReactNode,
+  handles?: AnimatedPropsHandle[]
+): SNode[] {
   const out: SNode[] = [];
-  addReact(children, out);
+  addReact(children, out, handles);
   return out;
 }
 
-function addReact(node: React.ReactNode, out: SNode[]): void {
+function addReact(node: React.ReactNode, out: SNode[], handles?: AnimatedPropsHandle[]): void {
   if (node == null || typeof node === 'boolean') return;
   if (Array.isArray(node)) {
-    for (const c of node) addReact(c, out);
+    for (const c of node) addReact(c, out, handles);
     return;
   }
   // bare strings/numbers need <Text>, which is unsupported anyway
@@ -353,10 +374,10 @@ function addReact(node: React.ReactNode, out: SNode[]): void {
   const t = node.type;
   const props = node.props as Record<string, unknown>;
   if (t === React.Fragment) {
-    addReact(props.children as React.ReactNode, out);
+    addReact(props.children as React.ReactNode, out, handles);
     return;
   }
-  const kind = KIND_BY_TYPE.get(t);
+  const kind = typeKind(t);
   if (!kind) {
     const named = t as { displayName?: string; name?: string };
     const name = typeof t === 'string' ? t : (named.displayName ?? named.name ?? 'component');
@@ -366,7 +387,14 @@ function addReact(node: React.ReactNode, out: SNode[]): void {
     );
     return;
   }
-  out.push({ kind, props, children: normalizeReactList(props.children as React.ReactNode) });
+  let next = props;
+  const ap = props.animatedProps;
+  if (isAnimatedPropsHandle(ap)) {
+    handles?.push(ap);
+    next = { ...props, ...ap.get() };
+    delete next.animatedProps;
+  }
+  out.push({ kind, props: next, children: normalizeReactList(props.children as React.ReactNode, handles) });
 }
 
 const KIND_BY_TAG: Record<string, SvgKind> = {
@@ -1053,7 +1081,19 @@ function renderSvgHost(props: Record<string, unknown>, nodes: SNode[]): React.JS
 
 export function Svg(props: SvgProps): React.JSX.Element {
   const { children, ...rest } = props;
-  return renderSvgHost(rest, normalizeReactList(children));
+  const [, bump] = React.useReducer((n: number) => n + 1, 0);
+  const handles: AnimatedPropsHandle[] = [];
+  const nodes = normalizeReactList(children, handles);
+  const n = handles.length;
+  React.useEffect(() => {
+    if (n === 0) return;
+    const unsubs = handles.map((h) => h.subscribe(bump));
+    return () => {
+      for (const u of unsubs) u();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [n]);
+  return renderSvgHost(rest, nodes);
 }
 
 // ---------------------------------------------------------------------------

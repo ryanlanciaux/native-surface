@@ -18,6 +18,24 @@ export async function loadCanvasKitBrowser(wasmUrlOverride?: string): Promise<Ca
   });
 }
 
+/** Pinned Noto COLRv1 (~5MB). Skia/CanvasKit paints COLR; the CBDT
+ *  `NotoColorEmoji.ttf` often registers cmap coverage but still tofu's. */
+const EMOJI_URL =
+  'https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@v2.047/fonts/Noto-COLRv1.ttf';
+const COLOR_EMOJI_FAMILY = 'Noto Color Emoji';
+
+async function loadEmojiFont(): Promise<LoadedFont | null> {
+  try {
+    const res = await fetch(EMOJI_URL, {
+      signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15_000) : undefined,
+    });
+    if (!res.ok) return null;
+    return { family: COLOR_EMOJI_FAMILY, data: await res.arrayBuffer(), weight: 400 };
+  } catch {
+    return null; // CORS / offline / timeout — Inter still loads
+  }
+}
+
 export async function loadDefaultFontsBrowser(): Promise<LoadedFont[]> {
   const entries: Array<[string, number]> = [
     [interRegular, 400],
@@ -25,11 +43,15 @@ export async function loadDefaultFontsBrowser(): Promise<LoadedFont[]> {
     [interSemiBold, 600],
     [interBold, 700],
   ];
-  return Promise.all(
-    entries.map(async ([url, weight]) => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`native-surface: failed to load bundled font ${url}: ${res.status}`);
-      return { family: 'Inter', data: await res.arrayBuffer(), weight };
-    })
-  );
+  const [inter, emoji] = await Promise.all([
+    Promise.all(
+      entries.map(async ([url, weight]) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`native-surface: failed to load bundled font ${url}: ${res.status}`);
+        return { family: 'Inter', data: await res.arrayBuffer(), weight };
+      })
+    ),
+    loadEmojiFont(),
+  ]);
+  return emoji ? [...inter, emoji] : inter;
 }

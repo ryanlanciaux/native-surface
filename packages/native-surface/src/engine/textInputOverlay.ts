@@ -48,6 +48,14 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
 
   applyStaticAttrs(el, spec);
   const s = el.style;
+  // Host pages (playground/plane) set `color-scheme: dark` and `input { font:
+  // inherit; color: inherit }`. This node is appended to document.body, so
+  // those rules would light-on-dark the glyphs (invisible on the white canvas)
+  // and 13px/1.45-ghost the placeholder over the Skia one. Isolate first.
+  el.classList.add('cn-input-overlay');
+  ensureOverlayRule();
+  s.all = 'unset';
+  s.display = 'block';
   s.position = 'fixed';
   s.margin = '0';
   s.border = 'none';
@@ -57,6 +65,9 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
   s.zIndex = '9999';
   s.overflow = 'hidden';
   s.resize = 'none';
+  s.appearance = 'none';
+  s.setProperty('color-scheme', 'light');
+  s.setProperty('-webkit-appearance', 'none');
   if (spec.selectionColor || spec.cursorColor) s.caretColor = spec.cursorColor ?? spec.selectionColor!;
 
   const reposition = () => {
@@ -85,7 +96,9 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
     s.fontWeight = cssFontWeight(text.fontWeight);
     s.fontStyle = text.italic ? 'italic' : 'normal';
     s.letterSpacing = `${text.letterSpacing * sx}px`;
-    s.color = `rgba(${text.color.r}, ${text.color.g}, ${text.color.b}, ${text.color.a})`;
+    const color = `rgba(${text.color.r}, ${text.color.g}, ${text.color.b}, ${text.color.a})`;
+    s.color = color;
+    s.setProperty('-webkit-text-fill-color', color);
     s.textAlign = text.textAlign;
     if (spec.multiline) {
       s.lineHeight = text.lineHeight != null ? `${text.lineHeight * sy}px` : 'normal';
@@ -185,18 +198,19 @@ function applyStaticAttrs(el: HTMLInputElement | HTMLTextAreaElement, spec: Text
   // While focused the engine suppresses its Skia text (placeholder included),
   // so the DOM element shows the placeholder — in the right color.
   if (spec.placeholder) {
-    ensurePlaceholderRule();
-    el.classList.add('cn-input-overlay');
     el.setAttribute('placeholder', spec.placeholder);
     el.style.setProperty('--cn-input-ph', spec.placeholderTextColor ?? '#9BA1AB');
   }
 }
 
-let placeholderRuleAdded = false;
-function ensurePlaceholderRule(): void {
-  if (placeholderRuleAdded || typeof document === 'undefined') return;
-  placeholderRuleAdded = true;
+let overlayRuleAdded = false;
+function ensureOverlayRule(): void {
+  if (overlayRuleAdded || typeof document === 'undefined') return;
+  overlayRuleAdded = true;
   const style = document.createElement('style');
-  style.textContent = '.cn-input-overlay::placeholder { color: var(--cn-input-ph, #9BA1AB); opacity: 1; }';
+  style.textContent = [
+    'input.cn-input-overlay,textarea.cn-input-overlay{color-scheme:light;appearance:none;-webkit-appearance:none}',
+    'input.cn-input-overlay::placeholder,textarea.cn-input-overlay::placeholder{color:var(--cn-input-ph,#9BA1AB);-webkit-text-fill-color:var(--cn-input-ph,#9BA1AB);opacity:1}',
+  ].join('');
   document.head.appendChild(style);
 }

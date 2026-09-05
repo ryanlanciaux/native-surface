@@ -31,6 +31,7 @@
     "./edge-to-edge": "./src/edge-to-edge.tsx",
     "./expo": "./src/expo.tsx",
     "./reactotron": "./src/reactotron.tsx",
+    "./radix-internal": "./src/radix-internal.tsx",
     "./native-stack": "./src/native-stack.tsx",
     "./svg": "./src/svg.tsx",
     "./async-storage": "./src/async-storage.ts",

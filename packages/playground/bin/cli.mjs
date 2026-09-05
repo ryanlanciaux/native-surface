@@ -24,6 +24,7 @@ Options:
   --browser <path>    Chromium binary (default: $CHROME_PATH or /usr/bin/chromium)
   --platform <os>     ios | android — file-extension resolution (default: ios)
   --theme <t>         ios | android — surface theme (default: ios)
+  --settle <ms>       Extra wait after pending image loads (default: 0)
   -h, --help          Show this help
 
 Exits 1 when a story hard-errors or (with --diff, without --update) any
@@ -46,6 +47,7 @@ async function runShoot(args) {
         browser: { type: 'string' },
         platform: { type: 'string' },
         theme: { type: 'string' },
+        settle: { type: 'string' },
         help: { type: 'boolean', short: 'h' },
       },
     });
@@ -82,6 +84,14 @@ async function runShoot(args) {
       process.exit(1);
     }
   }
+  let settle;
+  if (values.settle !== undefined) {
+    settle = Number(values.settle);
+    if (!Number.isFinite(settle) || settle < 0) {
+      console.error(`native-surface playground shoot: invalid --settle "${values.settle}" (expected milliseconds >= 0)`);
+      process.exit(1);
+    }
+  }
   if (values.update && !values.diff) {
     console.error('native-surface playground shoot: --update requires --diff <baselineDir>');
     process.exit(1);
@@ -101,6 +111,7 @@ async function runShoot(args) {
       browser: values.browser,
       platform: values.platform,
       theme: values.theme,
+      settle,
     });
     console.log(`\n${formatSummary(results)}\n\nreport: ${reportPath}`);
     process.exit(ok ? 0 : 1);
@@ -131,6 +142,7 @@ Options:
 
 Config file: .native-surface/playground.config.mjs in the host root may
 export default { stories?: string[], port?: number, decorators?: 'none',
+setup?: string, fonts?: { family: string, src: string, weight?: number, style?: string }[],
 optimizeDeps?: { include?: string[], exclude?: string[] },
 aliases?: { [specifier]: replacement } }.
 CLI flags win over the config file.

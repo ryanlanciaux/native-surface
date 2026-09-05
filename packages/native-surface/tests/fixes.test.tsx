@@ -3,10 +3,13 @@
  * embed-demo/playground ENGINE-ISSUES). Each test names the finding it pins.
  */
 import * as React from 'react';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { Image, Pressable, ScrollView, Text, View } from '../src/components/primitives';
 import { StyleSheet } from '../src/api/StyleSheet';
 import { parseColor } from '../src/engine/colors';
+import { getEngine, initEngine } from '../src/engine/init';
 import { asImpl, createTestRoot, findNode, sleep } from './helpers';
 
 describe('fixes: StyleSheet.hairlineWidth', () => {
@@ -290,5 +293,70 @@ describe('fixes: color parsing', () => {
     expect(parseColor('hsl(120 50% 50% / 50%)')?.a).toBeCloseTo(0.5);
     expect(parseColor('rgb(100%, 0%, 50%)')).toEqual({ r: 255, g: 0, b: 128, a: 1 });
     expect(parseColor('rgb(255 0 128 / 0.5)')).toEqual({ r: 255, g: 0, b: 128, a: 0.5 });
+  });
+
+  it('parseColor(plum) is a real colour, not transparent', () => {
+    const c = parseColor('plum');
+    expect(c).not.toBeNull();
+    expect(c!.a).toBe(1);
+    expect(c).toEqual({ r: 0xdd, g: 0xa0, b: 0xdd, a: 1 });
+  });
+});
+
+describe('fixes: position fixed', () => {
+  it('pins left/bottom to the surface, not in-flow relative', async () => {
+    const root = createTestRoot(200, 200);
+    root.render(
+      <View style={{ marginTop: 80, marginLeft: 80, width: 40, height: 40 }}>
+        <View
+          testID="fab"
+          style={{ position: 'fixed', left: 10, bottom: 10, width: 20, height: 20, backgroundColor: '#ff0000' }}
+        />
+      </View>
+    );
+    await root.flush();
+    const fab = findNode(root.getLayoutTree(), (n) => n.testID === 'fab');
+    expect(fab?.frame).toMatchObject({ x: 10, y: 170, width: 20, height: 20 });
+    expect(asImpl(root).readPixel(15, 175).r).toBeGreaterThan(200);
+    root.unmount();
+  });
+});
+
+describe('fixes: colour-emoji fallback', () => {
+  it('initEngine({fonts}) adds the family to the paragraph fallback list', async () => {
+    const root = createTestRoot(20, 20);
+    root.render(<View />);
+    await root.flush();
+    const buf = fs.readFileSync(fileURLToPath(new URL('../assets/fonts/Inter-Regular.otf', import.meta.url)));
+    await initEngine({
+      fonts: [
+        {
+          family: 'Noto Color Emoji',
+          data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+        },
+      ],
+    });
+    expect(getEngine().families.has('Noto Color Emoji')).toBe(true);
+    root.unmount();
+  });
+});
+
+describe('fixes: horizontal ScrollView', () => {
+  it('places flex+width children along the main axis', async () => {
+    const root = createTestRoot(400, 120);
+    root.render(
+      <ScrollView horizontal style={{ width: 400, height: 100 }}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} testID={`card${i}`} style={{ flex: 1, width: 165, height: 80 }} />
+        ))}
+      </ScrollView>
+    );
+    await root.flush();
+    const xs = [0, 1, 2].map((i) => findNode(root.getLayoutTree(), (n) => n.testID === `card${i}`)?.frame.x);
+    expect(xs[0]).not.toBe(xs[1]);
+    expect(xs[1]).not.toBe(xs[2]);
+    expect(xs[0]!).toBeLessThan(xs[1]!);
+    expect(xs[1]!).toBeLessThan(xs[2]!);
+    root.unmount();
   });
 });

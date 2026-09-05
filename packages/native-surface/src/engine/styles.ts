@@ -78,6 +78,9 @@ const WRAP: Record<string, number> = {
 const POSITION: Record<string, number> = {
   relative: PositionType.Relative,
   absolute: PositionType.Absolute,
+  // Canvas/surface is the containing block (RN-web `fixed` vs the device frame,
+  // not the browser viewport). syncLayout re-resolves insets against the root.
+  fixed: PositionType.Absolute,
   static: PositionType.Static,
 };
 const OVERFLOW: Record<string, number> = {

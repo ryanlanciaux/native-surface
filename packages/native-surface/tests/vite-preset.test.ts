@@ -220,6 +220,7 @@ describe('alias set', () => {
       '@react-native-clipboard/clipboard',
       '@react-native-masked-view/masked-view',
       'reactotron-react-native',
+      'radix-ui/internal',
     ]) {
       expect(matches(pkg), `no alias claims ${pkg}`).toBeDefined();
     }

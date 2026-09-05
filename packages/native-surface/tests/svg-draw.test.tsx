@@ -16,7 +16,8 @@ import Svg, {
   __compile,
   __compileXml,
 } from '../../compat/src/svg';
-import { asImpl, createTestRoot } from './helpers';
+import Animated, { measure, useAnimatedProps, useSharedValue, withDelay, withTiming } from '../../compat/src/reanimated';
+import { asImpl, createTestRoot, sleep } from './helpers';
 
 function onWhite(children: React.ReactNode): React.JSX.Element {
   return <View style={{ flex: 1, backgroundColor: '#ffffff' }}>{children}</View>;
@@ -262,5 +263,60 @@ describe('SvgXml', () => {
     } finally {
       restore();
     }
+  });
+});
+
+describe('createAnimatedComponent SVG Path', () => {
+  const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+  it('compiles Animated(Path) as a path op', () => {
+    const ops = __compile(<AnimatedPath d="M0 0 L10 10" stroke="#000" strokeWidth={2} />);
+    expect(ops).toEqual([{ op: 'path', d: 'M0 0 L10 10', stroke: '#000', strokeWidth: 2 }]);
+  });
+
+  it('useAnimatedProps + withTiming/withDelay advances strokeDashoffset', async () => {
+    function Check(): React.JSX.Element {
+      const progress = useSharedValue(0);
+      const ap = useAnimatedProps(() => ({ strokeDashoffset: 80 - progress.value * 80 }));
+      React.useEffect(() => {
+        progress.set(withDelay(10, withTiming(1, { duration: 40 })));
+      }, [progress]);
+      return (
+        <Svg width={100} height={100}>
+          <AnimatedPath
+            d="M10 50 H90"
+            fill="none"
+            stroke="#000000"
+            strokeWidth={20}
+            strokeDasharray={80}
+            animatedProps={ap}
+          />
+        </Svg>
+      );
+    }
+    const root = createTestRoot(100, 100);
+    const impl = asImpl(root);
+    root.render(onWhite(<Check />));
+    await root.flush();
+    expect(white(impl.readPixel(50, 50))).toBe(true);
+    await sleep(200);
+    await root.flush();
+    expect(impl.readPixel(50, 50).r).toBeLessThan(50);
+    root.unmount();
+  });
+});
+
+describe('reanimated measure', () => {
+  it('reads CNode layout and returns null instead of throwing', async () => {
+    let host: unknown;
+    const root = createTestRoot(100, 80);
+    root.render(<View ref={(n) => { host = n; }} style={{ width: 40, height: 20, marginLeft: 8, marginTop: 6 }} />);
+    await root.flush();
+    const m = measure({ current: host });
+    expect(m).toEqual({ x: 8, y: 6, width: 40, height: 20, pageX: 8, pageY: 6 });
+    expect(measure({ current: null })).toBeNull();
+    expect(measure(null)).toBeNull();
+    expect(measure({ current: { getBoundingClientRect() { throw new Error('nope'); } } })).toBeNull();
+    root.unmount();
   });
 });

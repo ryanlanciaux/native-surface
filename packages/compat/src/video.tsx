@@ -1480,6 +1480,7 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEvents> {
   constructor(source: VideoSourceInput = null, _useSynchronousReplace?: boolean, _options?: PlayerBuilderOptions) {
     super();
     this._source = toVideoSource(source);
+    // status/timeUpdate do not emit on create — VideoFeed loops were not this path.
   }
 
   // --- state ---------------------------------------------------------------
@@ -1566,6 +1567,7 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEvents> {
 
   play(): void {
     this._shouldPlay = true;
+    // play()/addListener do not emit; timeUpdate stays gated on interval > 0.
     const el = this.el;
     if (!el) return;
     void safePlay(el, (error) => {
@@ -2076,7 +2078,12 @@ export async function getThumbnailAsync(
   sourceFilename: string,
   options: VideoThumbnailsOptions = {}
 ): Promise<VideoThumbnailsResult> {
-  return grabVideoFrame(sourceFilename, (options.time ?? 0) / 1000, { quality: options.quality });
+  try {
+    return await grabVideoFrame(sourceFilename, (options.time ?? 0) / 1000, { quality: options.quality });
+  } catch {
+    // no real video / CORS / canvas host: still give Image a uri to paint
+    return { uri: sourceFilename, width: 0, height: 0 };
+  }
 }
 
 // ---------------------------------------------------------------------------

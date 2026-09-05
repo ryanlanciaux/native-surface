@@ -542,9 +542,16 @@ export function BottomSheetView(props: BottomSheetViewProps): React.JSX.Element 
    * causes itself, and on surface resizes.
    */
   const onSheetLayout = (): void => {
+    if (runtime.phase === 'closing' || runtime.phase === 'closed') return;
     const node = sheetNode.current;
-    if (!node || runtime.phase === 'closing' || runtime.phase === 'closed') return;
-    runtime.natural = clampNatural(naturalSheetHeight(node, latest.current.fullSheetHeight));
+    // `full` is the surface/presentation extent, not the sheet's current
+    // frame — once resized, a parent-relative walk would enter the content.
+    // No probe still presents (open() must be visible); a 0-height first
+    // pass is skipped so the sheet does not collapse before content lays out.
+    if (node) {
+      const measured = naturalSheetHeight(node, latest.current.fullSheetHeight);
+      if (measured > EPSILON) runtime.natural = clampNatural(measured);
+    }
     // Android defers layout updates raised mid-gesture (`pendingLayoutUpdate`)
     // rather than moving the sheet under the finger; so does this.
     if (runtime.dragging) return;

@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampZoom,
+  DEFAULT_FRAME,
   fitRect,
   hitNode,
   hitPath,
   jumpId,
+  frameBigEnough,
   frameLive,
   layoutFrames,
   layoutGroups,
   layoutWrap,
+  MAX_LIVE,
   MAX_ZOOM,
   MIN_ZOOM,
+  pickLive,
+  routeIdFromHash,
   screenToWorld,
   worldView,
   zoomAt,
@@ -132,5 +137,78 @@ describe('layoutGroups', () => {
     expect(frames[0]).toEqual({ x: 0, y: 20, width: 100, height: 50 });
     expect(frames[1]).toEqual({ x: 110, y: 20, width: 100, height: 50 });
     expect(frames[2]?.y).toBe(20 + 50 + 20 + 20);
+  });
+
+  it('uses fallback size for items without width/height', () => {
+    const { frames } = layoutGroups([{ title: 'A', items: [{}] }], {
+      fallback: { width: 390, height: 844 },
+      header: 0,
+    });
+    expect(frames[0]).toEqual({ x: 0, y: 0, width: 390, height: 844 });
+  });
+});
+
+describe('route hash', () => {
+  it('reads /plane#/<route-id>', () => {
+    expect(routeIdFromHash('#/home')).toBe('home');
+    expect(routeIdFromHash('#/a%2Fb')).toBe('a/b');
+    expect(routeIdFromHash('#/')).toBeNull();
+    expect(routeIdFromHash('')).toBeNull();
+    expect(routeIdFromHash('#story/home')).toBeNull();
+  });
+});
+
+describe('live size + cap', () => {
+  it('keeps DEFAULT_FRAME at 390×720', () => {
+    expect(DEFAULT_FRAME).toEqual({ width: 390, height: 720 });
+  });
+
+  it('parks frames smaller than min CSS px', () => {
+    expect(frameBigEnough({ width: 80, height: 80 }, 1)).toBe(true);
+    expect(frameBigEnough({ width: 79, height: 80 }, 1)).toBe(false);
+    expect(frameBigEnough({ width: 390, height: 720 }, 0.1)).toBe(false);
+    expect(frameBigEnough({ width: 390, height: 720 }, 0.3)).toBe(true);
+  });
+
+  it('parks overlapping frames that are too small on screen', () => {
+    const view = { x: 0, y: 0, width: 1000, height: 1000 };
+    const live = pickLive([{ id: 'a', frame: { x: 0, y: 0, width: 390, height: 720 } }], view, 0.1);
+    expect(live.size).toBe(0);
+  });
+
+  it('does not live-mount off-screen frames even if under cap', () => {
+    const view = { x: 0, y: 0, width: 200, height: 200 };
+    const live = pickLive(
+      [
+        { id: 'on', frame: { x: 0, y: 0, width: 100, height: 100 } },
+        { id: 'off', frame: { x: 500, y: 0, width: 100, height: 100 } },
+      ],
+      view,
+      1
+    );
+    expect([...live]).toEqual(['on']);
+  });
+
+  it('picks nearest to view center when capped', () => {
+    const view = { x: 0, y: 0, width: 100, height: 100 };
+    const live = pickLive(
+      [
+        { id: 'far', frame: { x: 0, y: 0, width: 40, height: 40 } },
+        { id: 'near', frame: { x: 30, y: 30, width: 40, height: 40 } },
+      ],
+      view,
+      1,
+      { max: 1, minPx: 10 }
+    );
+    expect([...live]).toEqual(['near']);
+  });
+
+  it('keeps at most MAX_LIVE concurrent surfaces', () => {
+    const view = { x: 0, y: 0, width: 2000, height: 2000 };
+    const frames = Array.from({ length: 20 }, (_, i) => ({
+      id: String(i),
+      frame: { x: i * 10, y: 0, width: 100, height: 100 },
+    }));
+    expect(pickLive(frames, view, 1).size).toBe(MAX_LIVE);
   });
 });

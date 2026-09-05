@@ -26,6 +26,8 @@ export const FRAME_CHROME = 28;
 export const MIN_ZOOM = 0.15;
 export const MAX_ZOOM = 3;
 export const WRAP_WIDTH = 1640;
+export const MIN_LIVE_PX = 80;
+export const MAX_LIVE = 8;
 
 export function nodeRect(node: HitNode): Rect {
   return node.painted ?? node.frame;
@@ -208,9 +210,50 @@ export function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
-/** True when a frame (plus chrome) should keep its NativeSurface mounted. */
+/** True when a frame (plus chrome) overlaps the world view. Pan-cull only. */
 export function frameLive(frame: Rect, view: Rect, chrome = FRAME_CHROME): boolean {
   return overlaps({ ...frame, height: frame.height + chrome }, view);
+}
+
+/** False when either on-screen edge is under minPx — freeze, don't keep a live surface. */
+export function frameBigEnough(frame: Pick<Rect, 'width' | 'height'>, zoom: number, minPx = MIN_LIVE_PX): boolean {
+  return frame.width * zoom >= minPx && frame.height * zoom >= minPx;
+}
+
+/** Overlapping + large enough, capped to `max` nearest the view center. */
+export function pickLive(
+  frames: readonly { id: string; frame: Rect }[],
+  view: Rect,
+  zoom: number,
+  opts: { max?: number; minPx?: number; chrome?: number } = {}
+): Set<string> {
+  const max = opts.max ?? MAX_LIVE;
+  const minPx = opts.minPx ?? MIN_LIVE_PX;
+  const chrome = opts.chrome ?? FRAME_CHROME;
+  const cx = view.x + view.width / 2;
+  const cy = view.y + view.height / 2;
+  return new Set(
+    frames
+      .filter((item) => frameLive(item.frame, view, chrome) && frameBigEnough(item.frame, zoom, minPx))
+      .sort((a, b) => {
+        const da = (a.frame.x + a.frame.width / 2 - cx) ** 2 + (a.frame.y + a.frame.height / 2 - cy) ** 2;
+        const db = (b.frame.x + b.frame.width / 2 - cx) ** 2 + (b.frame.y + b.frame.height / 2 - cy) ** 2;
+        return da - db;
+      })
+      .slice(0, max)
+      .map((item) => item.id)
+  );
+}
+
+/** `/plane#/<route-id>` → id. Empty or other hashes → null. */
+export function routeIdFromHash(hash: string): string | null {
+  if (!hash.startsWith('#/')) return null;
+  try {
+    const id = decodeURIComponent(hash.slice(2));
+    return id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 export function surfacePoint(

@@ -7,10 +7,11 @@ import {
   DEFAULT_FRAME,
   fitRect,
   formatEdges,
-  frameLive,
   hitPath,
   jumpId,
   layoutGroups,
+  pickLive,
+  routeIdFromHash,
   worldView,
   zoomAt,
   type HitNode,
@@ -28,6 +29,18 @@ function rootFor(canvas: HTMLCanvasElement | null): NativeRoot | null {
   if (!canvas) return null;
   for (const root of roots()) if (root.canvas === canvas) return root;
   return null;
+}
+
+// ponytail: sync toDataURL on park; toBlob if 8×frame png encode janks
+function snapshotFrame(id: string, into: Map<string, string>): void {
+  const host = document.querySelector(`[data-plane-frame="${CSS.escape(id)}"]`);
+  const canvas = host?.querySelector('canvas');
+  if (!(canvas instanceof HTMLCanvasElement) || canvas.width === 0) return;
+  try {
+    into.set(id, canvas.toDataURL());
+  } catch {
+    /* tainted */
+  }
 }
 
 type WrapperFn = (props: { children: ReactNode; route: PlaneRoute }) => ReactNode;
@@ -83,12 +96,15 @@ export function App(): ReactElement {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<StoryRef[]>([]);
   const [routes, setRoutes] = useState<PlaneRoute[] | null>(null);
+  const [fallback, setFallback] = useState(DEFAULT_FRAME);
   const [Wrapper, setWrapper] = useState<WrapperFn>(() => passthrough);
   const [planeError, setPlaneError] = useState<string | null>(null);
   const [view, setView] = useState({ width: 1200, height: 800 });
   const space = useRef(false);
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const didFit = useRef(false);
+  const snaps = useRef(new Map<string, string>());
+  const prevLive = useRef(new Set<string>());
 
   useEffect(() => {
     void loadStoryCatalog().then(setCatalog);
@@ -97,9 +113,13 @@ export function App(): ReactElement {
   useEffect(() => {
     let live = true;
     void Promise.all([loadPlane(), loadWrapper()]).then(
-      ([{ routes: next }, wrap]) => {
+      ([{ routes: next, frame }, wrap]) => {
         if (!live) return;
         setRoutes(next ?? []);
+        setFallback({
+          width: frame?.width ?? DEFAULT_FRAME.width,
+          height: frame?.height ?? DEFAULT_FRAME.height,
+        });
         setWrapper(() => wrap ?? passthrough);
       },
       (err: Error) => {
@@ -125,8 +145,11 @@ export function App(): ReactElement {
   }, [routes]);
 
   const { frames, boxes } = useMemo(
-    () => layoutGroups(groups.map((group) => ({ title: group.title, items: group.items }))),
-    [groups]
+    () => layoutGroups(
+      groups.map((group) => ({ title: group.title, items: group.items })),
+      { fallback }
+    ),
+    [groups, fallback]
   );
   const items = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const routeIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
@@ -136,13 +159,19 @@ export function App(): ReactElement {
     [camera, view]
   );
   const live = useMemo(() => {
-    const ids = new Set<string>();
+    const list: Array<{ id: string; frame: (typeof frames)[number] }> = [];
     items.forEach((item, index) => {
       const frame = frames[index];
-      if (frame && frameLive(frame, viewport)) ids.add(item.id);
+      if (frame) list.push({ id: item.id, frame });
     });
-    return ids;
-  }, [items, frames, viewport]);
+    return pickLive(list, viewport, camera.zoom);
+  }, [items, frames, viewport, camera.zoom]);
+  if (prevLive.current !== live) {
+    for (const id of prevLive.current) {
+      if (!live.has(id)) snapshotFrame(id, snaps.current);
+    }
+    prevLive.current = live;
+  }
 
   useEffect(() => {
     const el = worldRef.current;
@@ -167,7 +196,10 @@ export function App(): ReactElement {
   const jumpTo = useCallback(
     (id: string) => {
       const index = items.findIndex((item) => item.id === id);
-      if (index >= 0) fit(index);
+      if (index < 0) return;
+      fit(index);
+      const next = `#/${encodeURIComponent(id)}`;
+      if (window.location.hash !== next) window.history.replaceState(null, '', next);
     },
     [fit, items]
   );
@@ -175,8 +207,20 @@ export function App(): ReactElement {
   useEffect(() => {
     if (didFit.current || !frames[0] || !worldRef.current) return;
     didFit.current = true;
-    fit(0);
-  }, [fit, frames]);
+    const hashId = routeIdFromHash(window.location.hash);
+    const index = hashId ? items.findIndex((item) => item.id === hashId) : 0;
+    if (hashId && index >= 0) jumpTo(hashId);
+    else fit(index >= 0 ? index : 0);
+  }, [fit, frames, items, jumpTo]);
+
+  useEffect(() => {
+    const onHash = (): void => {
+      const id = routeIdFromHash(window.location.hash);
+      if (id) jumpTo(id);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [jumpTo]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -206,7 +250,7 @@ export function App(): ReactElement {
     const canvas = frameEl.querySelector('canvas');
     const root = rootFor(canvas);
     if (!canvas || !root) return null;
-    const size = { width: item.width ?? DEFAULT_FRAME.width, height: item.height ?? DEFAULT_FRAME.height };
+    const size = { width: item.width ?? fallback.width, height: item.height ?? fallback.height };
     const box = canvas.getBoundingClientRect();
     const path = hitPath(
       root.getLayoutTree() as HitNode,
@@ -215,7 +259,7 @@ export function App(): ReactElement {
     );
     const node = path[path.length - 1];
     return node ? { routeId: item.id, node, path } : null;
-  }, []);
+  }, [fallback]);
 
   useEffect(() => {
     const onDown = (event: PointerEvent) => {
@@ -328,10 +372,11 @@ export function App(): ReactElement {
               group.items.map((item) => {
                 const index = frameIndex++;
                 const frame = frames[index]!;
-                const width = item.width ?? DEFAULT_FRAME.width;
-                const height = item.height ?? DEFAULT_FRAME.height;
+                const width = item.width ?? fallback.width;
+                const height = item.height ?? fallback.height;
                 const err = errors[item.id];
                 const mounted = live.has(item.id);
+                const still = snaps.current.get(item.id);
                 return (
                   <div
                     key={item.id}
@@ -352,13 +397,21 @@ export function App(): ReactElement {
                       {err ? (
                         <pre className="err">{err}</pre>
                       ) : mounted ? (
-                        <NativeSurface key={item.id} width={width} height={height} className="surface">
+                        <NativeSurface
+                          key={item.id}
+                          width={width}
+                          height={height}
+                          className="surface"
+                          onReady={() => snapshotFrame(item.id, snaps.current)}
+                        >
                           <InnerBoundary onError={(error) => setErrors((prev) => ({ ...prev, [item.id]: error.message }))}>
                             <Wrapper route={item}>{createElement(item.component, item.props ?? {})}</Wrapper>
                           </InnerBoundary>
                         </NativeSurface>
+                      ) : still ? (
+                        <img className="still" src={still} alt="" />
                       ) : (
-                        <div className="dormant">out of view</div>
+                        <div className="dormant">Loading…</div>
                       )}
                       {inspect && mounted ? <div className="hit" /> : null}
                       {mounted && selected?.routeId === item.id && selectedRect ? (
@@ -382,12 +435,12 @@ export function App(): ReactElement {
         <aside className="inspector">
           <h2>Screens</h2>
           <nav className="rail">
-            {items.map((item, index) => (
+            {items.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 className={live.has(item.id) ? 'on' : undefined}
-                onClick={() => fit(index)}
+                onClick={() => jumpTo(item.id)}
               >
                 {(item.group ?? item.title) === item.title ? item.title : `${item.group} · ${item.title}`}
               </button>

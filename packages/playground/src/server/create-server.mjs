@@ -143,8 +143,17 @@ export async function createPlaygroundServer(options = {}) {
     plugins: [
       ...nativeSurface({ platform, resolveFrom: hostRoot }),
       react(reanimatedBabelPlugin ? { babel: { plugins: [reanimatedBabelPlugin] } } : {}),
-      hostStoriesPlugin({ hostRoot, globs }),
-      playgroundConfigPlugin({ storyPadding: config.storyPadding ?? 16 }),
+      hostStoriesPlugin({ hostRoot, globs, setup: config.setup ? resolve(hostRoot, config.setup) : null }),
+      playgroundConfigPlugin({
+        storyPadding: config.storyPadding ?? 16,
+        setup: config.setup ? resolve(hostRoot, config.setup) : null,
+        fonts: (config.fonts ?? []).map((font) => ({
+          family: font.family,
+          url: /^[a-z][a-z0-9+.-]*:/i.test(font.src) ? font.src : `/@fs${resolve(hostRoot, font.src)}`,
+          ...(font.weight !== undefined ? { weight: font.weight } : {}),
+          ...(font.style !== undefined ? { style: font.style } : {}),
+        })),
+      }),
       importAuditPlugin({ hostRoot, audit }),
       designPlane({ hostRoot }),
       ...(aliasOverrides.length

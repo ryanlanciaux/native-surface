@@ -10,6 +10,8 @@ import { pathToFileURL } from 'node:url';
  * optional, default export):
  *   { stories?: string[], port?: number, storyPadding?: number,
  *     decorators?: 'none',
+ *     setup?: string,
+ *     fonts?: { family: string, src: string, weight?: number, style?: 'normal'|'italic' }[],
  *     optimizeDeps?: { include?: string[], exclude?: string[] },
  *     aliases?: Record<string, string> }
  * `storyPadding` is CSS px inset between the device chrome and the canvas
@@ -23,7 +25,18 @@ import { pathToFileURL } from 'node:url';
  * against the host root) and — unlike the host tsconfig's paths — takes
  * priority over the engine preset's own aliases: the escape hatch for
  * patching over a missing engine export until a real bridge ships.
+ * `setup` is a path relative to the host root; the playground imports it
+ * before any story or plane module (full reload included).
+ * `fonts` is forwarded to `initEngine({fonts})` (`src` is a URL or host-relative path).
  */
+function isHostFont(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (typeof value.family !== 'string' || typeof value.src !== 'string') return false;
+  if (value.weight !== undefined && !Number.isFinite(Number(value.weight))) return false;
+  if (value.style !== undefined && value.style !== 'normal' && value.style !== 'italic') return false;
+  return true;
+}
+
 export async function loadHostConfig(hostRoot) {
   for (const name of ['playground.config.mjs', 'playground.config.js']) {
     const path = join(hostRoot, '.native-surface', name);
@@ -69,6 +82,22 @@ export async function loadHostConfig(hostRoot) {
         };
       } else {
         warnings.push(`${path}: "optimizeDeps" must be { include?: string[], exclude?: string[] }; ignoring`);
+      }
+    }
+    if (config.setup !== undefined) {
+      if (typeof config.setup === 'string' && config.setup.length > 0) clean.setup = config.setup;
+      else warnings.push(`${path}: "setup" must be a non-empty string path; ignoring`);
+    }
+    if (config.fonts !== undefined) {
+      if (Array.isArray(config.fonts) && config.fonts.every(isHostFont)) {
+        clean.fonts = config.fonts.map((font) => ({
+          family: font.family,
+          src: font.src,
+          ...(font.weight !== undefined ? { weight: Number(font.weight) } : {}),
+          ...(font.style !== undefined ? { style: font.style } : {}),
+        }));
+      } else {
+        warnings.push(`${path}: "fonts" must be [{ family, src, weight?, style? }]; ignoring`);
       }
     }
     if (config.aliases !== undefined) {

@@ -8,7 +8,7 @@
 import { describe, expect, test } from 'vitest';
 import * as React from 'react';
 import { ScrollView, View } from '../src/components/primitives';
-import { createTestRoot, sleep } from './helpers';
+import { createTestRoot, findNode, sleep } from './helpers';
 import PagerView, { type PagerViewHandle } from '../../compat/src/pager-view';
 import type { NativeRoot, ScrollEvent } from '../src/types';
 
@@ -161,6 +161,23 @@ describe('PagerView compat', () => {
     expect(back).toBe(true);
     expect(sel).toEqual([1, 2, 1]);
     expect(states.slice(2)).toEqual(['dragging', 'settling', 'idle']);
+    root.unmount();
+  });
+
+  test('flex:1 inside an unsized page child fills the viewport', async () => {
+    const root = createTestRoot(300, 400);
+    root.render(
+      <PagerView style={{ width: 300, height: 400 }}>
+        <View key="page">
+          <View testID="fill" style={{ flex: 1 }} />
+        </View>
+      </PagerView>
+    );
+    await root.flush();
+    await root.flush();
+    const fill = findNode(root.getLayoutTree(), (n) => n.testID === 'fill');
+    expect(fill?.frame.width).toBe(300);
+    expect(fill?.frame.height).toBe(400);
     root.unmount();
   });
 

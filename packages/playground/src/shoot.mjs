@@ -63,7 +63,7 @@ async function waitInPage(page, label, fn, arg, timeoutMs) {
   }
 }
 
-async function captureStory(page, story, outDir) {
+async function captureStory(page, story, outDir, settleMs = 0) {
   // Hash-only navigation: same document, the app's hashchange handler swaps
   // the story (and remounts the surface via its key).
   await page.evaluate((hash) => {
@@ -98,7 +98,7 @@ async function captureStory(page, story, outDir) {
   if (state.kind === 'canvas') {
     // Settle: fonts, the engine's own flush, then two frames. A story that
     // throws does so inside flush — the error panel appears after.
-    const settled = await page.evaluate(async () => {
+    const settled = await page.evaluate(async (extraSettleMs) => {
       try {
         await document.fonts.ready;
         const roots = [...(globalThis.__nativeSurfaceRoots ?? [])];
@@ -106,12 +106,41 @@ async function captureStory(page, story, outDir) {
           Promise.all(roots.map((root) => root.flush())),
           new Promise((_, reject) => setTimeout(() => reject(new Error('engine flush timed out')), 15000)),
         ]);
+        // No public engine waiter for in-flight Image fetches. Drain resource
+        // timing until quiet, then optional extra --settle, then the usual rAF.
+        await new Promise((resolve) => {
+          let quiet;
+          const done = () => {
+            clearTimeout(quiet);
+            clearTimeout(hard);
+            try {
+              observer.disconnect();
+            } catch {
+              /* already disconnected */
+            }
+            resolve();
+          };
+          const bump = () => {
+            clearTimeout(quiet);
+            quiet = setTimeout(done, 50);
+          };
+          const observer = new PerformanceObserver(bump);
+          try {
+            observer.observe({ type: 'resource', buffered: false });
+          } catch {
+            done();
+            return;
+          }
+          const hard = setTimeout(done, 15000);
+          bump();
+        });
+        if (extraSettleMs > 0) await new Promise((r) => setTimeout(r, extraSettleMs));
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
         return { ok: true };
       } catch (error) {
         return { ok: false, message: String(error) };
       }
-    });
+    }, settleMs);
     // Give a cross-tree error (canvas boundary -> DOM chrome) a beat to swap
     // the canvas for the panel before deciding this story painted.
     await new Promise((r) => setTimeout(r, 150));
@@ -182,10 +211,13 @@ function errorResult(story, panel) {
  * @param {'ios'|'android'} [options.platform]
  * @param {'ios'|'android'} [options.theme] surface theme (default ios)
  * @param {boolean} [options.quiet] suppress per-story progress logs
+ * @param {number} [options.settle] extra ms to wait after pending image loads (default 0)
  * @returns {Promise<{ ok: boolean, results: object[], report: object, reportPath: string, outDir: string }>}
  */
 export async function shoot(options = {}) {
   const hostRoot = resolve(options.root ?? process.cwd());
+  const settleMs = Number(options.settle);
+  const settle = Number.isFinite(settleMs) && settleMs > 0 ? settleMs : 0;
   const viewport = options.viewport ?? DEFAULT_SHOOT_VIEWPORT;
   const tolerance = options.tolerance ?? DEFAULT_TOLERANCE;
   const outDir = resolve(hostRoot, options.out ?? DEFAULT_OUT_DIR);
@@ -270,10 +302,10 @@ export async function shoot(options = {}) {
       let result;
       // One retry: a dep-optimizer reload can land mid-story on cold caches.
       try {
-        result = await captureStory(page, story, outDir);
+        result = await captureStory(page, story, outDir, settle);
       } catch (error) {
         log(`  retrying ${story.id}: ${String(error).slice(0, 120)}`);
-        result = await captureStory(page, story, outDir);
+        result = await captureStory(page, story, outDir, settle);
       }
       results.push(result);
       log(`  ${result.status.padEnd(7)} ${result.id}${result.reason ? ` — ${result.reason.split('\n')[0]}` : ''}`);

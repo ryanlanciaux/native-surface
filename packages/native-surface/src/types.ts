@@ -51,7 +51,7 @@ export interface FlexStyle {
   paddingStart?: DimensionValue;
   paddingTop?: DimensionValue;
   paddingVertical?: DimensionValue;
-  position?: 'absolute' | 'relative';
+  position?: 'absolute' | 'relative' | 'fixed' | 'static';
   right?: DimensionValue;
   top?: DimensionValue;
   width?: DimensionValue;

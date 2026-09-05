@@ -236,15 +236,20 @@ export const PagerView = React.forwardRef<PagerViewHandle, PagerViewProps>(funct
           onMomentumScrollBegin={() => emitState('settling')}
           onMomentumScrollEnd={handleMomentumEnd}
         >
-          {pageElements.map((child, i) => (
-            <View
-              key={child.key ?? i}
-              style={{ width: size.width, height: size.height }}
-              onLayout={i === 0 ? handleFirstPageLayout : undefined}
-            >
-              {child}
-            </View>
-          ))}
+          {pageElements.map((child, i) => {
+            const pageStyle = { width: size.width, height: size.height };
+            return (
+              <View
+                key={child.key ?? i}
+                style={pageStyle}
+                onLayout={i === 0 ? handleFirstPageLayout : undefined}
+              >
+                {React.cloneElement(child as React.ReactElement<{ style?: StyleProp<ViewStyle> }>, {
+                  style: [(child.props as { style?: StyleProp<ViewStyle> }).style, pageStyle],
+                })}
+              </View>
+            );
+          })}
         </ScrollView>
       ) : null}
     </View>
