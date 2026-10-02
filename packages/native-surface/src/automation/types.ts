@@ -25,6 +25,15 @@ export interface SnapshotNode {
   testID?: string;
   /** Paragraph text that survived Skia truncation (passwords stay masked). */
   text?: string;
+  /** Current input value, independent of painted glyphs. Omitted for secure inputs. */
+  value?: string;
+  placeholder?: string;
+  editable?: boolean;
+  secure?: boolean;
+  checked?: boolean;
+  selected?: boolean;
+  expanded?: boolean;
+  inputPurpose?: 'username' | 'password' | 'one-time-code' | 'generic-secret' | 'none';
   textFragments?: readonly TextFragment[];
   /** Untransformed surface coordinates, including ancestor scrolling. */
   layoutBounds: Rect;

@@ -150,7 +150,15 @@ export interface HostInstance {
   setNativeProps(patch: Record<string, unknown>): void;
 }
 
-export interface ViewProps {
+/** Semantic metadata forwarded to host nodes and automation snapshots. */
+export interface AccessibilityProps {
+  accessibilityLabel?: string;
+  accessibilityRole?: string;
+  role?: string;
+  accessibilityState?: { disabled?: boolean; checked?: boolean | 'mixed'; selected?: boolean; expanded?: boolean; busy?: boolean };
+}
+
+export interface ViewProps extends AccessibilityProps {
   ref?: React.Ref<HostInstance>;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
@@ -159,7 +167,7 @@ export interface ViewProps {
   testID?: string;
 }
 
-export interface TextProps {
+export interface TextProps extends AccessibilityProps {
   style?: StyleProp<TextStyle>;
   children?: React.ReactNode;
   numberOfLines?: number;
@@ -173,7 +181,7 @@ export interface TextProps {
 /** `scale` follows RN resolveAssetSource semantics: intrinsic pt = px/scale. */
 export type ImageSource = { uri: string; scale?: number } | string;
 
-export interface ImageProps {
+export interface ImageProps extends AccessibilityProps {
   source: ImageSource;
   style?: StyleProp<ImageStyle>;
   resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
@@ -187,7 +195,7 @@ export interface PressableStateCallbackType {
   pressed: boolean;
 }
 
-export interface PressableProps {
+export interface PressableProps extends AccessibilityProps {
   style?: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
   children?: React.ReactNode | ((state: PressableStateCallbackType) => React.ReactNode);
   onPress?: (e: PressEvent) => void;
@@ -207,7 +215,7 @@ export interface TouchableOpacityProps extends Omit<PressableProps, 'style' | 'c
   activeOpacity?: number;
 }
 
-export interface ScrollViewProps {
+export interface ScrollViewProps extends AccessibilityProps {
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   children?: React.ReactNode;

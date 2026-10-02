@@ -152,6 +152,7 @@ export function createDomInputOverlay(node: CNode, controller: OverlayController
   return {
     element: el,
     sync(value: string) {
+      applyStaticAttrs(el, specOfInput(node));
       const idx = pendingReports.indexOf(value);
       if (idx !== -1) {
         // our own report acknowledged; older reports are superseded
@@ -193,7 +194,9 @@ function applyStaticAttrs(el: HTMLInputElement | HTMLTextAreaElement, spec: Text
   if (spec.returnKeyType && RETURN_KEY_MAP[spec.returnKeyType]) {
     el.setAttribute('enterkeyhint', RETURN_KEY_MAP[spec.returnKeyType]!);
   }
+  el.readOnly = spec.editable === false;
   if (spec.maxLength != null) el.setAttribute('maxlength', String(spec.maxLength));
+  else el.removeAttribute('maxlength');
   if (spec.autoCapitalize) el.setAttribute('autocapitalize', spec.autoCapitalize);
   if (spec.autoCorrect === false) el.setAttribute('autocorrect', 'off');
   el.setAttribute('autocomplete', spec.autoComplete ?? 'off');

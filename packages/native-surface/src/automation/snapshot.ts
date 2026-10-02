@@ -2,7 +2,7 @@ import type { CNode } from '../engine/node';
 import { IDENTITY, multiply, translation, transformMatrix, type Mat3 } from '../engine/matrix';
 import { pointerEventsOf } from '../engine/events';
 import { contentInsetsOf, displayTextOf, getInputParagraph, getParagraph, inlineChildrenOf, paragraphRunsOf } from '../engine/text';
-import { hasDomOverlay, specOfInput } from '../engine/textInputState';
+import { hasDomOverlay, inputValueOf, specOfInput } from '../engine/textInputState';
 import { specOf } from '../engine/scrollPhysics';
 import { DEFAULT_TEXT_STYLE, resolveTextStyle } from '../engine/styles';
 import { parseColor } from '../engine/colors';
@@ -122,7 +122,8 @@ export function buildSnapshot(root: CNode, viewport: Viewport, revision: number,
     const dom = hasDomOverlay(node) || !!node.props.__portal;
     const out: SnapshotNode = {
       id: node.id, parentId, type: node.type,
-      role: string(node.props.accessibilityRole ?? node.props.role),
+      role: string(node.props.accessibilityRole ?? node.props.role) ??
+        (node.props.__pressable && node.type !== 'textinput' ? 'button' : undefined),
       label: string(node.props.accessibilityLabel ?? node.props['aria-label']),
       testID: string(node.props.testID),
       layoutBounds: { x: x + f.x, y: y + f.y, width: f.width, height: f.height },
@@ -133,6 +134,19 @@ export function buildSnapshot(root: CNode, viewport: Viewport, revision: number,
       disabled, focused: node.id === focusedNode, opacity, rendering: dom ? 'dom' : 'canvas',
     };
     const textNode = node.type === 'text' || node.type === 'textinput';
+    const state = node.props.accessibilityState as Record<string, unknown> | undefined;
+    for (const key of ['checked', 'selected', 'expanded'] as const) {
+      if (typeof state?.[key] === 'boolean') out[key] = state[key];
+    }
+    if (node.type === 'textinput') {
+      const spec = specOfInput(node);
+      out.secure = !!spec.secureTextEntry;
+      out.editable = spec.editable !== false;
+      out.placeholder = spec.placeholder;
+      out.inputPurpose = out.secure ? 'password' : spec.autoComplete === 'username' ? 'username'
+        : spec.autoComplete === 'one-time-code' ? 'one-time-code' : 'none';
+      if (!out.secure) out.value = inputValueOf(node);
+    }
     const glyphs = textNode && !hidden && !dom ? glyphsOf(node, m, out.approximate) : [];
     if (textNode) out.text = glyphs.map(g => g.text).join('');
     const visibleBox = envelope(visiblePoly);

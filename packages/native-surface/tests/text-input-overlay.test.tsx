@@ -19,6 +19,7 @@ import { TextInput, View } from '../src/index';
 import type { TextInputRef } from '../src/components/TextInputImpl';
 import type { NativeRoot } from '../src/types';
 import { asImpl, createTestRoot } from './helpers';
+import { getFocusedInputNode, notePointerDownOnInput } from '../src/engine/textInputState';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -49,6 +50,22 @@ afterEach(() => {
 });
 
 describe('focused TextInput overlay', () => {
+  it('restores browser focus after a canvas pointer temporarily steals it', async () => {
+    root = createTestRoot(300, 200);
+    withStretchedHost(root, 300, 200);
+    const handle = React.createRef<TextInputRef>();
+    root.render(<TextInput ref={handle} defaultValue="text" style={{ width: 100, height: 40 }} />);
+    await root.flush(); handle.current!.focus();
+    const input = document.querySelector('input')!;
+    const button = document.createElement('button'); document.body.appendChild(button);
+    notePointerDownOnInput(getFocusedInputNode()!);
+    button.focus();
+    expect(handle.current!.isFocused()).toBe(true);
+    expect(document.activeElement).toBe(button);
+    handle.current!.focus();
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('text');
+  });
   it('places the input over the node and scales its type by the same factors', async () => {
     root = createTestRoot(300, 200);
     withStretchedHost(root, 300, 200);

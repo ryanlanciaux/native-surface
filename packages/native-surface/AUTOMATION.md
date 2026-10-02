@@ -164,6 +164,14 @@ Truncated text is omitted and secure text stays masked. Use fragment
 `visibleBounds` to locate visible text; node text can be offscreen. DOM glyphs
 are omitted. Rounded clips, masks, and uncertain occlusion are approximate. A
 bounding rectangle's center may miss a rotated or partially obscured node.
+Inputs also expose `value` independently of painted glyphs, plus `placeholder`,
+`editable`, `secure`, and `inputPurpose`. Secure values are omitted, including
+while focused. Accessibility labels and roles remain application metadata.
+`controller.inputElement()` returns the focused DOM input owned by this surface,
+or null when another surface owns focus or the host is browserless. Host tooling
+can use it to validate browser focus before dispatching physical keyboard input.
+`controller.hitTest({ x, y })` returns node IDs on the existing pointer pipeline's
+topmost hit path. Drivers can check a candidate node before dispatching input.
 
 Scroll regions expose axis, offsets, content/viewport extents, enabled state,
 limits, clipped bounds, and parent scroll id. Snapshots contain no React Fibers,

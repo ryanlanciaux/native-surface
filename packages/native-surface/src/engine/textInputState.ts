@@ -144,6 +144,7 @@ export function focusInput(node: CNode): void {
     reclaim = null;
     focusedOverlay?.reposition();
     focusedOverlay?.sync(inputValueOf(node));
+    focusedOverlay?.element?.focus({ preventScroll: true });
     return;
   }
   if (focusedNode) blurInput(focusedNode);

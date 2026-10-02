@@ -59,6 +59,17 @@ function absoluteRect(node: CNode): { x: number; y: number; w: number; h: number
   return node.absoluteRect();
 }
 
+/** Returns the full ancestry of the topmost node under a surface point. */
+export function hitTestPath(root: CNode, x: number, y: number): readonly number[] {
+  const path: PathEntry[] = [];
+  hitPath(root, x, y, path);
+  const ids: number[] = [];
+  // The dispatch path can omit box-none containers, but they still belong to
+  // the ancestry of the topmost hit.
+  for (let node: CNode | null = path.at(-1)?.node ?? null; node; node = node.parent) ids.unshift(node.id);
+  return ids;
+}
+
 /**
  * Builds the visual-topmost hit path from `node` down. `x`/`y` are in the
  * node's parent content space (already adjusted for the parent's scroll).

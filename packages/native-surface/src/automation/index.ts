@@ -6,6 +6,7 @@ import { getEngine } from '../engine/init';
 import { getFocusedInputElement, getFocusedInputNode, hasDomOverlay } from '../engine/textInputState';
 import { portalElementsOf } from '../engine/portalHost';
 import { buildSnapshot } from './snapshot';
+import { hitTestPath } from '../engine/events';
 import { keyInto, typeInto } from './input';
 import type { AutomationOptions, DragOptions, KeyOptions, Observation, ObserveOptions, OverlayInfo,
   Point, Screenshot, ScreenshotOptions, Snapshot, StableOptions, Viewport, WaitOptions } from './types';
@@ -77,6 +78,17 @@ export class AutomationController {
   private focusedInput() {
     const node = getFocusedInputNode();
     return node?.rootHooks === this.root ? node : null;
+  }
+  /** The focused DOM input owned by this surface, for host keyboard tooling.
+   * Null in browserless hosts or when another surface owns the focus. */
+  inputElement(): HTMLInputElement | HTMLTextAreaElement | null {
+    this.assertActive();
+    return this.focusedInput() ? getFocusedInputElement() : null;
+  }
+  /** IDs on the normal topmost pointer hit path, in surface logical pixels. */
+  hitTest(p: Point): readonly number[] {
+    this.assertActive(); point(p); this.root.flushPending();
+    return hitTestPath(this.root.rootNode, p.x, p.y);
   }
   private overlays(): OverlayInfo[] {
     const out: OverlayInfo[] = portalElementsOf(this.root.rootNode).map(({ node }) => ({ id: node.id, kind: 'portal' }));

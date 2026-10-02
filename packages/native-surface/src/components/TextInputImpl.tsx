@@ -19,12 +19,12 @@ import {
   type TextInputSpec,
 } from '../engine/textInputState';
 import type { CNode } from '../engine/node';
-import type { PressEvent, StyleProp, TextStyle, ViewStyle } from '../types';
+import type { AccessibilityProps, PressEvent, StyleProp, TextStyle, ViewStyle } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CnTextInput = 'cn-textinput' as unknown as React.FC<any>;
 
-export interface TextInputProps {
+export interface TextInputProps extends AccessibilityProps {
   value?: string;
   defaultValue?: string;
   placeholder?: string;
@@ -124,6 +124,10 @@ export const TextInput = React.forwardRef<TextInputRef, TextInputProps>(function
     style,
     testID,
     onLayout,
+    accessibilityLabel: props.accessibilityLabel,
+    accessibilityRole: props.accessibilityRole,
+    accessibilityState: props.accessibilityState,
+    role: props.role,
     __input: spec,
     ...pressHandlers,
   });
