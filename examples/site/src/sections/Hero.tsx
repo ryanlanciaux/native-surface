@@ -91,9 +91,7 @@ export function Hero() {
           </p>
           <h1 className="hero__headline">
             <span>Run your</span>
-            {' '}
             <span>React Native app</span>
-            {' '}
             <span className="hero__headline-grad">in the browser.</span>
           </h1>
           <p className="hero__sub">

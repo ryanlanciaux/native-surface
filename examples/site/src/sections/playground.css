@@ -284,7 +284,6 @@
   padding: 16px 18px 20px;
   font-size: 13px;
   white-space: pre;
-  overflow-x: auto;
   min-height: 135px;
 }
 
@@ -331,7 +330,6 @@
   box-shadow: inset 0 0 0 1px #22d3ee80;
 }
 .switch {
-  position: relative;
   width: 32px;
   height: 18px;
   padding: 2px;
@@ -444,30 +442,6 @@
     min-height: 0;
     overflow-x: auto;
     font-size: 11.5px;
-  }
-  .ide__drawer-bar {
-    gap: 4px;
-    padding: 0 8px;
-  }
-  .ide__drawer-bar button {
-    position: relative;
-    min-height: 44px;
-    padding: 0 10px;
-  }
-  .switch::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-  .prop__input {
-    font-size: 16px;
-  }
-  .prop--row {
-    min-height: 44px;
   }
   .ide__props {
     width: 100%;
