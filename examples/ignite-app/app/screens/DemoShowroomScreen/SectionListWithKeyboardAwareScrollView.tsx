@@ -33,9 +33,12 @@ function SectionListWithKeyboardAwareScrollView<ItemType = any>(
   const defaultRenderScrollComponent = useCallback(
     (props: ScrollViewProps) => (
       <KeyboardAwareScrollView
-        contentContainerStyle={contentContainerStyle}
         bottomOffset={bottomOffset}
         {...props}
+        // native-surface adapter: set after the spread. native-surface's SectionList
+        // passes `contentContainerStyle: undefined` to renderScrollComponent (RN
+        // omits the key), which would wipe this style out. Same result on device.
+        contentContainerStyle={contentContainerStyle}
       />
     ),
     [contentContainerStyle, bottomOffset],

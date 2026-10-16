@@ -132,7 +132,8 @@ export const DemoPodcastListScreen: FC<DemoTabScreenProps<"DemoPodcastList">> = 
   )
 }
 
-const EpisodeCard = ({
+// native-surface adapter: exported so the catalog/playground can render it.
+export const EpisodeCard = ({
   episode,
   onPressFavorite,
 }: {
@@ -147,8 +148,11 @@ const EpisodeCard = ({
 
   const liked = useSharedValue(isFavorite ? 1 : 0)
   const imageUri = useMemo<ImageSourcePropType>(() => {
+    // native-surface adapter: the bundled feed carries real cover art (192px
+    // @3x, so 64pt like the design) instead of a random placeholder.
+    if (episode.thumbnail) return { uri: episode.thumbnail, scale: 3 }
     return rnrImages[Math.floor(Math.random() * rnrImages.length)]
-  }, [])
+  }, [episode.thumbnail])
 
   // Grey heart
   const animatedLikeButtonStyles = useAnimatedStyle(() => {
