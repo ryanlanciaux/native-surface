@@ -58,12 +58,22 @@ function IgniteAppInner({
     onTabChange?.(next);
   };
 
+  // Taps can land several per frame (scripted demos, automation), so each
+  // update builds on the latest set rather than the one from the last render.
+  const latestFavorites = React.useRef(favorites);
+  const updateFavorites = (update: (prev: ReadonlySet<string>) => ReadonlySet<string>) => {
+    latestFavorites.current = update(latestFavorites.current);
+    setFavorites(latestFavorites.current);
+  };
+
   const toggleFavorite = (episode: Episode) => {
-    const next = new Set(favorites);
-    const nowFavorite = !next.has(episode.guid);
-    if (nowFavorite) next.add(episode.guid);
-    else next.delete(episode.guid);
-    setFavorites(next);
+    const nowFavorite = !latestFavorites.current.has(episode.guid);
+    updateFavorites((prev) => {
+      const next = new Set(prev);
+      if (nowFavorite) next.add(episode.guid);
+      else next.delete(episode.guid);
+      return next;
+    });
     onPressFavorite?.(episode, nowFavorite);
   };
 
@@ -87,8 +97,8 @@ function IgniteAppInner({
       <DebugScreen
         favoritesCount={favorites.size}
         episodesCount={episodes.length}
-        onResetFavorites={() => setFavorites(new Set(initialFavorites))}
-        onFavoriteAll={() => setFavorites(new Set(episodes.map((e) => e.guid)))}
+        onResetFavorites={() => updateFavorites(() => new Set(initialFavorites))}
+        onFavoriteAll={() => updateFavorites(() => new Set(episodes.map((e) => e.guid)))}
         showStatusBar={showStatusBar}
         onShowStatusBarChange={setShowStatusBar}
       />

@@ -15,14 +15,21 @@ await loadIgniteFonts(); // Space Grotesk, so the first paint has the right metr
 
 // Component library / playground:
 const card = componentCatalog.find((e) => e.name === 'EpisodeCard')!;
-<NativeSurface {...card.size}>{card.render({ isFavorite: true })}</NativeSurface>
+<NativeSurface {...catalogSurfaceSize(card)}>{card.render({ isFavorite: true }, { bleed: true })}</NativeSurface>
 ```
 
 - `src/components/`: Text, Heading, Icon, Toggle, FavButton, EpisodeCard, TabBar,
   StatusBar, Screen, Button, Card, ListItem, AutoImage, Header, TextField.
 - `src/app/IgniteApp.tsx`: Components / Community / Podcasts (default) / Debug tabs.
 - `src/catalog.tsx`: `componentCatalog` / `screenCatalog` (name, description,
-  size, usage, defaultProps, variants, `render(props)`).
+  size, bleed, usage, defaultProps, variants, controls, `render(props, options)`).
+  - `controls`: playground knobs, `{ [prop]: { type: 'boolean' | 'enum' | 'text' | 'number' | 'date', label, options? } }`.
+    Keys may be dotted paths into object props (`'episode.title'`); use
+    `getControlValue(props, key)` / `setControlValue(props, key, value)`.
+  - `bleed`: points the component paints outside `size` (card shadows: 24).
+    To show the shadow, size the surface with `catalogSurfaceSize(entry)` and
+    call `entry.render(props, { bleed: true })`; plain `render(props)` fills
+    `entry.size` exactly and clips the shadow.
 - The host must use the `native-surface/vite` preset (it aliases `react-native`
   and `react-native-svg`).
 
