@@ -1,0 +1,487 @@
+:root {
+  --ink: #10131c;
+  --body: #4a5163;
+  --muted: #858c9e;
+  --line: #e4e6ed;
+  --line-soft: #edeff4;
+  --card: #ffffff;
+  --bg: #f5f6fa;
+  --brand: #4f46e5;
+  --brand-soft: #eef0fe;
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+
+  --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--body);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 460px at 12% -12%, #e7e9fd 0%, rgba(231, 233, 253, 0) 62%),
+    radial-gradient(900px 420px at 92% -6%, #e2f2f4 0%, rgba(226, 242, 244, 0) 58%);
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  color: var(--ink);
+  background: #eef0f5;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.08em 0.34em;
+  white-space: nowrap;
+}
+
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+/* ---------------------------------------------------------------- hero --- */
+
+.hero {
+  position: relative;
+}
+
+.hero__corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.badge-experimental {
+  display: inline-flex;
+  padding: 4px 10px;
+  border: 1px solid #f0d9a8;
+  border-radius: 999px;
+  background: #fdf6e3;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92600a;
+  cursor: help;
+}
+
+.corner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.corner-link svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.corner-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.eyebrow {
+  margin: 0 0 18px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand);
+  line-height: 1.2;
+}
+
+.eyebrow__home {
+  color: inherit;
+  text-decoration: none;
+}
+
+.eyebrow__home:hover {
+  text-decoration: underline;
+}
+
+.hero h1 {
+  margin: 0 0 22px;
+  max-width: 20ch;
+  font-size: clamp(2.1rem, 5vw, 3.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------- islands --- */
+
+.islands {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 22px;
+}
+
+.island {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgba(16, 19, 28, 0.04),
+    0 12px 28px -22px rgba(16, 19, 28, 0.35);
+}
+
+.island--wide {
+  grid-column: 1 / -1;
+}
+
+.island--wide__body {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+}
+
+/* the frame hugs its canvas — never stretched by a taller sibling */
+.island--wide__body > .surface-frame {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.island__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.island__name {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.island__meta {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* The bordered surface: inside this box there is exactly one <canvas>. */
+.surface-frame {
+  width: max-content;
+  padding: 0;
+  border: 1px solid #dcdfe8;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.surface-frame canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* ------------------------------------------------------- code toggle ----- */
+
+.is-hidden {
+  display: none;
+}
+
+.island__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f1f2f7;
+}
+
+.pill-tab {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pill-tab:hover {
+  color: var(--body);
+}
+
+.pill-tab--active,
+.pill-tab--active:hover {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(16, 19, 28, 0.1);
+}
+
+.code-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfbfd;
+  overflow: hidden;
+}
+
+.code-panel--loading {
+  padding: 16px 18px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.code-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.code-panel__file {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.code-panel__lang {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.code-panel__pre {
+  margin: 0;
+  padding: 14px 16px;
+  max-height: 520px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.65;
+  color: var(--body);
+  tab-size: 2;
+  font-variant-ligatures: none;
+}
+
+.code-panel__pre code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+}
+
+/* Prism token palette, tuned to the page's light theme. */
+.code-panel .token.comment,
+.code-panel .token.prolog,
+.code-panel .token.doctype,
+.code-panel .token.cdata {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.code-panel .token.keyword,
+.code-panel .token.atrule,
+.code-panel .token.important {
+  color: #6d28d9;
+}
+
+.code-panel .token.string,
+.code-panel .token.char,
+.code-panel .token.attr-value,
+.code-panel .token.regex {
+  color: #0e9488;
+}
+
+.code-panel .token.function,
+.code-panel .token.function-variable {
+  color: #b45309;
+}
+
+.code-panel .token.number,
+.code-panel .token.boolean,
+.code-panel .token.constant,
+.code-panel .token.symbol {
+  color: #be185d;
+}
+
+.code-panel .token.tag,
+.code-panel .token.class-name,
+.code-panel .token.builtin,
+.code-panel .token.namespace {
+  color: #2563eb;
+}
+
+.code-panel .token.attr-name,
+.code-panel .token.property,
+.code-panel .token.variable {
+  color: #4f46e5;
+}
+
+.code-panel .token.punctuation,
+.code-panel .token.operator {
+  color: #858c9e;
+}
+
+/* ----------------------------------------------------------------- log --- */
+
+.log {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfbfd;
+}
+
+.log__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.log__title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.log__empty {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.log__list {
+  flex: 1;
+  min-height: 0;
+  max-height: 88px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  /* the newest entries are on top; older ones fade out rather than cut off */
+  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+}
+
+.log__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.log__row:first-child .log__name {
+  color: var(--brand);
+}
+
+.log__name {
+  color: var(--ink);
+}
+
+.log__detail {
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------- responsive --- */
+
+@media (max-width: 960px) {
+  .page {
+    padding: 44px 18px 72px;
+  }
+
+  .islands {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .island--wide__body {
+    flex-direction: column;
+  }
+
+  .island--wide__body > .surface-frame {
+    align-self: center;
+  }
+
+  .log__list {
+    max-height: 130px;
+  }
+}
+
+@media (max-width: 470px) {
+  /* Canvases are a fixed 390 CSS px; on narrower phones scale them to fit
+     instead of clipping to the right. The engine maps pointer coordinates
+     through getBoundingClientRect, so hit-testing tracks the CSS scale.
+     !important because the component sets height inline. */
+  .surface-frame {
+    width: 100%;
+  }
+
+  .surface-frame canvas {
+    max-width: 100%;
+    height: auto !important;
+  }
+
+  /* no room to float beside the eyebrow — drop into the flow above it */
+  .hero__corner {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 12px;
+    margin-bottom: 14px;
+  }
+}

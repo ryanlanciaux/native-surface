@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { nativeSurface } from 'native-surface/vite';
 
 // Multi-page site. Each page is an HTML entry next to this config; pages
 // owned by other lanes (e.g. surfaces.html) join the build once they exist.
@@ -19,7 +20,41 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
-    plugins: [react()],
+    plugins: [
+      // The native-surface toolchain (same preset as examples/embed-demo):
+      // platform-extension resolution, reanimated, the react-native alias and
+      // the standard optimizeDeps boundary.
+      ...(nativeSurface({
+        platform: 'ios',
+        reanimated: 'real',
+      }) as import('vite').PluginOption[]),
+      react({ babel: { plugins: ['react-native-reanimated/plugin'] } }),
+    ],
+    optimizeDeps: {
+      // Surfaces page: bottom-sheet ships ESM and imports the aliased
+      // 'react-native' — prebundling would freeze a private engine copy.
+      exclude: ['@gorhom/bottom-sheet', '@gorhom/portal'],
+      include: [
+        'invariant',
+        '@gorhom/bottom-sheet > invariant',
+        // pnpm: nested-include chains must start at a DIRECT dependency.
+        '@react-navigation/native > @react-navigation/core > use-latest-callback',
+        '@react-navigation/native > @react-navigation/core > react-is',
+        '@react-navigation/native > @react-navigation/core > escape-string-regexp',
+        '@react-navigation/native > @react-navigation/core > fast-deep-equal',
+        '@react-navigation/native > @react-navigation/core > query-string',
+        '@react-navigation/native > @react-navigation/core > nanoid/non-secure',
+        '@react-navigation/native > @react-navigation/core > use-sync-external-store/shim',
+        '@react-navigation/native > @react-navigation/core > use-sync-external-store/with-selector',
+        '@react-navigation/native > use-latest-callback',
+        '@react-navigation/native > escape-string-regexp',
+        '@react-navigation/native > fast-deep-equal',
+        '@react-navigation/stack > color',
+        '@react-navigation/bottom-tabs > color',
+        '@react-navigation/stack > @react-navigation/elements > color',
+        '@react-navigation/bottom-tabs > @react-navigation/elements > color',
+      ],
+    },
     build: { rollupOptions: { input } },
     server: { host: true, allowedHosts },
     preview: { host: true, allowedHosts },
