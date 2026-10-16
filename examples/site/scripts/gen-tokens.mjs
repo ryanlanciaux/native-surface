@@ -12,6 +12,8 @@ const penPath = process.argv[2] ?? process.env.DESIGN_SRC;
 if (!penPath) {
   console.error('gen-tokens: pass the .pen path as an argument, or set DESIGN_SRC.');
   console.error('  node scripts/gen-tokens.mjs path/to/untitled.pen');
+  console.error('  pnpm tokens -- path/to/untitled.pen');
+  console.error('  DESIGN_SRC=path/to/untitled.pen pnpm tokens');
   process.exit(1);
 }
 const pen = JSON.parse(readFileSync(penPath, 'utf8'));

@@ -21,43 +21,30 @@ export function Nav() {
 
   useEffect(() => {
     if (!open) return;
-    const focusables = () => {
-      const panel = panelRef.current;
-      const items = panel ? [...panel.querySelectorAll<HTMLElement>('a')] : [];
-      return [btnRef.current, ...items].filter((el): el is HTMLElement => !!el);
-    };
+    const inDisclosure = (n: Node | null) =>
+      !!n && (panelRef.current?.contains(n) || btnRef.current?.contains(n));
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setOpen(false);
-        btnRef.current?.focus();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      const list = focusables();
-      if (list.length === 0) return;
-      const i = list.indexOf(document.activeElement as HTMLElement);
-      if (e.shiftKey) {
-        if (i <= 0) {
-          e.preventDefault();
-          list[list.length - 1]!.focus();
-        }
-      } else if (i === list.length - 1) {
-        e.preventDefault();
-        list[0]!.focus();
-      }
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      setOpen(false);
+      btnRef.current?.focus();
     };
     const onPointer = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      if (inDisclosure(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      if (inDisclosure(e.target as Node)) return;
       setOpen(false);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('focusin', onFocusIn);
     panelRef.current?.querySelector<HTMLElement>('a')?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('focusin', onFocusIn);
     };
   }, [open]);
 
@@ -111,6 +98,9 @@ export function Nav() {
             {l.label}
           </a>
         ))}
+        <a className="nav__menu-cta" href={LINKS.launch} onClick={() => setOpen(false)}>
+          Get started
+        </a>
       </nav>
     </header>
   );
