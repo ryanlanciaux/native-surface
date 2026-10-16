@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["vite/client", "native-surface/react-native-types"],
+    "paths": {
+      "react-native-svg": ["../../packages/compat/src/svg.tsx"]
+    }
+  },
+  "include": ["src", "dev"]
+}
