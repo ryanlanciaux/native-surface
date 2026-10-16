@@ -12,6 +12,17 @@ import feedSource from './rn/Feed.tsx?raw';
 import navAppSource from './rn/NavApp.tsx?raw';
 import sheetSource from './rn/SheetScreen.tsx?raw';
 
+declare global {
+  interface Window {
+    __siteReady?: boolean;
+  }
+}
+
+/** Shoot/record contract: first island paint is enough for a deterministic capture. */
+function markSiteReady() {
+  window.__siteReady = true;
+}
+
 // The heavy islands carry react-navigation / @gorhom/bottom-sheet /
 // reanimated — lazy chunks so first paint ships only React + the engine.
 const NavApp = lazy(() => import('./rn/NavApp').then((m) => ({ default: m.NavApp })));
@@ -78,7 +89,13 @@ export function SurfacesApp() {
           <IslandHead name="Counter" meta="390 × 140" />
           <div className="island--wide__body">
             <div className="surface-frame">
-              <NativeSurface debug={import.meta.env.DEV} width={390} height={140} onAction={handleAction}>
+              <NativeSurface
+                debug={import.meta.env.DEV}
+                width={390}
+                height={140}
+                onAction={handleAction}
+                onReady={markSiteReady}
+              >
                 <Counter />
               </NativeSurface>
             </div>
