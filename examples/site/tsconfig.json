@@ -4,6 +4,10 @@
     "baseUrl": ".",
     "types": ["vite/client", "native-surface/react-native-types"],
     "paths": {
+      "react-native": ["../../packages/native-surface/src/index.ts"],
+      "react-native-reanimated": ["../../packages/compat/src/reanimated.tsx"],
+      "react-native-gesture-handler": ["../../packages/compat/src/gesture-handler.tsx"],
+      "react-native-safe-area-context": ["../../packages/compat/src/safe-area.tsx"],
       "react-native-svg": ["../../packages/compat/src/svg.tsx"]
     }
   },

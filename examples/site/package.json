@@ -17,13 +17,21 @@
     "@fontsource/jetbrains-mono": "^5.2.5",
     "@fontsource/sora": "^5.2.5",
     "@fontsource/space-grotesk": "^5.2.5",
+    "@gorhom/bottom-sheet": "^5.2.14",
+    "@native-surface/compat": "workspace:*",
+    "@react-navigation/bottom-tabs": "^7.18.16",
+    "@react-navigation/native": "^7.3.16",
+    "@react-navigation/stack": "^7.10.22",
     "ignite-demo": "workspace:*",
     "lucide-react": "^0.511.0",
     "native-surface": "workspace:*",
+    "prismjs": "^1.30.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-native-reanimated": "^3.19.5"
   },
   "devDependencies": {
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",

@@ -115,6 +115,21 @@ importers:
       '@fontsource/space-grotesk':
         specifier: ^5.2.5
         version: 5.3.0
+      '@gorhom/bottom-sheet':
+        specifier: ^5.2.14
+        version: 5.2.14(@types/react@19.2.18)(react-native-gesture-handler@3.2.1(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-reanimated@3.19.5(@babel/core@7.29.7)(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
+      '@native-surface/compat':
+        specifier: workspace:*
+        version: link:../../packages/compat
+      '@react-navigation/bottom-tabs':
+        specifier: ^7.18.16
+        version: 7.18.16(@react-navigation/native@7.3.16(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-safe-area-context@5.9.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-screens@4.27.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
+      '@react-navigation/native':
+        specifier: ^7.3.16
+        version: 7.3.16(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
+      '@react-navigation/stack':
+        specifier: ^7.10.22
+        version: 7.10.22(@react-navigation/native@7.3.16(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-gesture-handler@3.2.1(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-safe-area-context@5.9.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-screens@4.27.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
       ignite-demo:
         specifier: workspace:*
         version: link:../ignite-app
@@ -124,13 +139,22 @@ importers:
       native-surface:
         specifier: workspace:*
         version: link:../../packages/native-surface
+      prismjs:
+        specifier: ^1.30.0
+        version: 1.30.0
       react:
         specifier: ^19.0.0
         version: 19.2.8
       react-dom:
         specifier: ^19.0.0
         version: 19.2.8(react@19.2.8)
+      react-native-reanimated:
+        specifier: ^3.19.5
+        version: 3.19.5(@babel/core@7.29.7)(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
     devDependencies:
+      '@types/prismjs':
+        specifier: ^1.26.6
+        version: 1.26.6
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.18
