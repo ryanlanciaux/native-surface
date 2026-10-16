@@ -201,6 +201,35 @@
 }
 
 /* ---------- 3D phone ---------- */
+/* Registered so the live intro (src/live/HeroPhoneSlot.tsx) can animate the
+   pose vars; unregistered custom properties step instead of interpolating.
+   initial-values are the design's resting pose. */
+@property --phone-rotate-x {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: -6deg;
+}
+@property --phone-rotate-y {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 24deg;
+}
+@property --phone-rotate-z {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --phone-scale {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+@property --phone-lift {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 .phone3d {
   position: absolute;
   left: 0;

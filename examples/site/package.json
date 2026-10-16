@@ -17,7 +17,9 @@
     "@fontsource/jetbrains-mono": "^5.2.5",
     "@fontsource/sora": "^5.2.5",
     "@fontsource/space-grotesk": "^5.2.5",
+    "ignite-demo": "workspace:*",
     "lucide-react": "^0.511.0",
+    "native-surface": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -115,9 +115,15 @@ importers:
       '@fontsource/space-grotesk':
         specifier: ^5.2.5
         version: 5.3.0
+      ignite-demo:
+        specifier: workspace:*
+        version: link:../ignite-app
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.8)
+      native-surface:
+        specifier: workspace:*
+        version: link:../../packages/native-surface
       react:
         specifier: ^19.0.0
         version: 19.2.8

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { nativeSurface } from 'native-surface/vite';
 
 // Multi-page site. Each page is an HTML entry next to this config; pages
 // owned by other lanes (e.g. surfaces.html) join the build once they exist.
@@ -19,7 +20,9 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
-    plugins: [react()],
+    // native-surface preset: aliases react-native / react-native-svg for the
+    // live ignite-demo surfaces (src/live).
+    plugins: [...(nativeSurface({ platform: 'ios' }) as import('vite').PluginOption[]), react()],
     build: { rollupOptions: { input } },
     server: { host: true, allowedHosts },
     preview: { host: true, allowedHosts },

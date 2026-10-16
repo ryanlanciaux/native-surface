@@ -1,0 +1,135 @@
+/* Live native-surface slots. Layout and chrome stay in the section CSS; this
+   only adapts it to real canvases and drives the hero intro states. */
+
+/* ---------- hero phone ---------- */
+/* The app surface is the full 320×684 screen behind the DOM status bar
+   (safe-area top 50), so the app area must not clip it to 634. */
+.phone__app {
+  overflow: visible;
+}
+.phone__status {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.live-hero {
+  position: relative;
+}
+/* While the intro spins the phone round, its back shows the body, not a
+   mirrored app. */
+.phone__screen,
+.phone__gloss {
+  backface-visibility: hidden;
+}
+
+/* Intro: ring dim while the phone falls, pulse on landing, caption last. */
+.hero__device.is-intro .hero__caption {
+  opacity: 0;
+}
+.hero__device.is-intro .hero__pad,
+.hero__device.is-intro .hero__pad-glow {
+  opacity: 0.35;
+}
+.hero__device.is-landed .hero__pad {
+  opacity: 1;
+  animation: live-ring-pulse 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hero__device.is-landed .hero__pad-glow {
+  opacity: 1;
+  animation: live-glow-pulse 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hero__device.is-settled .hero__caption {
+  opacity: 1;
+  transition: opacity 600ms ease 120ms;
+}
+@keyframes live-ring-pulse {
+  0% {
+    transform: scale(0.9);
+    filter: blur(1.5px) drop-shadow(0 0 40px #22d3ee) brightness(1.8);
+  }
+  35% {
+    transform: scale(1.08);
+    filter: blur(1.5px) drop-shadow(0 0 34px #22d3ee) brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes live-glow-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero__device.is-landed .hero__pad,
+  .hero__device.is-landed .hero__pad-glow {
+    animation: none;
+  }
+}
+
+/* ---------- exploded ---------- */
+/* Callouts, leaders and anchor dots sit flat over the planes; the toggle's
+   anchor dot covers its track, so they must not take the taps. */
+.callout-group,
+.callout-group * {
+  pointer-events: none;
+}
+
+/* ---------- playground ---------- */
+/* The preview box follows the live surface (cards, fields, scaled screens). */
+.ide__preview {
+  width: auto;
+}
+.live-pg {
+  position: relative;
+}
+/* Sidebar entries became buttons (they select the live entry). */
+button.ide__item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+button.ide__item:hover:not(.is-selected) {
+  background: #ffffff08;
+  color: #c3cad6;
+}
+button.ide__item.is-selected {
+  background: #22d3ee14;
+}
+.prop__select {
+  appearance: none;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, #5f6879 50%), linear-gradient(135deg, #5f6879 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+.prop__select option {
+  background: #0a0c10;
+}
+.seg button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- exploded, mobile list ---------- */
+.live-xl-item {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f4f2f1;
+}

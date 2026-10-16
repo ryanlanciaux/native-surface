@@ -1,3 +1,5 @@
+import type { AnyCatalogEntry } from 'ignite-demo';
+
 // Contracts between the landing-page sections (static chrome, owned by the
 // shell) and the live native-surface content that fills their slots.
 // The shell renders the frame, bezel, 3D transforms, callouts and IDE chrome;
@@ -12,8 +14,8 @@ export interface SlotSize {
 /** Hero phone: the screen area below the device status bar. */
 export interface HeroPhoneSlotProps extends SlotSize {
   /**
-   * True while the phone sits in its resting (landed) pose and is on screen.
-   * Live content can defer mounting / pause rendering while false.
+   * True while the device group is on screen (IntersectionObserver only; it
+   * says nothing about the intro, which the live slot itself owns).
    */
   active: boolean;
 }
@@ -31,6 +33,12 @@ export interface LayerItem {
   props?: Record<string, unknown>;
 }
 
+/**
+ * The 980×980 layer frames overlap, so `.xl-frame` and the slot root stay
+ * `pointer-events: none`; only the live content boxes inside opt back in
+ * (`pointer-events: auto`). Never relax `.xl-frame` itself, or the topmost
+ * frame swallows every hit.
+ */
 export interface ExplodedLayersSlotProps extends SlotSize {
   layer: ExplodedLayerId;
   items: LayerItem[];
@@ -38,28 +46,20 @@ export interface ExplodedLayersSlotProps extends SlotSize {
   active: boolean;
 }
 
-export type EpisodeCardState = 'default' | 'favorited' | 'pressed';
-
-export interface EpisodeProps {
-  title: string;
-  /** ISO date, e.g. 2023-07-13. */
-  pubDate: string;
-  /** mm:ss */
-  duration: string;
-  /** File name shown in the props panel; resolved by the slot. */
-  cover: string;
-}
-
 export interface PlaygroundPreviewSlotProps {
-  component: 'EpisodeCard';
-  /** Card width in design px (340 in the playground). */
+  /** The selected catalog entry (component or screen). */
+  entry: AnyCatalogEntry;
+  /**
+   * Full props, seeded from a deep copy of `entry.defaultProps` (never from
+   * partial overrides) with callbacks already bound by the playground. Keep
+   * the object identity stable between edits: the slot re-measures the render
+   * time whenever it changes.
+   */
+  props: Record<string, unknown>;
+  /** Width for design-width (272) components, 340 in the playground. */
   width: number;
-  state: EpisodeCardState;
-  episode: EpisodeProps;
-  isFavorite: boolean;
-  theme: 'light' | 'dark';
-  /** Fired when the card's favorite button is pressed; the shell logs it. */
-  onPressFavorite: (payload: { guid: string }) => void;
-  /** Report a measured render time (ms) for the caption under the card. */
+  /** Measured render time (ms): this commit → engine painted. Stable identity not required. */
   onRendered?: (info: { ms: number }) => void;
+  /** The component's laid-out size (design px, shadow excluded). */
+  onSize?: (size: { width: number; height: number }) => void;
 }
