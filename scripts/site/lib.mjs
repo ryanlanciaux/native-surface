@@ -32,8 +32,21 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Parse `--flag`, `--flag=value`, `--flag value`. Bare `--flag` → true. */
-export function parseArgs(argv) {
+/** Flags that never take a value, so a following positional is not swallowed. */
+export const BOOLEAN_FLAGS = new Set([
+  'help',
+  'no-mobile',
+  'no-sections',
+  'mobile-only',
+]);
+
+/**
+ * Parse `--flag`, `--flag=value`, `--flag value`. Bare `--flag` → true.
+ * Known boolean flags (BOOLEAN_FLAGS plus `extraBooleanFlags`) never consume
+ * the next token: `shoot.mjs --no-mobile http://x/` keeps the URL positional.
+ */
+export function parseArgs(argv, extraBooleanFlags = []) {
+  const booleanFlags = new Set([...BOOLEAN_FLAGS, ...extraBooleanFlags]);
   const flags = {};
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
@@ -47,6 +60,10 @@ export function parseArgs(argv) {
       const eq = body.indexOf('=');
       if (eq !== -1) {
         flags[body.slice(0, eq)] = body.slice(eq + 1);
+        continue;
+      }
+      if (booleanFlags.has(body)) {
+        flags[body] = true;
         continue;
       }
       const next = argv[i + 1];
@@ -147,20 +164,21 @@ export async function launchBrowser() {
 }
 
 /**
- * Fonts always. Then window.__siteReady === true if the flag is defined,
- * otherwise network idle. Always ends with a configurable settle delay.
+ * Fonts always. Then wait for window.__siteReady === true.
+ * Contract: the site sets window.__siteReady = true when live surfaces have
+ * painted. If the flag never becomes true before readyTimeout (default 8s,
+ * capped by `timeout`), fall back to networkidle. Always ends with a settle delay.
  */
-export async function waitForReady(page, { delay = 1500, timeout = 30_000 } = {}) {
+export async function waitForReady(page, { delay = 1500, timeout = 30_000, readyTimeout } = {}) {
   await page.waitForLoadState('domcontentloaded', { timeout });
   await page.evaluate(() => (document.fonts ? document.fonts.ready : Promise.resolve())).catch(() => {});
 
-  const flagDefined = await page
-    .evaluate(() => Object.prototype.hasOwnProperty.call(window, '__siteReady'))
+  const flagTimeout = readyTimeout ?? Math.min(timeout, 8_000);
+  const siteReady = await page
+    .waitForFunction(() => window.__siteReady === true, undefined, { timeout: flagTimeout })
+    .then(() => true)
     .catch(() => false);
-
-  if (flagDefined) {
-    await page.waitForFunction(() => window.__siteReady === true, { timeout });
-  } else {
+  if (!siteReady) {
     await page.waitForLoadState('networkidle', { timeout }).catch(() => {});
   }
 

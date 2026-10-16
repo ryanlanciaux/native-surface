@@ -20,6 +20,7 @@ Usage: node scripts/site/diff.mjs <actual.png> <expected.png> [diff.png]
   diff.png    default <work>/shots/latest/diff.png
 
 Options:
+  --out <png>          output diff PNG (same as the [diff.png] positional)
   --threshold <n>      pixelmatch threshold 0..1 (default 0.1)
   --max-mismatch <n>   exit 1 if mismatch % is above this (default: never fail)
   --help

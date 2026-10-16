@@ -43,7 +43,7 @@ Options:
   --help
 `.trim();
 
-const { flags, positional } = parseArgs(process.argv.slice(2));
+const { flags, positional } = parseArgs(process.argv.slice(2), ['mobile']);
 if (flagBool(flags, 'help') || flags.h) usageExit(HELP);
 
 const url = flags.url || positional[0] || process.env.SITE_URL || DEFAULT_URL;
@@ -65,6 +65,8 @@ function ffmpegToMp4(webm, mp4) {
       '-y',
       '-i',
       webm,
+      '-vf',
+      'scale=trunc(iw/2)*2:trunc(ih/2)*2',
       '-c:v',
       'libx264',
       '-pix_fmt',

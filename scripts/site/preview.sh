@@ -38,7 +38,7 @@ if [[ "${SKIP_BUILD:-}" == "1" ]]; then
   echo "preview.sh: SKIP_BUILD=1 — using existing dist"
 else
   echo "preview.sh: building $FILTER (base=$BASE) under flock $LOCK"
-  flock "$LOCK" pnpm --filter "$FILTER" exec vite build -- --base="$BASE"
+  flock "$LOCK" pnpm --filter "$FILTER" exec vite build --base="$BASE"
 fi
 
 echo "preview.sh: http://0.0.0.0:${PORT}${BASE}"

@@ -43,13 +43,19 @@ flocked (long-running server). Kill it when done.
 Full-page PNGs at 1440×900 and 390×844, plus `[data-section]` crops.
 
 ```bash
-node scripts/site/shoot.mjs
-node scripts/site/shoot.mjs http://localhost:4881/ /tmp/shots --dpr 2 --delay 2000
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/shoot.mjs
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/shoot.mjs http://localhost:4881/ /tmp/shots --dpr 2 --delay 2000
 ```
 
-Waits for `document.fonts.ready`, then `window.__siteReady === true` if that
-flag is defined on `window`, otherwise `networkidle`, then `--delay` (default
-1500 ms) so WASM/CanvasKit can paint.
+Waits for `document.fonts.ready`, then `window.__siteReady === true` (up to 8s,
+capped by `--timeout`), then `--delay` (default 1500 ms). If the flag never
+becomes true, falls back to `networkidle` then `--delay`.
+
+**Contract:** the site sets `window.__siteReady = true` when live surfaces have
+painted. Do not rely on the flag existing at `DOMContentLoaded`; shoot/record
+wait for `=== true` rather than a one-shot `hasOwnProperty` check.
 
 Writes `desktop-1440x900.png`, `mobile-390x844.png`, optional
 `desktop-section-<name>.png`, and `manifest.json`.
@@ -60,8 +66,10 @@ Record the first ~6 s after load (Playwright `recordVideo` webm) and transcode
 to H.264 yuv420p mp4.
 
 ```bash
-node scripts/site/record-hero.mjs
-node scripts/site/record-hero.mjs --url http://localhost:4881/ --out work/video/hero.mp4 --mobile
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/record-hero.mjs
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/record-hero.mjs --url http://localhost:4881/ --out work/video/hero.mp4 --mobile
 ```
 
 `--mobile` also writes `hero-mobile.mp4` at 390×844. `--seconds` defaults to 6.
@@ -84,9 +92,11 @@ Exit 0 unless `--max-mismatch` is set and exceeded.
 flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
   pnpm --filter embed-demo build
 pnpm --filter embed-demo exec vite preview --host 0.0.0.0 --port 4881 --strictPort
-node scripts/site/shoot.mjs http://localhost:4881/ \
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/shoot.mjs http://localhost:4881/ \
   /home/ryan/projects/wasm-playground-site/work/shots/verify --dpr 2
-node scripts/site/record-hero.mjs --url http://localhost:4881/ \
+flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  node scripts/site/record-hero.mjs --url http://localhost:4881/ \
   --out /home/ryan/projects/wasm-playground-site/work/video/hero.mp4 --seconds 6
 node scripts/site/diff.mjs \
   /home/ryan/projects/wasm-playground-site/work/shots/verify/desktop-1440x900@2x.png \
