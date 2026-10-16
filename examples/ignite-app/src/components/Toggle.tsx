@@ -121,7 +121,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   disabled: { opacity: 0.5 },
-  label: { flexShrink: 1, fontSize: 15, lineHeight: 19 },
+  // marginBottom shifts the centered label up 1pt onto the design's baseline.
+  label: { flexShrink: 1, fontSize: 15, lineHeight: 19, marginBottom: 2 },
   track: {
     width: TRACK_W,
     height: TRACK_H,

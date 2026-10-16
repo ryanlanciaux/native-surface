@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { NativeSurface } from 'native-surface';
 import type { NativeRoot } from 'native-surface';
 import { createAutomationController } from 'native-surface/automation';
-import { IgniteApp, componentCatalog, device, loadIgniteFonts, screenCatalog } from '../src';
+import { IgniteApp, catalogSurfaceSize, componentCatalog, device, loadIgniteFonts, screenCatalog } from '../src';
 import type { AnyCatalogEntry } from '../src';
 
 /**
@@ -12,7 +12,8 @@ import type { AnyCatalogEntry } from '../src';
  *   #/phone       phone frame only (screenshot target, 340x704)
  *   #/screen      bare 320x684 app surface (host draws no bezel; in-app status bar)
  *   #/c/<Name>[/<variant>]   one catalog entry at its design size
- * Query: ?statusbar=0 hides the in-app status bar on the phone routes.
+ * Query: ?statusbar=0 hides the in-app status bar on the phone routes;
+ *        ?bleed=1 pads #/c/ entries by their shadow bleed (the gallery always does).
  */
 type Win = Window & { __ignite?: { ready: number; controllers: Record<string, ReturnType<typeof createAutomationController>> } };
 const w = window as Win;
@@ -28,6 +29,7 @@ function onReadyFor(id: string) {
 
 const params = new URLSearchParams(location.search);
 const statusBar = params.get('statusbar') !== '0';
+const bleedParam = params.get('bleed') === '1';
 
 function Phone() {
   return (
@@ -52,12 +54,13 @@ function Phone() {
   );
 }
 
-function Entry({ entry, variant, id }: { entry: AnyCatalogEntry; variant?: string; id: string }) {
+function Entry({ entry, variant, id, bleed }: { entry: AnyCatalogEntry; variant?: string; id: string; bleed?: boolean }) {
   const v = entry.variants.find((x) => x.name === variant);
+  const size = bleed ? catalogSurfaceSize(entry) : entry.size;
   return (
-    <div data-testid={id} style={{ width: entry.size.width, height: entry.size.height }}>
-      <NativeSurface width={entry.size.width} height={entry.size.height} onReady={onReadyFor(id)}>
-        {entry.render(v?.props)}
+    <div data-testid={id} style={size}>
+      <NativeSurface width={size.width} height={size.height} onReady={onReadyFor(id)}>
+        {entry.render(v?.props, { bleed })}
       </NativeSurface>
     </div>
   );
@@ -105,8 +108,8 @@ function GalleryItem({ entry }: { entry: AnyCatalogEntry }) {
           </button>
         ))}
       </div>
-      <Lazy width={entry.size.width} height={entry.size.height}>
-        <Entry key={variant} entry={entry} variant={variant} id={`${entry.name}/${variant}`} />
+      <Lazy {...catalogSurfaceSize(entry)}>
+        <Entry key={variant} entry={entry} variant={variant} id={`${entry.name}/${variant}`} bleed />
       </Lazy>
     </section>
   );
@@ -138,7 +141,7 @@ function App() {
     const entry = [...componentCatalog, ...screenCatalog].find((e) => e.name === name);
     if (!entry) return <p>Unknown component {name}</p>;
     document.body.classList.add('bare');
-    return <Entry entry={entry} variant={variant} id={`${name}/${variant ?? ''}`} />;
+    return <Entry entry={entry} variant={variant} id={`${name}/${variant ?? ''}`} bleed={bleedParam} />;
   }
   return <Gallery />;
 }

@@ -81,3 +81,6 @@ export function formatPubDate(iso: string): string {
 export function episodeMeta(episode: Pick<Episode, 'pubDate' | 'duration'>): string {
   return `${formatPubDate(episode.pubDate)} · ${episode.duration}`;
 }
+
+/** The bundled cover art, keyed by episode id (for pickers / catalog controls). */
+export const covers: Readonly<Record<string, string>> = Object.fromEntries(episodes.map((e) => [e.guid, e.cover]));
