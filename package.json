@@ -11,6 +11,11 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
+  "devDependencies": {
+    "pixelmatch": "^8.0.0",
+    "playwright": "1.64.0",
+    "pngjs": "^7.0.0"
+  },
   "pnpm": {
     "overrides": {
       "postcss@<8.5.23": ">=8.5.23"
