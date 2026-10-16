@@ -28,10 +28,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter embed-demo exec vite build --base=/native-surface/
+      # The marketing site (examples/site): landing page plus any extra
+      # pages it ships (surfaces.html), served from /native-surface/.
+      - run: pnpm --filter site exec vite build --base=/native-surface/
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: examples/embed-demo/dist
+          path: examples/site/dist
       - id: deployment
         uses: actions/deploy-pages@v4
