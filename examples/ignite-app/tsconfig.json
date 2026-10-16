@@ -1,10 +1,14 @@
 {
-  "extends": "expo/tsconfig.base",
+  // native-surface adapter: Ignite's tsconfig minus `extends: "expo/tsconfig.base"`
+  // (expo is not installed; its runtime is the native-surface compat shims).
+  // The module paths below point tsc at the same shims the Vite preset aliases
+  // at bundle time, so the types are the ones that actually run.
   "compilerOptions": {
     "allowJs": false,
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "experimentalDecorators": true,
-    "jsx": "react-native",
+    "jsx": "react-jsx",
     "customConditions": ["react-native"],
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -12,23 +16,25 @@
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
-    "sourceMap": true,
+    "noEmit": true,
     "target": "esnext",
-    "lib": ["esnext", "dom"],
+    "lib": ["esnext", "dom", "dom.iterable"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "isolatedModules": true,
     "baseUrl": ".",
+    "types": ["vite/client", "node"],
     "paths": {
       "@/*": ["./app/*"],
-      "@assets/*": ["./assets/*"]
-    },
-    "typeRoots": ["./node_modules/@types", "./types"]
-  },
-  "ts-node": {
-    "compilerOptions": {
-      "module": "commonjs"
+      "@assets/*": ["./assets/*"],
+      "expo": ["../../packages/compat/src/expo.tsx"],
+      "expo-linking": ["../../packages/compat/src/expo.tsx"],
+      "expo-localization": ["../../packages/compat/src/expo.tsx"],
+      "expo-application": ["../../packages/compat/src/expo.tsx"],
+      "expo-system-ui": ["../../packages/compat/src/expo.tsx"],
+      "react-native-svg": ["../../packages/compat/src/svg.tsx"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "test/**/*"]
+  "include": ["app/**/*", "src/**/*", "dev/**/*", "types/**/*"],
+  "exclude": ["node_modules", "test/**/*", "**/*.test.ts", "**/*.test.tsx"]
 }
