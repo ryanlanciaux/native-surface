@@ -1,22 +1,29 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useRef } from 'react';
 import { Extrusion } from '../components/Extrusion';
-import { useOnScreen } from '../components/useOnScreen';
+import { COLLAPSE_TOP, FLAT_SCALE, calloutAt, calloutParts, explodeAt, lerp, tiltAt } from '../exploded/timeline';
+import { useExplodeScroll } from '../exploded/useExplodeScroll';
 import { ExplodedLayersSlot } from '../live/ExplodedLayersSlot';
 import { ExplodedListSlot } from '../live/ExplodedListSlot';
 import { FILLS, ShaderCanvas, glossGradient, perspectiveTransform } from '../shaders';
-import { CALLOUTS, FRAME, LAYERS, PLANE, POSE, type LayerSpec } from './exploded/layers';
+import { CALLOUTS, FRAME, LAYERS, PLANE, POSE, type Callout, type LayerSpec } from './exploded/layers';
 import './exploded.css';
 
 const pose = perspectiveTransform(POSE, FRAME);
-const DEVICE_TOP = LAYERS[0]!.top;
+/**
+ * Explode order, top plane first (LAYERS runs device → heading): the page
+ * scrolls up, so the top of the stack is on screen first and its callouts
+ * draw while they can be seen.
+ */
+const ORDER = new Map(LAYERS.map((l, i) => [l.id, LAYERS.length - 1 - i]));
+const LAYER_BY_ID = new Map(LAYERS.map((l) => [l.id, l]));
 
 export function Exploded() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const active = useOnScreen(sectionRef, '300px');
-  useExplodeProgress(sectionRef);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
+  useExplodeScroll(stackRef, viewportRef, (p) => paint(stackRef.current, p));
 
   return (
-    <section className="exploded" ref={sectionRef} aria-labelledby="exploded-title">
+    <section className="exploded" aria-labelledby="exploded-title">
       <ShaderCanvas className="shader-fill" {...FILLS.exploded} />
       <div className="exploded__top-fade" aria-hidden="true" />
 
@@ -31,23 +38,13 @@ export function Exploded() {
         </p>
       </header>
 
-      <div className="stack-viewport">
-        <div className="stack">
+      <div className="stack-viewport" ref={viewportRef}>
+        <div className="stack" ref={stackRef}>
           {LAYERS.map((layer) => (
-            <Layer key={layer.id} layer={layer} active={active} />
+            <Layer key={layer.id} layer={layer} />
           ))}
           {CALLOUTS.map((c) => (
-            <div key={c.component} className="callout-group">
-              <div className={`callout callout--${c.side}`} style={{ left: c.x, top: c.y }}>
-                <code>{c.component}</code>
-                <span>{c.meta}</span>
-              </div>
-              <span
-                className={`leader leader--${c.side}`}
-                style={{ left: c.leader[0], top: c.leader[1], width: c.leader[2] }}
-              />
-              <span className="anchor" style={{ left: c.anchor[0], top: c.anchor[1] }} />
-            </div>
+            <CalloutGroup key={c.component} callout={c} />
           ))}
         </div>
       </div>
@@ -65,14 +62,12 @@ export function Exploded() {
   );
 }
 
-function Layer({ layer, active }: { layer: LayerSpec; active: boolean }) {
+function Layer({ layer }: { layer: LayerSpec }) {
   return (
-    <div
-      className="xl-frame"
-      style={{ top: layer.top, perspective: pose.perspective, '--collapse': `${DEVICE_TOP - layer.top}px` } as CSSProperties}
-    >
+    <div className="xl-frame" data-layer={layer.id} style={{ top: layer.top, perspective: pose.perspective }}>
       <div className="xl-space" style={{ transform: pose.transform }}>
-        <div className={`xl-plane xl-plane--${layer.id}${layer.sheet ? ' xl-plane--sheet' : ''}`}>
+        <div className={`xl-plane xl-plane--${layer.id}`}>
+          {layer.sheet && <div className="xl-sheet" />}
           {layer.solids.map((s, i) => (
             <div
               key={i}
@@ -90,13 +85,7 @@ function Layer({ layer, active }: { layer: LayerSpec; active: boolean }) {
             </div>
           )}
           {layer.id !== 'device' && (
-            <ExplodedLayersSlot
-              layer={layer.id}
-              items={layer.items}
-              width={PLANE.width}
-              height={PLANE.height}
-              active={active}
-            />
+            <ExplodedLayersSlot layer={layer.id} items={layer.items} width={PLANE.width} height={PLANE.height} active />
           )}
           {layer.gloss > 0 && (
             <div
@@ -110,40 +99,92 @@ function Layer({ layer, active }: { layer: LayerSpec; active: boolean }) {
   );
 }
 
+function CalloutGroup({ callout: c }: { callout: Callout }) {
+  return (
+    <div className="callout-group" data-layer={c.layer} data-side={c.side}>
+      <div className={`callout callout--${c.side}`} style={{ left: c.x, top: c.y }}>
+        <code>{c.component}</code>
+        <span>{c.meta}</span>
+      </div>
+      <span className={`leader leader--${c.side}`} style={{ left: c.leader[0], top: c.leader[1], width: c.leader[2] }} />
+      <span className="anchor" style={{ left: c.anchor[0], top: c.anchor[1] }} />
+    </div>
+  );
+}
+
 /**
- * Scroll-linked explode: `--explode` runs 0 → 1 as the section scrolls up to
- * the viewport top; 1 is the design's pose. Reduced motion pins it at 1.
+ * Writes one frame of the timeline straight onto the stack's elements
+ * (transform / opacity only, no React render). At p = 1 every inline value
+ * is cleared, so the resting state is exactly the static design layout.
  */
-function useExplodeProgress(ref: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const mq = matchMedia('(prefers-reduced-motion: reduce)');
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      if (mq.matches) {
-        el.style.setProperty('--explode', '1');
-        return;
-      }
-      const vh = window.innerHeight;
-      const top = el.getBoundingClientRect().top;
-      const p = Math.min(1, Math.max(0, (vh - top) / (vh * 0.8)));
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.style.setProperty('--explode', eased.toFixed(4));
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    mq.addEventListener('change', onScroll);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      mq.removeEventListener('change', onScroll);
-    };
-  }, [ref]);
+function paint(stack: HTMLElement | null, p: number) {
+  if (!stack) return;
+  const t = tiltAt(p);
+  const space =
+    t === 1
+      ? pose.transform
+      : perspectiveTransform(
+          { ...POSE, rotX: POSE.rotX * t, rotY: POSE.rotY * t, rotZ: POSE.rotZ * t, scale: lerp(FLAT_SCALE, POSE.scale, t) },
+          FRAME,
+        ).transform;
+  const { frames, callouts } = partsOf(stack);
+
+  for (const f of frames) {
+    const e = explodeAt(p, f.order);
+    const dy = f.travel * (1 - e);
+    f.frame.style.transform = dy === 0 ? '' : `translateY(${dy.toFixed(2)}px)`;
+    f.space.style.transform = space;
+    // Sheet chrome and the stage-coloured ink only belong to a lifted plane.
+    const lifted = e === 1 ? '' : e.toFixed(3);
+    const flat = e === 1 ? '' : (1 - e).toFixed(3);
+    for (const el of f.lifted) el.style.opacity = lifted;
+    for (const el of f.flat) el.style.opacity = flat;
+  }
+
+  for (const { order, slideFrom, label, line, dot } of callouts) {
+    const c = calloutAt(p, order);
+    if (c === 1) {
+      for (const el of [label, line, dot]) el.style.opacity = el.style.transform = '';
+      continue;
+    }
+    const k = calloutParts(c);
+    label.style.opacity = k.label.toFixed(3);
+    label.style.transform = `translateX(${(slideFrom * (1 - k.label)).toFixed(2)}px)`;
+    line.style.opacity = k.line > 0 ? '1' : '0';
+    line.style.transform = `scaleX(${k.line.toFixed(4)})`;
+    dot.style.opacity = k.dotOpacity.toFixed(3);
+    dot.style.transform = `scale(${k.dotScale.toFixed(4)})`;
+  }
+}
+
+/** The elements paint() drives, looked up once per stack (not per frame). */
+const parts = new WeakMap<HTMLElement, ReturnType<typeof collectParts>>();
+function partsOf(stack: HTMLElement) {
+  let p = parts.get(stack);
+  if (!p) parts.set(stack, (p = collectParts(stack)));
+  return p;
+}
+function collectParts(stack: HTMLElement) {
+  const all = (root: Element, sel: string) => [...root.querySelectorAll<HTMLElement>(sel)];
+  return {
+    frames: all(stack, '.xl-frame').map((frame) => {
+      const layer = LAYER_BY_ID.get(frame.dataset.layer as LayerSpec['id'])!;
+      return {
+        frame,
+        space: frame.firstElementChild as HTMLElement,
+        order: ORDER.get(layer.id)!,
+        travel: COLLAPSE_TOP - layer.top,
+        lifted: all(frame, '.xl-sheet, .xl-ink--lifted'),
+        flat: all(frame, '.xl-ink--flat'),
+      };
+    }),
+    callouts: all(stack, '.callout-group').map((group) => ({
+      order: ORDER.get(group.dataset.layer as LayerSpec['id'])!,
+      // Labels slide in from their leader's side.
+      slideFrom: group.dataset.side === 'left' ? 16 : -16,
+      label: group.children[0] as HTMLElement,
+      line: group.children[1] as HTMLElement,
+      dot: group.children[2] as HTMLElement,
+    })),
+  };
 }

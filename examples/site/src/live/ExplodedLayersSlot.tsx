@@ -1,96 +1,62 @@
-import type { CSSProperties, ReactElement } from 'react';
-import {
-  Layer,
-  LayerCardBody,
-  LayerFavButton,
-  LayerHeading,
-  LayerScreen,
-  LayerTabBar,
-  LayerToggle,
-} from './ExplodedContent';
-import { LiveSurface } from './LiveSurface';
-import { PlaceholderLayer } from './placeholder/PlaceholderLayer';
-import { useMobile } from './useMobile';
+import type { ReactNode } from 'react';
+import { EPISODES, IgniteEpisodeCard, IgniteFavButton, IgniteHeading, IgniteTabBar, IgniteToggle } from './placeholder/Ignite';
 import type { ExplodedLayersSlotProps, LayerItem } from './types';
 
-/** Card shadow room (radius 8 at y+8), as the catalog's EpisodeCard bleed. */
-const CARD_BLEED = 24;
+/** App ink on the screen; the exploded planes float over the dark stage. */
+const APP_INK = '#191015';
+const APP_TRACK = '#D7CEC9';
 
 /**
- * Content of one exploded layer plane (340×704, design coordinates): one live
- * surface per component instance, positioned on the shell's item rects. The
- * shell owns the plane, its 3D pose, outline, thickness, callouts and leaders.
+ * Content of one exploded layer plane (340×704, design coordinates): static
+ * DOM art of the Ignite components on the shell's item rects. Static on
+ * purpose: the section animates the planes in 3D, and art costs no WebGL
+ * contexts (the live components are in the hero and the playground).
  *
- * The planes overlap (980² frames), so the slot root stays
- * `pointer-events: none` and only each surface box opts back in.
+ * Copy that the design recolours for the dark stage (heading, toggle) is
+ * drawn twice: `.xl-ink--flat` as it looks on the app screen and
+ * `.xl-ink--lifted` as designed; the section cross-fades them as the plane
+ * lifts off the phone.
  */
 export function ExplodedLayersSlot({ layer, items, width, height }: ExplodedLayersSlotProps) {
-  // Mobile crops the stack to a small still; the live components move to the
-  // callout list there (ExplodedListSlot), which keeps the WebGL count down.
-  const mobile = useMobile();
-  if (mobile) return <PlaceholderLayer layer={layer} items={items} width={width} height={height} />;
-  const list: LayerItem[] = layer === 'screen' ? [{ id: 'screen', x: 10, y: 10, width: 320 }] : items;
   return (
     <div style={{ position: 'absolute', inset: 0, width, height, pointerEvents: 'none' }}>
-      {list.map((item) => {
-        const spec = surfaceFor(layer, item);
-        return (
-          <LiveSurface
-            key={item.id}
-            width={spec.width}
-            height={spec.height}
-            interactive={layer !== 'screen'}
-            style={{ position: 'absolute', left: item.x - spec.bleed, top: item.y - spec.bleed }}
-            canvasStyle={spec.canvasStyle}
-          >
-            {spec.content}
-          </LiveSurface>
-        );
-      })}
+      {items.map((item) => (
+        <div key={item.id} style={{ position: 'absolute', left: item.x, top: item.y, width: item.width }}>
+          {renderItem(layer, item)}
+        </div>
+      ))}
     </div>
   );
 }
 
-interface SurfaceSpec {
-  width: number;
-  height: number;
-  bleed: number;
-  content: ReactElement;
-  canvasStyle?: CSSProperties;
+function Inked({ flat, lifted }: { flat: ReactNode; lifted: ReactNode }) {
+  return (
+    <>
+      <div className="xl-ink xl-ink--flat">{flat}</div>
+      <div className="xl-ink xl-ink--lifted">{lifted}</div>
+    </>
+  );
 }
 
-function surfaceFor(layer: ExplodedLayersSlotProps['layer'], item: LayerItem): SurfaceSpec {
+function renderItem(layer: ExplodedLayersSlotProps['layer'], item: LayerItem) {
   const p = item.props ?? {};
   switch (layer) {
     case 'heading':
-      return { width: 272, height: 68, bleed: 0, content: <Layer><LayerHeading color={p.color as string} /></Layer> };
+      return <Inked flat={<IgniteHeading color={APP_INK} />} lifted={<IgniteHeading color={p.color as string} />} />;
     case 'toggle':
-      return { width: 272, height: 33, bleed: 0, content: <Layer><LayerToggle labelColor={p.labelColor as string} /></Layer> };
+      return (
+        <Inked
+          flat={<IgniteToggle labelColor={APP_INK} trackColor={APP_TRACK} />}
+          lifted={<IgniteToggle labelColor={p.labelColor as string} trackColor={p.trackColor as string} />}
+        />
+      );
     case 'buttons':
-      // Wide enough for "Unlike" (88) so a tap can grow the pill in place.
-      return { width: 96, height: 32, bleed: 0, content: <Layer><LayerFavButton favorited={!!p.favorited} /></Layer> };
+      return <IgniteFavButton favorited={!!p.favorited} />;
     case 'cards':
-      return {
-        width: 272 + 2 * CARD_BLEED,
-        height: 96 + 2 * CARD_BLEED,
-        bleed: CARD_BLEED,
-        content: <Layer pad={CARD_BLEED}><LayerCardBody index={(p.index as number) ?? 0} /></Layer>,
-      };
+      return <IgniteEpisodeCard episode={EPISODES[(p.index as number) ?? 0]!} showButton={false} style={{ width: item.width }} />;
     case 'tabbar':
-      return {
-        width: 320,
-        height: 75,
-        bleed: 0,
-        content: <Layer><LayerTabBar /></Layer>,
-        canvasStyle: { borderRadius: '0 0 48px 48px' },
-      };
+      return <IgniteTabBar style={{ borderRadius: '0 0 48px 48px' }} />;
     case 'screen':
-      return {
-        width: 320,
-        height: 684,
-        bleed: 0,
-        content: <Layer><LayerScreen /></Layer>,
-        canvasStyle: { borderRadius: 48 },
-      };
+      return null;
   }
 }
