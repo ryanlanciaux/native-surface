@@ -1,5 +1,8 @@
-/* The hero device (src/hero3d/Phone3D.tsx). Geometry is in the frame's
-   560×780 px; facet transforms and lit colours are set inline. */
+/* The hero device (src/hero3d/Phone3D.tsx). The stage is the frame's
+   560×780 px; `.phone` inside it is drawn in iPhone 16 Pro points (426×898
+   body, 402×874 screen) and scaled to the design footprint inline, along
+   with its radii (--frame-radius, --screen-radius, --bezel), facet
+   transforms and lit colours. */
 
 .phone3d {
   position: absolute;
@@ -24,8 +27,7 @@
 }
 .phone {
   position: absolute;
-  left: 110px;
-  top: 38px;
+  transform-origin: 0 0;
   transform-style: preserve-3d;
   pointer-events: none;
 }
@@ -45,9 +47,9 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 340px;
-  height: 704px;
-  border-radius: 58px;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--frame-radius);
   transform-origin: 0 0;
   transform-style: preserve-3d;
   backface-visibility: hidden;
@@ -80,11 +82,11 @@
 }
 .phone__island-wall,
 .phone__camera {
-  left: 16px;
-  top: 16px;
-  width: 134px;
-  height: 140px;
-  border-radius: 38px;
+  left: 20px;
+  top: 20px;
+  width: 168px;
+  height: 175px;
+  border-radius: 48px;
 }
 .phone__island-wall {
   background: #4a505c;
@@ -102,8 +104,8 @@
   border-radius: 50%;
 }
 .phone__lens {
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   background:
     radial-gradient(circle at 37% 33%, #ffffffaa 0 1.5px, #fff0 3px),
     radial-gradient(circle at 60% 64%, #8b5cf640 0 3px, #8b5cf600 7px),
@@ -124,27 +126,27 @@
     0 0 0 1px #0009;
 }
 .phone__flash {
-  width: 15px;
-  height: 15px;
+  width: 19px;
+  height: 19px;
   background: radial-gradient(circle, #fff7e6 0 30%, #d9cfb8 55%, #6b6658 100%);
   box-shadow: 0 0 0 1px #0008;
 }
 .phone__lidar {
-  width: 15px;
-  height: 15px;
+  width: 19px;
+  height: 19px;
   background: radial-gradient(circle, #1d2130 0 45%, #0a0b10 70%, #3a3f49 100%);
   box-shadow: 0 0 0 1px #0008;
 }
 .phone__mic {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   background: #0b0c10;
 }
 .phone__back-mark {
-  left: 140px;
-  top: 322px;
-  width: 60px;
-  height: 60px;
+  left: 175px;
+  top: 411px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   box-shadow:
     inset 0 0 0 1.5px #ffffff12,
@@ -158,7 +160,7 @@
 .phone__body {
   position: absolute;
   inset: 0;
-  border-radius: 58px;
+  border-radius: var(--frame-radius);
   background: linear-gradient(225deg, #3a3f4a 0%, #1a1d24 45%, #4a505c 100%);
   backface-visibility: hidden;
 }
@@ -177,8 +179,8 @@
 }
 .phone__screen {
   position: absolute;
-  inset: 10px;
-  border-radius: 48px;
+  inset: var(--bezel);
+  border-radius: var(--screen-radius);
   overflow: hidden;
   background: #f4f2f1;
   display: flex;
@@ -189,7 +191,7 @@
 .phone__gloss {
   position: absolute;
   inset: 0;
-  border-radius: 58px;
+  border-radius: var(--frame-radius);
   background: linear-gradient(
       118deg,
       #fff0 0%,

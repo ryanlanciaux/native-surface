@@ -70,13 +70,11 @@
   inset: 0;
   transform-style: preserve-3d;
 }
+/* An iPhone 16 Pro in points; box and footprint scale set inline
+   (sections/exploded/layers.ts PLANE). */
 .xl-plane {
   position: absolute;
-  left: 320px;
-  top: 138px;
-  width: 340px;
-  height: 704px;
-  border-radius: 58px;
+  transform-origin: 50% 50%;
   transform-style: preserve-3d;
 }
 /* Outline-only planes; faded in by the timeline as the plane lifts off. */
@@ -100,37 +98,28 @@
 }
 .xl-glass {
   position: absolute;
-  left: 10px;
-  top: 10px;
-  width: 320px;
-  height: 684px;
-  border-radius: 48px;
   background: #05060a;
 }
 .xl-screen {
   position: absolute;
-  left: 10px;
-  top: 10px;
-  width: 320px;
-  height: 684px;
-  border-radius: 48px;
   background: #f4f2f1;
   box-shadow: inset 0 0 0 1px #22d3ee40;
 }
+/* Dynamic Island 126×37, 11 pt down on the 402 pt glass. */
 .xl-screen__island {
   position: absolute;
-  left: 112px;
+  left: 138px;
   top: 11px;
-  width: 96px;
-  height: 28px;
-  border-radius: 14px;
+  width: 126px;
+  height: 37px;
+  border-radius: 18.5px;
   background: #000;
 }
 .xl-screen__time {
   position: absolute;
-  left: 28px;
-  top: 16px;
-  font: 600 14px 'Space Grotesk', system-ui, sans-serif;
+  left: 44px;
+  top: 18px;
+  font: 600 17px 'Space Grotesk', system-ui, sans-serif;
   color: #191015;
 }
 .xl-solid {

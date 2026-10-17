@@ -1,9 +1,15 @@
 import { cubicBezier, type Pose } from './math';
 import type { PhoneRig } from './Phone3D';
 
-export const INTRO_MS = 2600;
+export const INTRO_MS = 3000;
 /** Fraction of the intro at which the phone first touches the ring. */
-export const LANDS_AT = 0.72;
+export const LANDS_AT = 0.66;
+
+/**
+ * The design's three-quarter pose (node "Phone 3D", in CSS degrees): the
+ * phone touches the ring at this tilt, then turns to face the viewer.
+ */
+export const LAND_TILT = { rx: -6, ry: 24, rz: 0 } as const;
 
 type Ease = (t: number) => number;
 type Frame = { at: number; pose: Pose; ease: Ease; liftEase?: Ease };
@@ -17,19 +23,21 @@ const SETTLE = cubicBezier(0.45, 0, 0.4, 1);
 /**
  * The spin-in: from `startLift` px above the rest pose (out of the viewport),
  * one and a half turns about the long axis, tilted so the underside, side
- * walls and back read on the way down; it touches the ring at LANDS_AT with
- * a slight overshoot and rebounds into the exact rest pose.
+ * walls and back read on the way down; it touches the ring at LANDS_AT in
+ * the design's three-quarter tilt (with the sparkle), then turns to face the
+ * viewer with a slight overshoot and settles exactly on `rest` (face-on).
  */
 function frames(rest: Pose, startLift: number): Frame[] {
+  const T = LAND_TILT;
   return [
     {
       at: 0,
       ease: SPIN,
       liftEase: DROP,
-      pose: { lift: startLift, ry: rest.ry - 540, rx: rest.rx + 46, rz: -16, scale: 0.82 },
+      pose: { lift: startLift, ry: T.ry - 540, rx: T.rx + 46, rz: -16, scale: 0.82 },
     },
-    { at: LANDS_AT, ease: SETTLE, pose: { lift: 14, ry: rest.ry + 6, rx: rest.rx - 4, rz: rest.rz + 1, scale: rest.scale * 1.012 } },
-    { at: 0.87, ease: SETTLE, pose: { lift: -4, ry: rest.ry - 1.5, rx: rest.rx + 1.2, rz: rest.rz - 0.25, scale: rest.scale * 0.998 } },
+    { at: LANDS_AT, ease: SETTLE, pose: { lift: 14, ry: T.ry + 6, rx: T.rx - 4, rz: T.rz + 1, scale: rest.scale * 1.012 } },
+    { at: 0.86, ease: SETTLE, pose: { lift: -4, ry: rest.ry - 2.5, rx: rest.rx + 1.2, rz: rest.rz - 0.3, scale: rest.scale * 0.998 } },
     { at: 1, ease: linear, pose: rest },
   ];
 }

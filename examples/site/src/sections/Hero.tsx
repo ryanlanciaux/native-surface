@@ -1,3 +1,4 @@
+import { device } from 'ignite-demo';
 import { BatteryFull, Github, Signal, Wifi } from 'lucide-react';
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import { LINKS } from '../brand';
@@ -13,10 +14,14 @@ import './hero.css';
 // Node "Phone 3D": perspective3d.glsl on a 560×780 frame holding the phone at (110, 38).
 const PHONE_POSE = { rotX: -6, rotY: -24, rotZ: 0, focal: 3, scale: 1 };
 const FRAME = { width: 560, height: 780 };
-const SCREEN_SLOT = { width: 320, height: 634 };
+/** The app's slot: the whole iPhone 16 Pro screen, at its true logical size. */
+const SCREEN_SLOT = { width: device.screenWidth, height: device.screenHeight };
 const pose = perspectiveTransform(PHONE_POSE, FRAME.height);
-/** The design pose in CSS terms (GL y/z rotations flip sign, see shaders/perspective.ts). */
-const REST: Pose = { lift: 0, rx: PHONE_POSE.rotX, ry: -PHONE_POSE.rotY, rz: -PHONE_POSE.rotZ, scale: PHONE_POSE.scale };
+/**
+ * Resting pose: face-on (Ryan; supersedes the design's three-quarter tilt,
+ * which the intro still lands in, see hero3d/intro.ts LAND_TILT).
+ */
+const REST: Pose = { lift: 0, rx: 0, ry: 0, rz: 0, scale: PHONE_POSE.scale };
 
 // Only claims that hold: layout is yoga-layout (React Native's engine) built
 // to wasm, paint is Skia through CanvasKit, and the app code is unchanged.
@@ -26,11 +31,30 @@ const STATS = [
   { value: 'Skia', label: 'paint, via CanvasKit' },
 ];
 
+const HINT_KEY = 'ns-hero-rotate-hint';
+function hintSeen() {
+  try {
+    return localStorage.getItem(HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function Hero() {
   const deviceRef = useRef<HTMLDivElement>(null);
   const active = useOnScreen(deviceRef);
   const [painted, setPainted] = useState(false);
   const onPainted = useCallback(() => setPainted(true), []);
+  // The rotate hint fades out on the first drag / lock and stays gone.
+  const [hint, setHint] = useState(() => !hintSeen());
+  const onInteract = useCallback(() => {
+    setHint(false);
+    try {
+      localStorage.setItem(HINT_KEY, '1');
+    } catch {
+      // Storage blocked: dismissed for this page load only.
+    }
+  }, []);
 
   return (
     <section className="hero" id="top">
@@ -47,24 +71,31 @@ export function Hero() {
           <div className="hero__pad" aria-hidden="true" />
           <div className="hero__pad-glow" aria-hidden="true" />
 
-          <HeroDevice rest={REST} perspective={pose.perspective} ready={painted}>
-            <div className="phone__status">
-              <span className="phone__time">9:41</span>
-              <span className="phone__island" />
-              <span className="phone__indicators" aria-hidden="true">
-                <Signal size={15} strokeWidth={2} />
-                <Wifi size={15} strokeWidth={2} />
-                <BatteryFull size={15} strokeWidth={2} />
-              </span>
-            </div>
+          <HeroDevice rest={REST} perspective={pose.perspective} ready={painted} onInteract={onInteract}>
             <div className="phone__app">
               <HeroPhoneSlot {...SCREEN_SLOT} active={active} onPainted={onPainted} />
             </div>
+            <div className="phone__status" style={{ height: device.safeAreaInsets.top }}>
+              <span className="phone__time">9:41</span>
+              <span
+                className="phone__island"
+                style={{ width: device.island.width, height: device.island.height, top: device.island.top }}
+              />
+              <span className="phone__indicators" aria-hidden="true">
+                <Signal size={17} strokeWidth={2} />
+                <Wifi size={17} strokeWidth={2} />
+                <BatteryFull size={17} strokeWidth={2} />
+              </span>
+            </div>
+            <span className="phone__home" aria-hidden="true" />
           </HeroDevice>
 
           <p className="hero__caption">
             <span className="live-dot" />
             LIVE{'  ·  '}Ignite demo app, running in WebAssembly
+          </p>
+          <p className={`hero__hint${hint ? '' : ' is-dismissed'}`} aria-hidden="true">
+            {'drag to rotate  ·  double-tap to lock'}
           </p>
         </div>
 
@@ -80,7 +111,7 @@ export function Hero() {
             <span>engine as native.</span>
           </h1>
           <p className="hero__sub">
-            Your real components lay out with Yoga — React Native&rsquo;s own layout engine — compiled to
+            Your real components lay out with React Native&rsquo;s own layout engine, Yoga, compiled to
             WebAssembly, and paint through Skia into a single canvas. No simulator to boot. No web rewrite.
           </p>
           <div className="hero__ctas">

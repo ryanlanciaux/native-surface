@@ -3,7 +3,7 @@ import { clamp01 } from './timeline';
 
 /** Stack y (design px) of the fused phone's centre: COLLAPSE_TOP + 490. */
 const FLAT_CENTRE = 338;
-/** Half the fused phone's height on the stage (704 · FLAT_SCALE / 2). */
+/** Half the fused phone's height on the stage (704 px footprint · FLAT_SCALE / 2). */
 const FLAT_HALF = 289;
 
 /**

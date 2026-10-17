@@ -5,7 +5,7 @@ import { useExplodeScroll } from '../exploded/useExplodeScroll';
 import { ExplodedLayersSlot } from '../live/ExplodedLayersSlot';
 import { ExplodedListSlot } from '../live/ExplodedListSlot';
 import { FILLS, ShaderCanvas, glossGradient, perspectiveTransform } from '../shaders';
-import { CALLOUTS, FRAME, LAYERS, PLANE, POSE, type Callout, type LayerSpec } from './exploded/layers';
+import { CALLOUTS, FRAME, GLASS, LAYERS, PLANE, POSE, type Callout, type LayerSpec } from './exploded/layers';
 import './exploded.css';
 
 const pose = perspectiveTransform(POSE, FRAME);
@@ -62,11 +62,23 @@ export function Exploded() {
   );
 }
 
+const GLASS_BOX = { left: GLASS.x, top: GLASS.y, width: GLASS.width, height: GLASS.height, borderRadius: GLASS.radius };
+
 function Layer({ layer }: { layer: LayerSpec }) {
   return (
     <div className="xl-frame" data-layer={layer.id} style={{ top: layer.top, perspective: pose.perspective }}>
       <div className="xl-space" style={{ transform: pose.transform }}>
-        <div className={`xl-plane xl-plane--${layer.id}`}>
+        <div
+          className={`xl-plane xl-plane--${layer.id}`}
+          style={{
+            left: PLANE.x,
+            top: PLANE.y,
+            width: PLANE.width,
+            height: PLANE.height,
+            borderRadius: PLANE.radius,
+            transform: `scale(${PLANE.scale})`,
+          }}
+        >
           {layer.sheet && <div className="xl-sheet" />}
           {layer.solids.map((s, i) => (
             <div
@@ -77,9 +89,9 @@ function Layer({ layer }: { layer: LayerSpec }) {
               <Extrusion depth={layer.depth} edge={layer.edge} rim="#22D3EE" radius={s.radius} slices={layer.depth > 10 ? 8 : 4} />
             </div>
           ))}
-          {layer.id === 'device' && <div className="xl-glass" />}
+          {layer.id === 'device' && <div className="xl-glass" style={GLASS_BOX} />}
           {layer.id === 'screen' && (
-            <div className="xl-screen">
+            <div className="xl-screen" style={GLASS_BOX}>
               <span className="xl-screen__island" />
               <span className="xl-screen__time">9:41</span>
             </div>
@@ -90,7 +102,7 @@ function Layer({ layer }: { layer: LayerSpec }) {
           {layer.gloss > 0 && (
             <div
               className="xl-gloss"
-              style={{ background: glossGradient(layer.gloss, PLANE.width, PLANE.height, FRAME, FRAME) }}
+              style={{ background: glossGradient(layer.gloss, PLANE.width, PLANE.height, FRAME / PLANE.scale, FRAME / PLANE.scale) }}
             />
           )}
         </div>
