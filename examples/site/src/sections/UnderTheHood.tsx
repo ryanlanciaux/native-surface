@@ -6,21 +6,21 @@ const STEPS: { index: string; title: string; body: string; color: string; Icon: 
   {
     index: '01',
     title: 'Your bundle',
-    body: 'Metro output, untouched. Same JS, same native module calls, same navigation tree.',
+    body: 'Your components and JS, unchanged. The same React tree, the same navigation, the same state.',
     color: '#22D3EE',
     Icon: FileCode,
   },
   {
     index: '02',
     title: 'Yoga → wasm',
-    body: 'The exact flexbox build iOS and Android use, so every frame lands where it does on device.',
+    body: 'yoga-layout, React Native’s own flexbox engine, built to wasm with RN’s errata, so boxes size and place by the same rules as on device.',
     color: '#38BDF8',
     Icon: LayoutGrid,
   },
   {
     index: '03',
     title: 'Skia → wasm',
-    body: 'Paint, text through SkParagraph, and hit-testing. A pressed state is a repaint.',
+    body: 'Paint and text (SkParagraph) through Skia’s CanvasKit build. A pressed state is a repaint.',
     color: '#818CF8',
     Icon: Brush,
   },
@@ -40,12 +40,12 @@ export function UnderTheHood() {
         <div className="uth__title-col">
           <p className="eyebrow">{'03  ·  UNDER THE HOOD'}</p>
           <h2 className="section-title uth__title" id="uth-title">
-            The same layout engine. The same pixels.
+            The same layout engine. Real Skia pixels.
           </h2>
         </div>
         <p className="uth__body">
-          Your JS bundle runs next to Yoga and Skia, both compiled to WebAssembly. Layout comes out frame-for-frame
-          identical to the phone, and the whole app paints into a single {'<canvas>'}.
+          Your JS bundle runs next to Yoga and Skia, both compiled to WebAssembly. Layout comes from the same Yoga
+          engine the phone uses, and the whole app paints through Skia into a single {'<canvas>'}.
         </p>
       </div>
 

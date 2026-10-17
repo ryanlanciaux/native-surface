@@ -15,12 +15,6 @@
 .live-hero {
   position: relative;
 }
-/* While the intro spins the phone round, its back shows the body, not a
-   mirrored app. */
-.phone__screen,
-.phone__gloss {
-  backface-visibility: hidden;
-}
 
 /* Intro: ring dim while the phone falls, pulse on landing, caption last. */
 .hero__device.is-intro .hero__caption {
