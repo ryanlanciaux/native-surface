@@ -8,13 +8,21 @@ import type { ApiFeedResponse, EpisodeItem } from "@/services/api/types"
 
 const cover = (n: number) => new URL(`../../assets/covers/rnr-${n}.jpg`, import.meta.url).href
 
+/**
+ * Ignite's EpisodeItem, plus the previous hand-built app's `cover` and
+ * `duration` ("47:02") fields so existing hosts keep reading them.
+ */
+export type DemoEpisode = EpisodeItem & { cover: string; duration: string }
+
+const label = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+
 const episode = (
   n: number,
   subtitle: string,
   pubDate: string,
   duration: number,
   description: string,
-): EpisodeItem => ({
+): DemoEpisode => ({
   title: `RNR ${n} - ${subtitle}`,
   pubDate: `${pubDate} 09:00:00`,
   link: `https://reactnativeradio.com/episodes/rnr-${n}`,
@@ -31,11 +39,13 @@ const episode = (
     rating: { scheme: "urn:itunes", value: "no" },
   },
   categories: [],
+  cover: cover(n),
+  duration: label(duration),
 })
 
 const mmss = (m: number, s: number) => m * 60 + s
 
-export const rnrEpisodes: EpisodeItem[] = [
+export const rnrEpisodes: DemoEpisode[] = [
   episode(314, "Shipping the New Architecture", "2023-07-13", mmss(47, 2),
     "Fabric, TurboModules and bridgeless mode: what it takes to flip the switch in a production app."),
   episode(313, "Routing with Expo Router", "2023-07-06", mmss(52, 18),
