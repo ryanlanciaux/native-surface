@@ -108,11 +108,18 @@ export function Hero() {
           </p>
           <h1 className="hero__headline">
             <span>Run React Native</span>{' '}
-            <span className="hero__headline-grad">in the browser,</span>{' '}
-            <span>on the same layout</span>{' '}
-            <span>engine as native.</span>
+            <span className="hero__headline-grad">
+              in the browser<span className="hero__desk">,</span>
+              <span className="hero__mob">.</span>
+            </span>{' '}
+            {/* Phones: the headline stops at "in the browser." (3 lines max); the subhead carries the rest. */}
+            <span className="hero__desk">on the same layout</span>{' '}
+            <span className="hero__desk">engine as native.</span>
           </h1>
-          <p className="hero__sub">
+          <p className="hero__sub hero__sub--mob">
+            Same Yoga layout engine as React Native on iOS and Android, in WebAssembly.
+          </p>
+          <p className="hero__sub hero__sub--desk">
             Your real React Native components, laid out by Yoga compiled to WebAssembly: the same layout engine
             React Native uses on iOS and Android. Skia paints them into a single canvas. No simulator to boot.
             No web rewrite.

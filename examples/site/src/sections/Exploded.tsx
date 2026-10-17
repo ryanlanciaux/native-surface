@@ -3,7 +3,6 @@ import { Extrusion } from '../components/Extrusion';
 import { COLLAPSE_TOP, FLAT_SCALE, calloutAt, calloutParts, explodeAt, lerp, tiltAt } from '../exploded/timeline';
 import { useExplodeScroll } from '../exploded/useExplodeScroll';
 import { ExplodedLayersSlot } from '../live/ExplodedLayersSlot';
-import { ExplodedListSlot } from '../live/ExplodedListSlot';
 import { FILLS, ShaderCanvas, glossGradient, perspectiveTransform } from '../shaders';
 import { CALLOUTS, FRAME, GLASS, LAYERS, PLANE, POSE, type Callout, type LayerSpec } from './exploded/layers';
 import './exploded.css';
@@ -49,12 +48,11 @@ export function Exploded() {
         </div>
       </div>
 
-      <ul className="callout-list" aria-label="Layers">
+      {/* Mobile: the callouts don't fit beside the phone, so the layers are named in a short legend. */}
+      <ul className="callout-legend" aria-label="Layers">
         {CALLOUTS.map((c) => (
           <li key={c.component}>
             <code>{c.component}</code>
-            <span>{c.meta}</span>
-            <ExplodedListSlot component={c.component} />
           </li>
         ))}
       </ul>

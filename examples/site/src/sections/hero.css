@@ -361,3 +361,42 @@
     display: none;
   }
 }
+
+/* ---------- phones (≤599): device above the fold ---------- */
+.hero__mob,
+.hero__sub--mob {
+  display: none;
+}
+@media (max-width: 599px) {
+  .hero__desk,
+  .hero__sub--desk,
+  .hero__ctas .command,
+  .hero__proof {
+    display: none !important;
+  }
+  .hero__mob {
+    display: inline;
+  }
+  .hero__sub--mob {
+    display: block;
+  }
+  .hero__copy {
+    padding: 16px 20px 0;
+    gap: 14px;
+  }
+  .hero__headline {
+    font-size: 36px;
+    line-height: 1.06;
+    letter-spacing: -1px;
+  }
+  .hero__sub {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .hero__ctas {
+    padding-top: 2px;
+  }
+  .hero__device {
+    margin-top: 4px;
+  }
+}
