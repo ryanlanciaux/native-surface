@@ -121,6 +121,9 @@ importers:
       '@native-surface/compat':
         specifier: workspace:*
         version: link:../../packages/compat
+      '@native-surface/playground':
+        specifier: workspace:*
+        version: link:../../packages/playground
       '@react-navigation/bottom-tabs':
         specifier: ^7.18.16
         version: 7.18.16(@react-navigation/native@7.3.16(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-safe-area-context@5.9.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-screens@4.27.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
