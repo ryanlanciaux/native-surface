@@ -55,7 +55,7 @@ async function resolveFontSpecs(specs: NonNullable<InitOptions['fonts']>): Promi
 function registerEngineFont(fontProvider: TypefaceFontProvider, families: Set<string>, f: LoadedFont): void {
   if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
     try {
-      const face = new FontFace(f.family, f.data.slice(0));
+      const face = new FontFace(f.family, f.data.slice(0), { weight: String(f.weight), style: f.italic ? 'italic' : 'normal' });
       document.fonts.add(face);
       void face.load().catch(() => {});
     } catch {
