@@ -4,7 +4,7 @@
  *
  *   import { NativeSurface } from 'native-surface'
  *   import { IgniteApp } from 'ignite-demo'
- *   <NativeSurface width={320} height={684} safeAreaInsets={{ top: 50 }}><IgniteApp /></NativeSurface>
+ *   <NativeSurface width={402} height={874} safeAreaInsets={{ top: 62, bottom: 34 }}><IgniteApp /></NativeSurface>
  *
  * Vite hosts add `igniteDemo()` from 'ignite-demo/vite' (before nativeSurface()).
  */
@@ -14,7 +14,8 @@ export { IgniteApp } from "./IgniteApp"
 export type { IgniteAppProps, IgniteRoute, LegacyTabName } from "./IgniteApp"
 export { App } from "@/app"
 export { StatusBar } from "./StatusBar"
-export { device } from "./device"
+export { device, iphones } from "./device"
+export type { IPhone } from "./device"
 
 // Startup (fonts, i18n): IgniteApp and catalog renders gate on it themselves.
 export { loadIgnite, loadIgniteFonts, useIgniteFonts, useIgniteReady, isIgniteReady } from "./boot"

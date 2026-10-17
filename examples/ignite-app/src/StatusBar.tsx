@@ -1,6 +1,6 @@
 /**
- * native-surface adapter: an iOS-style 50pt status bar ("9:41", dynamic
- * island, signal/wifi/battery) for hosts that don't draw a device bezel.
+ * native-surface adapter: an iPhone 16 Pro status bar (62pt "9:41", Dynamic
+ * Island, signal/wifi/battery) for hosts that don't draw a device bezel.
  * Not part of the Ignite boilerplate (a device draws this itself).
  */
 import { View, ViewStyle } from "react-native"
@@ -8,6 +8,8 @@ import Svg, { Path, Rect } from "react-native-svg"
 
 import { Text } from "@/components/Text"
 import { darkTheme, lightTheme } from "@/theme/theme"
+
+import { device } from "./device"
 
 export function StatusBar({ scheme = "light", showIsland = true }: { scheme?: "light" | "dark"; showIsland?: boolean }) {
   const { colors } = scheme === "dark" ? darkTheme : lightTheme
@@ -42,11 +44,12 @@ const $bar: ViewStyle = {
   top: 0,
   left: 0,
   right: 0,
-  height: 50,
-  paddingHorizontal: 28,
+  height: device.statusBarHeight,
+  paddingHorizontal: 34,
+  paddingBottom: 3, // centres the row on the island (11pt down, 37pt tall)
   flexDirection: "row",
   justifyContent: "space-between",
   alignItems: "center",
 }
-const $island: ViewStyle = { width: 96, height: 28, borderRadius: 14 }
+const $island: ViewStyle = { width: 126, height: 37, borderRadius: 18.5 }
 const $indicators: ViewStyle = { flexDirection: "row", alignItems: "center", gap: 5 }

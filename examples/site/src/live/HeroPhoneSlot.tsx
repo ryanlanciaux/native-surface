@@ -4,14 +4,15 @@ import { LiveSurface } from './LiveSurface';
 import type { HeroPhoneSlotProps } from './types';
 import './live.css';
 
-const STATUS_BAR = 50;
+const INSETS = device.safeAreaInsets;
 
 /**
- * The hero phone's app: a live `<IgniteApp/>` on a 320×684 surface that sits
- * behind the shell's DOM status bar (safe-area top 50), exactly like the app
- * under a real device's status bar. Reports its first paint so the hero
- * device (src/hero3d/HeroDevice.tsx) can start the spin-in with the app on
- * screen.
+ * The hero phone's app: a live `<IgniteApp/>` on the full iPhone 16 Pro
+ * screen (402×874 pt, the true logical size; the device is scaled by CSS)
+ * behind the shell's DOM status bar and home indicator (safe area 62 top /
+ * 34 bottom), exactly like the app on a real device. Reports its first paint
+ * so the hero device (src/hero3d/HeroDevice.tsx) can start the spin-in with
+ * the app on screen.
  */
 export function HeroPhoneSlot({
   width,
@@ -29,19 +30,19 @@ export function HeroPhoneSlot({
     <div className="live-hero" style={{ width, height }}>
       <LiveSurface
         eager
-        width={device.screenWidth}
-        height={device.screenHeight}
-        safeAreaInsets={{ top: STATUS_BAR }}
+        width={width}
+        height={height}
+        safeAreaInsets={INSETS}
         onReady={onReady}
-        style={{ position: 'absolute', left: 0, top: -STATUS_BAR }}
+        style={{ position: 'absolute', left: 0, top: 0 }}
         fallback={
           <img
             src={`${import.meta.env.BASE_URL}placeholders/hero-phone-content.png`}
             alt=""
             width={width}
-            height={height}
+            height={height - INSETS.top}
             draggable={false}
-            style={{ position: 'absolute', left: 0, top: STATUS_BAR, width, height }}
+            style={{ position: 'absolute', left: 0, top: INSETS.top, width, height: height - INSETS.top, objectFit: 'cover', objectPosition: 'top' }}
           />
         }
       >
