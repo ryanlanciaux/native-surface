@@ -2,6 +2,7 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { Extrusion } from '../components/Extrusion';
 import { useOnScreen } from '../components/useOnScreen';
 import { ExplodedLayersSlot } from '../live/ExplodedLayersSlot';
+import { ExplodedListSlot } from '../live/ExplodedListSlot';
 import { FILLS, ShaderCanvas, glossGradient, perspectiveTransform } from '../shaders';
 import { CALLOUTS, FRAME, LAYERS, PLANE, POSE, type LayerSpec } from './exploded/layers';
 import './exploded.css';
@@ -56,6 +57,7 @@ export function Exploded() {
           <li key={c.component}>
             <code>{c.component}</code>
             <span>{c.meta}</span>
+            <ExplodedListSlot component={c.component} />
           </li>
         ))}
       </ul>

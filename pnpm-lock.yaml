@@ -130,6 +130,9 @@ importers:
       '@react-navigation/stack':
         specifier: ^7.10.22
         version: 7.10.22(@react-navigation/native@7.3.16(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-gesture-handler@3.2.1(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-safe-area-context@5.9.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native-screens@4.27.0(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
+      ignite-demo:
+        specifier: workspace:*
+        version: link:../ignite-app
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.8)

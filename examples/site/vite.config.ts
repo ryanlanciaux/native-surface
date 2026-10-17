@@ -22,8 +22,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       // The native-surface toolchain (same preset as examples/embed-demo):
-      // platform-extension resolution, reanimated, the react-native alias and
-      // the standard optimizeDeps boundary.
+      // platform-extension resolution, reanimated, the react-native /
+      // react-native-svg aliases used by the live ignite-demo surfaces and the
+      // surfaces page, and the standard optimizeDeps boundary.
       ...(nativeSurface({
         platform: 'ios',
         reanimated: 'real',
@@ -31,7 +32,7 @@ export default defineConfig(({ mode }) => {
       react({ babel: { plugins: ['react-native-reanimated/plugin'] } }),
     ],
     optimizeDeps: {
-      // Surfaces page: bottom-sheet ships ESM and imports the aliased
+      // bottom-sheet ships ESM and imports the aliased
       // 'react-native' — prebundling would freeze a private engine copy.
       exclude: ['@gorhom/bottom-sheet', '@gorhom/portal'],
       include: [
