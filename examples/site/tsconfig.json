@@ -8,7 +8,14 @@
       "react-native-reanimated": ["../../packages/compat/src/reanimated.tsx"],
       "react-native-gesture-handler": ["../../packages/compat/src/gesture-handler.tsx"],
       "react-native-safe-area-context": ["../../packages/compat/src/safe-area.tsx"],
-      "react-native-svg": ["../../packages/compat/src/svg.tsx"]
+      "react-native-svg": ["../../packages/compat/src/svg.tsx"],
+      "@/*": ["../ignite-app/app/*"],
+      "@assets/*": ["../ignite-app/assets/*"],
+      "expo": ["../../packages/compat/src/expo.tsx"],
+      "expo-linking": ["../../packages/compat/src/expo.tsx"],
+      "expo-localization": ["../../packages/compat/src/expo.tsx"],
+      "expo-application": ["../../packages/compat/src/expo.tsx"],
+      "expo-system-ui": ["../../packages/compat/src/expo.tsx"]
     }
   },
   "include": ["src", "vite.config.ts"]

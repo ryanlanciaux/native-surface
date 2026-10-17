@@ -2,7 +2,7 @@
 // modules, so the playground runs on the same loader (packages/playground
 // csf.ts) whether the app ships `*.stories.tsx` files or only the catalog.
 // One module per entry; each catalog variant becomes a story (= state chip).
-import { IgniteFontGate, colors, componentCatalog, screenCatalog } from 'ignite-demo';
+import { colors, componentCatalog, screenCatalog, useIgniteReady } from 'ignite-demo';
 import type { AnyCatalogEntry, CatalogControl } from 'ignite-demo';
 import { isValidElement, type ReactElement } from 'react';
 import { View, useSurfaceInsets } from 'react-native';
@@ -77,7 +77,12 @@ function CatalogStory({ entry, args }: { entry: AnyCatalogEntry; args: Args }) {
   // `theme` is the round-2 render option; older catalogs ignore it.
   const element = (entry.render as (p: Args, o: { theme: string }) => ReactElement)(args, { theme });
   if (entry.kind === 'screen') return element;
-  return <IgniteFontGate>{catalogBody(element)}</IgniteFontGate>;
+  return <IgniteReadyGate>{catalogBody(element)}</IgniteReadyGate>;
+}
+
+/** The generated app's boot gate (fonts + i18n) — replaces the hand-built IgniteFontGate. */
+function IgniteReadyGate({ children }: { children: ReactElement }) {
+  return useIgniteReady() ? children : null;
 }
 
 /** Screens that are not the whole app pad by the device's safe area, as Ignite's <Screen safeAreaEdges> would. */

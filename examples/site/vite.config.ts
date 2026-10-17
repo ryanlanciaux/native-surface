@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nativeSurface } from 'native-surface/vite';
+import { igniteDemo } from 'ignite-demo/vite';
 
 // Multi-page site. Each page is an HTML entry next to this config; pages
 // owned by other lanes (e.g. surfaces.html) join the build once they exist.
@@ -21,6 +22,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
+      // The CLI-generated Ignite app's Vite adapter (its @/ and @assets/ aliases,
+      // offline RSS fixture, bundled remote images). Must precede nativeSurface().
+      igniteDemo(),
       // The native-surface toolchain (same preset as examples/embed-demo):
       // platform-extension resolution, reanimated, the react-native /
       // react-native-svg aliases used by the live ignite-demo surfaces and the
