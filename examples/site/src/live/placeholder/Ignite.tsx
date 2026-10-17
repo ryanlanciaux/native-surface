@@ -1,6 +1,6 @@
-// Static DOM stand-ins for the Ignite components (design 04). The live lane
-// replaces these with NativeSurfaces; they exist so the page reads correctly
-// before that and as a no-WebGL fallback.
+// Static DOM replicas of the Ignite components (design 04): the exploded
+// view's layer art and its mobile callout list. No WebGL, crisp at any 3D
+// scale.
 import { Bug, Component, Heart, Podcast, Users } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import './ignite.css';

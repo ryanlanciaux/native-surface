@@ -1,32 +1,20 @@
-import { catalogSurfaceSize, getCatalogEntry } from 'ignite-demo';
-import { LiveSurface } from './LiveSurface';
-import { useMobile } from './useMobile';
+import type { ReactElement } from 'react';
+import { EPISODES, IgniteEpisodeCard, IgniteFavButton, IgniteHeading, IgniteTabBar, IgniteToggle } from './placeholder/Ignite';
 
-/** Callout (as written in the exploded view) → catalog entry + variant. */
-const LIVE: Record<string, { name: string; variant?: string }> = {
-  '<Text preset="heading" />': { name: 'Heading' },
-  '<Toggle variant="switch" />': { name: 'Toggle', variant: 'off' },
-  '<Button />': { name: 'FavButton', variant: 'unlike' },
-  '<EpisodeCard />': { name: 'EpisodeCard', variant: 'favorited' },
-  '<DemoNavigator />': { name: 'TabBar', variant: 'podcasts' },
+/** Callout (as written in the exploded view) → static art of that component. */
+const ART: Record<string, () => ReactElement> = {
+  '<Text preset="heading" />': () => <IgniteHeading />,
+  '<Toggle variant="switch" />': () => <IgniteToggle />,
+  '<Button />': () => <IgniteFavButton favorited />,
+  '<EpisodeCard />': () => <IgniteEpisodeCard episode={EPISODES[0]!} favorited />,
+  '<DemoNavigator />': () => <IgniteTabBar />,
 };
 
 /**
- * Mobile only: the exploded stack is a cropped still at 390, so the callout
- * list underneath carries the live, tappable components instead.
+ * Mobile callout list: the exploded stack has no room for callouts at 390,
+ * so each list entry shows its component as static art (no WebGL).
  */
 export function ExplodedListSlot({ component }: { component: string }) {
-  const mobile = useMobile();
-  const spec = LIVE[component];
-  const entry = spec && getCatalogEntry(spec.name);
-  if (!mobile || !entry) return null;
-  const variant = entry.variants.find((v) => v.name === spec.variant);
-  const size = catalogSurfaceSize(entry);
-  return (
-    <div className="live-xl-item">
-      <LiveSurface width={size.width} height={size.height}>
-        {entry.render(variant?.props, { bleed: true })}
-      </LiveSurface>
-    </div>
-  );
+  const art = ART[component];
+  return art ? <div className="xl-list-art">{art()}</div> : null;
 }
