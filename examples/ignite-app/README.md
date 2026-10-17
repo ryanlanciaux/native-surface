@@ -1,3 +1,8 @@
+> **native-surface:** this is the output of `ignite-cli@11.5.0 new` (plus a small, marked adapter layer), running
+> on native-surface as the workspace package `ignite-demo`. See
+> [NATIVE-SURFACE.md](./NATIVE-SURFACE.md) for the generator command, the adapter
+> layer and how hosts embed it. The rest of this file is Ignite's own README.
+
 # Welcome to your new ignited app!
 
 > The latest and greatest boilerplate for Infinite Red opinions
