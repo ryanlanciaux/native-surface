@@ -8,7 +8,6 @@ import './footer.css';
 const FOOTER_LINKS = [
   { label: 'GitHub', href: LINKS.github, external: true },
   { label: 'Docs', href: LINKS.docs, external: true },
-  { label: 'Surfaces', href: LINKS.surfaces, external: false },
 ];
 
 export function Footer() {

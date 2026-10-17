@@ -23,9 +23,8 @@ function emdashCheck(): Plugin {
   };
 }
 
-// Multi-page site. Each page is an HTML entry next to this config; pages
-// owned by other lanes (e.g. surfaces.html) join the build once they exist.
-const PAGES = ['index', 'surfaces'];
+// Each page is an HTML entry next to this config (the landing page only).
+const PAGES = ['index'];
 
 export default defineConfig(({ mode }) => {
   // Extra dev hostnames stay out of the repo: VITE_ALLOWED_HOSTS in an
@@ -46,8 +45,8 @@ export default defineConfig(({ mode }) => {
       igniteDemo(),
       // The native-surface toolchain (same preset as examples/embed-demo):
       // platform-extension resolution, reanimated, the react-native /
-      // react-native-svg aliases used by the live ignite-demo surfaces and the
-      // surfaces page, and the standard optimizeDeps boundary.
+      // react-native-svg aliases used by the live ignite-demo surfaces, and the
+      // standard optimizeDeps boundary.
       ...(nativeSurface({
         platform: 'ios',
         reanimated: 'real',
@@ -55,12 +54,8 @@ export default defineConfig(({ mode }) => {
       react({ babel: { plugins: ['react-native-reanimated/plugin'] } }),
     ],
     optimizeDeps: {
-      // bottom-sheet ships ESM and imports the aliased
-      // 'react-native' — prebundling would freeze a private engine copy.
-      exclude: ['@gorhom/bottom-sheet', '@gorhom/portal'],
       include: [
         'invariant',
-        '@gorhom/bottom-sheet > invariant',
         // pnpm: nested-include chains must start at a DIRECT dependency.
         '@react-navigation/native > @react-navigation/core > use-latest-callback',
         '@react-navigation/native > @react-navigation/core > react-is',

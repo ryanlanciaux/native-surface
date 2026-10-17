@@ -17,15 +17,12 @@ export const BRAND = {
 } as const;
 
 const repo = BRAND.github;
-const base = import.meta.env.BASE_URL;
 
 /** Real destinations only: the repo README is the docs, the rest are on-site. */
 export const LINKS = {
   docs: `${repo}#readme`,
   playground: '#playground',
-  surfaces: `${base}surfaces.html`,
   github: repo,
-  launch: '#playground',
 } as const;
 
 /** Off-site links open in a new tab. */

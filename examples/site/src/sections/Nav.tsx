@@ -5,11 +5,10 @@ import { Brand } from '../components/Brand';
 import { XLink } from '../components/XLink';
 import './nav.css';
 
-// Real destinations only: the repo README (docs), the playground section, the Surfaces page.
+// Real destinations only: the repo README (docs) and the playground section.
 const NAV = [
   { label: 'Docs', href: LINKS.docs, external: true },
   { label: 'Playground', href: LINKS.playground, external: false },
-  { label: 'Surfaces', href: LINKS.surfaces, external: false },
 ];
 
 export function Nav() {
@@ -71,9 +70,6 @@ export function Nav() {
         <a className="nav__icon" href={BRAND.github} {...EXTERNAL} aria-label="native-surface on GitHub">
           <Github size={20} strokeWidth={2} />
         </a>
-        <a className="nav__cta" href={LINKS.launch}>
-          Get started
-        </a>
         <button
           ref={btnRef}
           type="button"
@@ -99,9 +95,6 @@ export function Nav() {
           </a>
         ))}
         <XLink className="x-link nav__menu-x" onClick={() => setOpen(false)} />
-        <a className="nav__menu-cta" href={LINKS.launch} onClick={() => setOpen(false)}>
-          Get started
-        </a>
       </nav>
     </header>
   );
