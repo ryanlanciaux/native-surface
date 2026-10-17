@@ -93,5 +93,8 @@ export const renderSurface: RenderSurface = (slot) =>
     children: slot.children,
   });
 
-/** The tool's own address for the story: the CLI keeps the selection in the hash (`#/story/<id>`). */
-export const urlLabel = (host: string) => (_item: PlaygroundItem, storyId: string) => `${host}/#/story/${storyId}`;
+/**
+ * The marketing site's display address: a clean path per the design, with no
+ * host (the standalone tool shows its real URL; there is no hosted playground).
+ */
+export const urlLabel = (app: string) => (item: PlaygroundItem) => `play/${app}/${item.name}`;

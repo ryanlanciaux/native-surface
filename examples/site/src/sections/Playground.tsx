@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Playground as NativeSurfacePlayground } from '@native-surface/playground/embed';
 import type { StoryIndex } from '@native-surface/playground/embed';
-import { BRAND } from '../brand';
 import { devices, igniteSources, loadIgniteStories, renderSurface, sheet, urlLabel, usage, writeBack } from '../live/playground';
 import { FILLS, ShaderCanvas } from '../shaders';
 import './playground.css';
 
-const playgroundUrl = urlLabel(BRAND.playgroundHost);
+const playgroundUrl = urlLabel('ignite-demo');
 
 /**
  * Section 04: the native-surface playground itself (packages/playground's

@@ -9,8 +9,6 @@ export const BRAND = {
   x: { handle: '@ryanlanciaux', url: 'https://x.com/ryanlanciaux' },
   cli: 'npx native-surface playground',
   github: 'https://github.com/ryanlanciaux/native-surface',
-  /** Shown in the playground window's address bar: where `npx native-surface playground` serves by default. */
-  playgroundHost: 'localhost:5170',
 } as const;
 
 const repo = BRAND.github;
