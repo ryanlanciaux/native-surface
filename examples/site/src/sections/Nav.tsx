@@ -1,16 +1,15 @@
 import { Github, Menu, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { BRAND, LINKS } from '../brand';
+import { BRAND, EXTERNAL, LINKS } from '../brand';
 import { Brand } from '../components/Brand';
+import { XLink } from '../components/XLink';
 import './nav.css';
 
+// Real destinations only: the repo README (docs), the playground section, the Surfaces page.
 const NAV = [
-  { label: 'Docs', href: LINKS.docs },
-  { label: 'Playground', href: LINKS.playground },
-  { label: 'Showcase', href: LINKS.showcase },
-  // Design: "Pricing". native-surface is MIT; the slot points at the repo.
-  { label: 'Open source', href: LINKS.github },
-  { label: 'Changelog', href: LINKS.changelog },
+  { label: 'Docs', href: LINKS.docs, external: true },
+  { label: 'Playground', href: LINKS.playground, external: false },
+  { label: 'Surfaces', href: LINKS.surfaces, external: false },
 ];
 
 export function Nav() {
@@ -62,13 +61,14 @@ export function Nav() {
       <Brand />
       <nav className="nav__links" aria-label="Primary">
         {NAV.map((l) => (
-          <a key={l.label} href={l.href}>
+          <a key={l.label} href={l.href} {...(l.external ? EXTERNAL : {})}>
             {l.label}
           </a>
         ))}
       </nav>
       <div className="nav__actions">
-        <a className="nav__icon" href={BRAND.github} aria-label="native-surface on GitHub">
+        <XLink className="x-link nav__x" />
+        <a className="nav__icon" href={BRAND.github} {...EXTERNAL} aria-label="native-surface on GitHub">
           <Github size={20} strokeWidth={2} />
         </a>
         <a className="nav__cta" href={LINKS.launch}>
@@ -94,10 +94,11 @@ export function Nav() {
         hidden={!open}
       >
         {NAV.map((l) => (
-          <a key={l.label} href={l.href} onClick={() => setOpen(false)}>
+          <a key={l.label} href={l.href} {...(l.external ? EXTERNAL : {})} onClick={() => setOpen(false)}>
             {l.label}
           </a>
         ))}
+        <XLink className="x-link nav__menu-x" onClick={() => setOpen(false)} />
         <a className="nav__menu-cta" href={LINKS.launch} onClick={() => setOpen(false)}>
           Get started
         </a>

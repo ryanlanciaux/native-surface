@@ -2,10 +2,11 @@
 // "Portal"; the site ships as native-surface.
 export const BRAND = {
   name: 'native-surface',
-  /** Footer legal line. */
-  owner: 'native-surface contributors',
+  /** Footer legal line (matches the repo LICENSE). */
+  owner: 'Ryan Lanciaux',
   year: 2026,
-  tagline: 'React Native, compiled for the open web.',
+  /** Ryan's X account, linked from the nav and footer. */
+  x: { handle: '@ryanlanciaux', url: 'https://x.com/ryanlanciaux' },
   cli: 'npx native-surface playground',
   github: 'https://github.com/ryanlanciaux/native-surface',
   /** Shown in the playground window's address bar. */
@@ -15,15 +16,14 @@ export const BRAND = {
 const repo = BRAND.github;
 const base = import.meta.env.BASE_URL;
 
-/** Where the design's nav/footer labels point. Pricing etc. have no destination yet. */
+/** Real destinations only: the repo README is the docs, the rest are on-site. */
 export const LINKS = {
   docs: `${repo}#readme`,
   playground: '#playground',
-  showcase: `${base}surfaces.html`,
-  changelog: `${repo}/releases`,
+  surfaces: `${base}surfaces.html`,
   github: repo,
-  cli: `${repo}#readme`,
-  expo: `${repo}#readme`,
-  issues: `${repo}/issues`,
   launch: '#playground',
 } as const;
+
+/** Off-site links open in a new tab. */
+export const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
