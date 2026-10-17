@@ -12,8 +12,8 @@ export function App() {
     <>
       <main>
         <Hero />
-        <Exploded />
         <UnderTheHood />
+        <Exploded />
         <Playground />
         <FinalCta />
       </main>

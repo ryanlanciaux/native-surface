@@ -27,13 +27,13 @@ export function Exploded() {
       <div className="exploded__top-fade" aria-hidden="true" />
 
       <header className="exploded__header">
-        <p className="eyebrow">{'02  ·  SCROLL TO EXPLODE'}</p>
+        <p className="eyebrow">{'03  ·  TAKE IT APART'}</p>
         <h2 className="section-title exploded__title" id="exploded-title">
-          Every component, in isolation.
+          Every screen is just components.
         </h2>
         <p className="exploded__body">
-          Scroll and the phone comes apart into the layers your app is built from. Each one is a real component from
-          the app, rendered on its own by the same WebAssembly engine.
+          Scroll and the phone comes apart into the pieces it is built from: a Screen, a heading, a toggle, a list of
+          EpisodeCards. Each one is a real component from the Ignite app, and the playground below runs them live.
         </p>
       </header>
 

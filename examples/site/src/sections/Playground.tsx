@@ -30,7 +30,7 @@ export function Playground() {
             {'04  ·  PLAYGROUND'}
           </p>
           <h2 className="section-title pg__title" id="pg-title">
-            Component playground of your real app components.
+            Now try them yourself.
           </h2>
         </div>
         <p className="pg__body">
