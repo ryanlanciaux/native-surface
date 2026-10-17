@@ -32,8 +32,8 @@ export function Exploded() {
           Every screen is just components.
         </h2>
         <p className="exploded__body">
-          Scroll and the phone comes apart into the pieces it is built from: a Screen, a heading, a toggle, a list of
-          EpisodeCards. Each one is a real component from the Ignite app, and the playground below runs them live.
+          Your app is a series of components. The native-surface playground lets you see each one in isolation, change
+          its props, and watch it render live, right below.
         </p>
       </header>
 
