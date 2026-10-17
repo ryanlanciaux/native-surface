@@ -60,6 +60,7 @@ Everything in `app/` is the generated boilerplate, running on native-surface:
 - `screens/DemoPodcastListScreen.tsx`:
   - `EpisodeCard` is now exported.
   - The card uses the episode's own cover (a bundled `thumbnail`, @3x, 64pt) instead of a random placeholder.
+- `i18n/{en,es,fr,ja,ko}.ts`: the Welcome screen's `postscript` string loses its em dash ("psst — …" → "psst: …"), per the site's no-em-dash copy rule. Same meaning, one line per locale.
 - `screens/DemoShowroomScreen/SectionListWithKeyboardAwareScrollView.tsx`: moves `contentContainerStyle` after the props spread. This works around an engine gap (see below) and gives the same result on a device.
 
 ## Engine gaps found (native-surface, reported, not patched here)

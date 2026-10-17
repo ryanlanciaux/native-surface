@@ -10,7 +10,7 @@ const es: Translations = {
   },
   welcomeScreen: {
     postscript:
-      "psst — Esto probablemente no es cómo se va a ver tu app. (A menos que tu diseñador te haya enviado estas pantallas, y en ese caso, ¡lánzalas en producción!)",
+      "psst: Esto probablemente no es cómo se va a ver tu app. (A menos que tu diseñador te haya enviado estas pantallas, y en ese caso, ¡lánzalas en producción!)", // native-surface adapter: em dash removed (site copy rule)
     readyForLaunch: "Tu app, casi lista para su lanzamiento",
     exciting: "(¡ohh, esto es emocionante!)",
     letsGo: "¡Vamos!",

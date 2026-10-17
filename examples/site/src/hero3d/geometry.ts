@@ -1,11 +1,35 @@
+import { device } from 'ignite-demo';
 import { cross, type Vec3 } from './math';
 
-// The device as flat CSS facets around the 340×704 front face (z = 0, the
-// screen side) in `.phone`'s own px space. Each facet is a box of w×h placed
-// with matrix3d: local x runs along `u`, local y along `v`, and its front
-// face points along n = u × v, so backface culling and lighting both follow.
+// The device as flat CSS facets around the front face (z = 0, the screen
+// side) in `.phone`'s own px space, which is iPhone 16 Pro points: a 426×898
+// body around the 402×874 screen. Each facet is a box of w×h placed with
+// matrix3d: local x runs along `u`, local y along `v`, and its front face
+// points along n = u × v, so backface culling and lighting both follow.
 
-export const DEVICE = { width: 340, height: 704, radius: 58, depth: 34 } as const;
+/** Design footprint of the phone in the hero frame (node "Phone 3D": a 704 px tall phone centred at (280, 390)). */
+const FOOTPRINT = { height: 704, cx: 280, cy: 390 };
+
+export const DEVICE = {
+  width: device.frameWidth,
+  height: device.frameHeight,
+  radius: device.frameRadius,
+  bezel: device.bezel,
+  /** 8.25 mm on a 71.5 mm wide body. */
+  depth: 49,
+  /**
+   * `.phone` is drawn at true points and scaled (uniformly, z included) to
+   * the design's footprint, so the app keeps its real logical size.
+   */
+  scale: FOOTPRINT.height / device.frameHeight,
+} as const;
+
+/** `.phone`'s placement in the frame: scaled from its top left to the design footprint. */
+export const PHONE_BOX = {
+  left: FOOTPRINT.cx - (DEVICE.width * DEVICE.scale) / 2,
+  top: FOOTPRINT.cy - (DEVICE.height * DEVICE.scale) / 2,
+  transform: `scale3d(${DEVICE.scale}, ${DEVICE.scale}, ${DEVICE.scale})`,
+};
 
 export type Material = 'frame' | 'button';
 
@@ -42,10 +66,10 @@ function walls(segments: number): Facet[] {
     out.push({ key, material: 'frame', w: len, h: D, overlay, ...place(o, u, [0, 0, -1]) });
   };
   // Antenna bands: thin insulating breaks across the frame, as on a real
-  // titanium phone, 42 px in from each straight end of the long sides.
+  // titanium phone, 54 pt in from each straight end of the long sides.
   const sideLen = H - 2 * R;
-  const band = (at: number) => `transparent ${at}px, #1a1d2399 ${at}px, #1a1d2399 ${at + 3}px, transparent ${at + 3}px`;
-  const antenna = `linear-gradient(90deg, ${band(42)}, ${band(sideLen - 45)})`;
+  const band = (at: number) => `transparent ${at}px, #1a1d2399 ${at}px, #1a1d2399 ${at + 4}px, transparent ${at + 4}px`;
+  const antenna = `linear-gradient(90deg, ${band(54)}, ${band(sideLen - 58)})`;
   strip('top', W / 2, 0, -Math.PI / 2, W - 2 * R + 0.8);
   strip('right', W, H / 2, 0, sideLen + 0.8, antenna);
   strip('bottom', W / 2, H, Math.PI / 2, W - 2 * R + 0.8);
@@ -83,16 +107,21 @@ function box(key: string, [x0, x1]: [number, number], [y0, y1]: [number, number]
   return faces;
 }
 
-/** Action button + volume rocker on the left, side button on the right. */
+/**
+ * iPhone 16 Pro buttons (pt from the top of the body): Action button and
+ * volume rocker on the left, side button and the flush Camera Control on the
+ * right.
+ */
 function buttons(): Facet[] {
   const { width: W, depth: D } = DEVICE;
-  const out = 2.4;
-  const z: [number, number] = [-D / 2 - 6, -D / 2 + 6];
+  const out = 3;
+  const z: [number, number] = [-D / 2 - 8, -D / 2 + 8];
   return [
-    ...box('action', [-out, 0], [128, 160], z, '+x'),
-    ...box('vol-up', [-out, 0], [196, 252], z, '+x'),
-    ...box('vol-down', [-out, 0], [266, 322], z, '+x'),
-    ...box('side', [W, W + out], [212, 302], z, '-x'),
+    ...box('action', [-out, 0], [164, 204], z, '+x'),
+    ...box('vol-up', [-out, 0], [250, 321], z, '+x'),
+    ...box('vol-down', [-out, 0], [339, 410], z, '+x'),
+    ...box('side', [W, W + out], [270, 385], z, '-x'),
+    ...box('camera', [W, W + 1.2], [560, 628], [-D / 2 - 7, -D / 2 + 7], '-x'),
   ];
 }
 

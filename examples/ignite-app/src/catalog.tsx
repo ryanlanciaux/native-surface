@@ -290,7 +290,9 @@ const imageOptions: CatalogControlOption[] = [
 ]
 /** Ignite Card shadow: radius 12.81 at y+12 reaches ~25pt below the card. */
 const CARD_BLEED = 28
-const W = device.screenWidth - 48 // a component inside the app's 24pt gutters: 272
+// Default component width (the design's 272pt column). Hosts lay components
+// out at their own device width minus the app's 24pt gutters (354 on iPhone 16 Pro).
+const W = 272
 const ep314 = rnrEpisodes[0]!
 const screenSize = { width: device.screenWidth, height: device.screenHeight }
 
@@ -306,7 +308,7 @@ export const componentCatalog: AnyCatalogEntry[] = [
     variants: [
       { name: "heading", props: { preset: "heading" } },
       { name: "subheading", props: { preset: "subheading", text: "Components to jump start your project!" } },
-      { name: "default", props: { preset: "default", text: "The same layout engine. The same pixels." } },
+      { name: "default", props: { preset: "default", text: "The same layout engine. Real Skia pixels." } },
       { name: "bold", props: { preset: "bold", text: "Only Show Favorites" } },
     ],
     controls: {
@@ -347,7 +349,7 @@ export const componentCatalog: AnyCatalogEntry[] = [
     usage: `<Card heading="Card" content="Content" footer="Footer" preset="default" />`,
     defaultProps: {
       heading: "Yoga, Skia and the canvas",
-      content: "The layout engine and the 2D graphics library behind modern React Native rendering.",
+      content: "Yoga lays out React Native on iOS and Android. Here it runs in wasm, and Skia paints the result.",
       footer: "Jun 29, 2023",
       preset: "default",
       verticalAlignment: "top",
@@ -559,7 +561,7 @@ function screen(name: string, route: IgniteRoute, description: string): AnyCatal
     description,
     size: screenSize,
     bleed: 0,
-    usage: `<NativeSurface width={320} height={684}>\n  <IgniteApp initialRoute="${route}" />\n</NativeSurface>`,
+    usage: `<NativeSurface width={${device.screenWidth}} height={${device.screenHeight}} safeAreaInsets={{ top: ${device.safeAreaInsets.top}, bottom: ${device.safeAreaInsets.bottom} }}>\n  <IgniteApp initialRoute="${route}" />\n</NativeSurface>`,
     defaultProps: { showStatusBar: true },
     variants: [{ name: "default", props: {} }],
     controls: { showStatusBar: { type: "boolean", label: "Status bar" } },

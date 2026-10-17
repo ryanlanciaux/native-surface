@@ -236,34 +236,48 @@
   initial-value: 0px;
 }
 
+/* iPhone 16 Pro screen, in points: a 62 pt status bar over the app with the
+   Dynamic Island (126×37, 11 pt down; size set inline), time and indicators
+   centred on the island, and the 34 pt home-indicator zone at the bottom. */
 .phone__status {
-  height: 50px;
-  flex: none;
-  padding: 0 28px;
+  position: absolute;
+  inset: 0 0 auto;
+  padding: 0 32px 3px 44px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: #191015;
 }
 .phone__time {
-  font: 600 14px 'Space Grotesk', system-ui, sans-serif;
+  font: 600 17px 'Space Grotesk', system-ui, sans-serif;
 }
 .phone__island {
-  width: 96px;
-  height: 28px;
-  border-radius: 14px;
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  border-radius: 999px;
   background: #000;
 }
 .phone__indicators {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   align-items: center;
 }
+.phone__home {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 140px;
+  height: 5px;
+  translate: -50% 0;
+  border-radius: 3px;
+  background: #191015;
+  z-index: 1;
+  pointer-events: none;
+}
 .phone__app {
-  position: relative;
-  width: 320px;
-  height: 634px;
-  overflow: hidden;
+  position: absolute;
+  inset: 0;
 }
 
 /* ---------- mobile ---------- */

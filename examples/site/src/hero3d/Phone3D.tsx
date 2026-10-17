@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { BACK_TRANSFORM, DEVICE, buildFacets, type Facet } from './geometry';
+import { BACK_TRANSFORM, DEVICE, PHONE_BOX, buildFacets, type Facet } from './geometry';
 import {
   HALF_VECTOR,
   apply,
@@ -20,6 +20,8 @@ const BUTTON_METAL = hexToVec('#8a93a4');
 const BACK_GLASS = hexToVec('#2b303b');
 const ISLAND_GLASS = hexToVec('#343a46');
 
+const PROBE: CSSProperties = { position: 'absolute', width: 1, height: 1, visibility: 'hidden', pointerEvents: 'none' };
+
 /** Drives a mounted device: writes the pose vars and relights every facet. */
 export interface PhoneRig {
   setPose(pose: Pose): void;
@@ -38,7 +40,7 @@ export interface Phone3DProps {
   rest: Pose;
   /** CSS `perspective` of the frame. */
   perspective: string;
-  /** Screen content: sits in the 320×684 glass, 10 px inside the front face. */
+  /** Screen content: fills the 402×874 pt glass, one bezel inside the front face. */
   children: ReactNode;
 }
 
@@ -110,7 +112,7 @@ export function Phone3D({ rest, perspective, children }: Phone3DProps) {
     };
   }, [facets]);
 
-  const { width: W, height: H, radius: R, depth: D } = DEVICE;
+  const { width: W, height: H, radius: R, bezel: B, depth: D } = DEVICE;
   return (
     <div className="phone3d" style={{ perspective }} aria-hidden={false}>
       <div
@@ -126,7 +128,29 @@ export function Phone3D({ rest, perspective, children }: Phone3DProps) {
           } as CSSProperties
         }
       >
-        <div className="phone" style={{ width: W, height: H, borderRadius: R }}>
+        <div
+          className="phone"
+          style={
+            {
+              ...PHONE_BOX,
+              width: W,
+              height: H,
+              borderRadius: R,
+              '--frame-radius': `${R}px`,
+              '--screen-radius': `${R - B}px`,
+              '--bezel': `${B}px`,
+            } as CSSProperties
+          }
+        >
+          {/* Front-face corners, for mapping pointers onto the device (dragRotate.ts). */}
+          {[
+            [0, 0],
+            [W - 1, 0],
+            [W - 1, H - 1],
+            [0, H - 1],
+          ].map(([left, top]) => (
+            <span key={`${left},${top}`} data-phone-probe style={{ ...PROBE, left, top }} />
+          ))}
           {facets.map((f, i) => (
             <span
               key={f.key}

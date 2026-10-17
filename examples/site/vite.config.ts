@@ -1,9 +1,27 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nativeSurface } from 'native-surface/vite';
 import { igniteDemo } from 'ignite-demo/vite';
+import { checkEmdash, formatHits } from '../../scripts/site/check-emdash.mjs';
+
+// Copy rule: no em dash (U+2014) in user-visible strings. Fails `vite build`
+// (and so the Pages workflow) on hits; see scripts/site/README.md.
+function emdashCheck(): Plugin {
+  return {
+    name: 'site:check-emdash',
+    apply: 'build',
+    buildStart() {
+      const hits = checkEmdash();
+      if (hits.length) {
+        this.error(
+          `${hits.length} em dash(es) in user-visible text. Rewrite with a comma, period or colon:\n${formatHits(hits)}`,
+        );
+      }
+    },
+  };
+}
 
 // Multi-page site. Each page is an HTML entry next to this config; pages
 // owned by other lanes (e.g. surfaces.html) join the build once they exist.
@@ -22,6 +40,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
+      emdashCheck(),
       // The CLI-generated Ignite app's Vite adapter (its @/ and @assets/ aliases,
       // offline RSS fixture, bundled remote images). Must precede nativeSurface().
       igniteDemo(),
