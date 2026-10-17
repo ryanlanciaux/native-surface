@@ -8,8 +8,28 @@ export interface Knob {
   argType: ArgType | undefined;
 }
 
+/** Storybook control spellings onto the playground's kinds (`radio` → select, `{ type: 'object' }` → json). */
+export function controlKind(argType: ArgType | undefined): ControlKind | 'date' | undefined {
+  const raw = argType?.control;
+  if (raw === false) return 'none';
+  const name = raw && typeof raw === 'object' ? raw.type : raw;
+  if (!name) return undefined;
+  const alias: Record<string, ControlKind> = {
+    radio: 'select',
+    'inline-radio': 'select',
+    check: 'select',
+    'inline-check': 'select',
+    object: 'json',
+    color: 'text',
+    range: 'number',
+  };
+  return alias[name] ?? (name as ControlKind | 'date');
+}
+
 function inferKind(value: unknown, argType: ArgType | undefined): ControlKind {
-  if (argType?.control) return argType.control;
+  const declared = controlKind(argType);
+  if (declared === 'date') return 'text';
+  if (declared) return declared;
   if (argType?.options) return 'select';
   switch (typeof value) {
     case 'boolean':

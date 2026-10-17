@@ -4,7 +4,7 @@
 // index plus the current selection on globalThis so the driver can navigate
 // per-story hash routes and know when the story it asked for is the one on
 // stage.
-import type { StoryIndex } from './registry';
+import type { StoryIndex } from './csf';
 import type { Theme } from './story-types';
 
 export interface ShootParams {

@@ -110,7 +110,7 @@ export function TextSpecimen(props: TextSpecimenProps): React.JSX.Element {
           <Text style={[styles.body, base]}>
             Inheritance flows down: <Text style={styles.highlight}>bold amber</Text>, an{' '}
             <Text style={styles.italic}>italic aside</Text>, a <Text style={styles.link}>link</Text>, and{' '}
-            <Text style={styles.strike}>struck-through</Text> text — all one paragraph, one measure pass.
+            <Text style={styles.strike}>struck-through</Text> text, all one paragraph, one measure pass.
           </Text>
         </View>
       ) : null}

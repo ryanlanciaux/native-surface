@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 export interface ActionRecord {
   key: number;
   source: 'arg' | 'surface';
@@ -10,36 +12,47 @@ export interface ActionRecord {
 
 interface ActionsProps {
   records: ActionRecord[];
+  /** Callback named while nothing has fired yet (the story's first function arg). */
+  waitingFor: string | null;
   onClear: () => void;
 }
 
-export function Actions(props: ActionsProps): React.JSX.Element {
-  const { records, onClear } = props;
-  return (
-    <section className="panel actions">
-      <header className="panel-head">
-        <h2>Actions</h2>
-        <button type="button" className="ghost" onClick={onClear} disabled={records.length === 0}>
-          Clear
-        </button>
-      </header>
-      <div className="panel-body action-list">
-        {records.length === 0 ? (
-          <p className="empty">Interact with the canvas — handler calls land here.</p>
-        ) : (
-          records.map((record) => (
-            <div className="action" key={record.key}>
-              <div className="action-head">
-                <span className={`tag ${record.source}`}>{record.source}</span>
-                <span className="action-name">{record.name}</span>
-                {record.count > 1 ? <span className="repeat">×{record.count}</span> : null}
-                <span className="action-time">{record.time}</span>
-              </div>
-              {record.payload ? <pre className="action-payload">{record.payload}</pre> : null}
-            </div>
-          ))
-        )}
+const SHOWN = 6;
+
+/** The props panel's event log: newest call highlighted, older ones below it. */
+export function Actions({ records, waitingFor, onClear }: ActionsProps): ReactElement | null {
+  if (records.length === 0) {
+    if (!waitingFor) return null;
+    return (
+      <div className="nsp__event" aria-live="polite">
+        <span className="nsp__event-name">
+          {`${waitingFor}()  `}
+          <span className="nsp__event-state">waiting</span>
+        </span>
+        <span>tap the preview</span>
       </div>
-    </section>
+    );
+  }
+  const [head, ...rest] = records;
+  return (
+    <div className="nsp__events" aria-live="polite">
+      <div className="nsp__event is-fired">
+        <span className="nsp__event-name">
+          {`${head!.name}()  `}
+          <span className="nsp__event-state">{head!.count > 1 ? `fired ×${head!.count}` : 'fired'}</span>
+          {head!.source === 'surface' && <span className="nsp__event-tag">surface</span>}
+        </span>
+        <span>{head!.payload || 'no arguments'}</span>
+      </div>
+      {rest.slice(0, SHOWN - 1).map((record) => (
+        <div className="nsp__event-row" key={record.key}>
+          <span className="nsp__event-row-name">{`${record.name}()${record.count > 1 ? ` ×${record.count}` : ''}`}</span>
+          <span className="nsp__event-row-time">{record.time}</span>
+        </div>
+      ))}
+      <button type="button" className="nsp__drawer-action nsp__events-clear" onClick={onClear}>
+        clear log
+      </button>
+    </div>
   );
 }
