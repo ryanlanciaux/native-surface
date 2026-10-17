@@ -1,34 +1,64 @@
 {
   "name": "ignite-demo",
-  "version": "0.1.0",
-  "license": "MIT",
+  "version": "0.0.1",
   "private": true,
-  "type": "module",
-  "description": "An Ignite-style React Native demo app (React Native Radio podcast browser + component showroom) that runs on native-surface.",
+  "license": "MIT",
+  "description": "A brand-new Ignite app (ignite-cli 11.5.0, unmodified boilerplate + a marked native-surface adapter layer) that runs live on native-surface.",
+  "main": "index.tsx",
   "exports": {
     ".": "./src/index.ts",
+    "./vite": "./src/vite.ts",
     "./assets/*": "./assets/*",
     "./package.json": "./package.json"
   },
   "scripts": {
-    "dev": "vite --config dev/vite.config.ts",
-    "build": "vite build --config dev/vite.config.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "echo 'no tests in ignite-demo'"
+    "dev": "vite --config dev/vite.config.mts",
+    "build": "vite build --config dev/vite.config.mts",
+    "typecheck": "tsc --noEmit -p .",
+    "compile": "tsc --noEmit -p . --pretty",
+    "test": "echo \"no unit tests run here (Ignite jest suite needs the RN toolchain)\""
   },
   "peerDependencies": {
     "react": "^19.0.0"
   },
   "dependencies": {
-    "native-surface": "workspace:*"
+    "@expo-google-fonts/space-grotesk": "^0.4.0",
+    "@native-surface/compat": "workspace:*",
+    "@react-navigation/bottom-tabs": "^7.18.16",
+    "@react-navigation/native": "^7.3.16",
+    "@react-navigation/native-stack": "7.18.8",
+    "@react-navigation/stack": "^7.10.22",
+    "apisauce": "3.1.1",
+    "date-fns": "^4.1.0",
+    "i18next": "^23.14.0",
+    "intl-pluralrules": "^2.0.1",
+    "native-surface": "workspace:*",
+    "react-i18next": "^15.0.1",
+    "react-native-drawer-layout": "^4.0.1",
+    "react-native-reanimated": "4.2.1",
+    "react-native-worklets": "0.7.2"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-native": "0.83.2",
+    "react-native-edge-to-edge": "~1.6.1",
+    "react-native-gesture-handler": "~2.30.0",
+    "react-native-keyboard-controller": "1.20.7",
+    "react-native-mmkv": "3.3.3",
+    "react-native-safe-area-context": "~5.6.2",
+    "reactotron-core-client": "^2.9.4",
+    "reactotron-react-js": "^3.3.11",
+    "reactotron-react-native": "^5.0.5",
+    "reactotron-react-native-mmkv": "^0.2.6",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
