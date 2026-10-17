@@ -9,11 +9,15 @@ import { applyHomography, solveHomography, type Pt } from './homography';
 void loadIgniteFonts().catch(() => {});
 
 /**
- * Browsers cap live WebGL contexts (Chromium drops the oldest past ~16), and
- * every surface is one context. The page needs ~12; past this cap a surface
- * waits for another to unmount instead of knocking out a visible one.
+ * Browsers cap live WebGL contexts (Chromium drops the oldest past 16), and
+ * every surface is one context. The budget is the page's total: the section
+ * backgrounds' ShaderCanvas contexts (hero, exploded, playground, CTA) are
+ * always live, so surfaces get the rest. Past it a surface waits for another
+ * to unmount instead of knocking out a visible one (or a shader).
  */
-const MAX_SURFACES = 14;
+const MAX_CONTEXTS = 16;
+const SHADER_CONTEXTS = 4;
+const MAX_SURFACES = MAX_CONTEXTS - SHADER_CONTEXTS;
 let liveCount = 0;
 const waiters = new Set<() => void>();
 
@@ -74,7 +78,12 @@ const POINTER_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercance
  * client coordinates the engine's bounding-box math turns back into exactly
  * that point. Flat, scaled or untransformed surfaces map to themselves.
  */
-function usePerspectivePointer(wrapRef: React.RefObject<HTMLDivElement | null>, width: number, height: number) {
+function usePerspectivePointer(
+  wrapRef: React.RefObject<HTMLDivElement | null>,
+  width: number,
+  height: number,
+  wheel: boolean,
+) {
   const size = useRef({ width, height });
   size.current = { width, height };
   useEffect(() => {
@@ -148,13 +157,37 @@ function usePerspectivePointer(wrapRef: React.RefObject<HTMLDivElement | null>, 
       canvas.dispatchEvent(next);
     };
 
+    // Surfaces with nothing to scroll let the wheel through to the page: stop
+    // it short of the canvas (whose listener cancels it) but don't cancel it.
+    const passWheel = (e: Event) => e.stopPropagation();
+    const onWheel = wheel ? forward : passWheel;
+
     for (const t of POINTER_EVENTS) wrap.addEventListener(t, forward, { capture: true });
-    wrap.addEventListener('wheel', forward, { capture: true, passive: false });
+    wrap.addEventListener('wheel', onWheel, { capture: true, passive: !wheel });
     return () => {
       for (const t of POINTER_EVENTS) wrap.removeEventListener(t, forward, { capture: true });
-      wrap.removeEventListener('wheel', forward, { capture: true });
+      wrap.removeEventListener('wheel', onWheel, { capture: true });
+    };
+  }, [wrapRef, wheel]);
+}
+
+/**
+ * Frees the surface's WebGL context when its canvas goes away. CanvasKit's
+ * `surface.delete()` keeps the context, which then counts against the
+ * browser's cap until GC, so remounts would evict live contexts. Rendered
+ * after the NativeSurface so this cleanup runs after the engine's teardown.
+ */
+function ReleaseContextOnUnmount({ wrapRef }: { wrapRef: React.RefObject<HTMLDivElement | null> }) {
+  useEffect(() => {
+    const canvas = wrapRef.current?.querySelector('canvas');
+    return () => {
+      // Still attached = StrictMode's dev remount reusing this canvas.
+      if (!canvas || canvas.isConnected) return;
+      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      gl?.getExtension('WEBGL_lose_context')?.loseContext();
     };
   }, [wrapRef]);
+  return null;
 }
 
 const PROBE: CSSProperties = { position: 'absolute', width: 1, height: 1, visibility: 'hidden', pointerEvents: 'none' };
@@ -168,6 +201,8 @@ export interface LiveSurfaceProps {
   rootMargin?: string;
   /** Pointer input reaches the app (default true). */
   interactive?: boolean;
+  /** The wheel scrolls the app (default true); false lets it scroll the page. */
+  wheel?: boolean;
   dpr?: number;
   safeAreaInsets?: NativeSurfaceProps['safeAreaInsets'];
   onReady?: (root: NativeRoot) => void;
@@ -195,6 +230,7 @@ export function LiveSurface({
   eager = false,
   rootMargin = '400px',
   interactive = true,
+  wheel = true,
   dpr = SURFACE_DPR,
   safeAreaInsets,
   onReady,
@@ -208,7 +244,7 @@ export function LiveSurface({
   const near = useNearViewport(wrapRef, eager, rootMargin);
   const granted = useSurfaceSlot(near);
   const [painted, setPainted] = useState(false);
-  usePerspectivePointer(wrapRef, width, height);
+  usePerspectivePointer(wrapRef, width, height, wheel);
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -232,17 +268,20 @@ export function LiveSurface({
       <span data-probe style={{ ...PROBE, left: 0, top: height - 1 }} />
       {!painted && fallback}
       {granted && (
-        <NativeSurface
-          width={width}
-          height={height}
-          dpr={dpr}
-          safeAreaInsets={safeAreaInsets}
-          onReady={handleReady}
-          rootRef={rootRef}
-          style={{ position: 'absolute', left: 0, top: 0, ...canvasStyle }}
-        >
-          {children}
-        </NativeSurface>
+        <>
+          <NativeSurface
+            width={width}
+            height={height}
+            dpr={dpr}
+            safeAreaInsets={safeAreaInsets}
+            onReady={handleReady}
+            rootRef={rootRef}
+            style={{ position: 'absolute', left: 0, top: 0, ...canvasStyle }}
+          >
+            {children}
+          </NativeSurface>
+          <ReleaseContextOnUnmount wrapRef={wrapRef} />
+        </>
       )}
     </div>
   );

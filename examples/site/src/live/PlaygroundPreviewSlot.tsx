@@ -90,10 +90,12 @@ export function PlaygroundPreviewSlot({ entry, props, width, onRendered, onSize 
       className="live-pg"
       style={{ width: surface.width * scale, height: surface.height * scale, margin: -bleed }}
     >
+      {/* One surface for every entry (no key): switching resizes it and
+          re-renders the tree instead of creating another WebGL context. */}
       <LiveSurface
-        key={entry.name}
         width={surface.width}
         height={surface.height}
+        wheel={isScreen}
         rootRef={setRoot}
         onReady={(root) => report(root, Math.max(t0.current, engineReadyAt.current))}
         style={{ transform: scale === 1 ? undefined : `scale(${scale})`, transformOrigin: '0 0' }}

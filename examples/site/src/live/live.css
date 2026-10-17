@@ -133,3 +133,18 @@ button.ide__item.is-selected {
   border-radius: 12px;
   background: #f4f2f1;
 }
+
+/* The hero phone's stage and plane are boxes coplanar with the screen, so
+   hit-testing z-fights them against the canvas and drops taps; only the live
+   surface (pointer-events auto) takes input. */
+.phone3d,
+.phone3d__plane {
+  pointer-events: none;
+}
+/* Mobile: a vertical swipe over the phone scrolls the page (the app's own
+   scrolling yields to it); taps and horizontal drags still reach the app. */
+@media (max-width: 899px) {
+  .live-hero canvas {
+    touch-action: pan-y !important;
+  }
+}
