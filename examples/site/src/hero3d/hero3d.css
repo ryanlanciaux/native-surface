@@ -1,0 +1,222 @@
+/* The hero device (src/hero3d/Phone3D.tsx). Geometry is in the frame's
+   560×780 px; facet transforms and lit colours are set inline. */
+
+.phone3d {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 560px;
+  height: 780px;
+  perspective-origin: 50% 50%;
+  pointer-events: none;
+}
+/* Nothing in the 3D context takes pointer input except the live surface,
+   which opts back in (LiveSurface sets pointer-events: auto). The plane is
+   coplanar with the screen, and if it were hit-testable it would z-fight the
+   canvas for taps. */
+.phone3d__plane {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translate3d(0, var(--phone-lift, 0px), 0) rotateY(var(--phone-rotate-y))
+    rotateX(var(--phone-rotate-x)) rotateZ(var(--phone-rotate-z)) scale(var(--phone-scale));
+  pointer-events: none;
+}
+.phone {
+  position: absolute;
+  left: 110px;
+  top: 38px;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+/* ---------- body: walls, buttons ---------- */
+.phone3d__facet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
+  background: #5c6473;
+}
+
+/* ---------- back plate + camera island ---------- */
+.phone__back {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 340px;
+  height: 704px;
+  border-radius: 58px;
+  transform-origin: 0 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  background-color: #2b303b;
+  background-image:
+    radial-gradient(120% 70% at 20% 0%, #ffffff10 0%, #ffffff00 60%),
+    linear-gradient(165deg, #ffffff08 0%, #00000030 100%);
+  box-shadow: inset 0 0 0 1.5px #ffffff14;
+}
+.phone__back > * {
+  position: absolute;
+  backface-visibility: hidden;
+}
+.phone__back-gloss {
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+      118deg,
+      #fff0 0%,
+      #fff0 34%,
+      #ffffff55 44%,
+      #ffffffcc 50%,
+      #ffffff55 56%,
+      #fff0 66%,
+      #fff0 100%
+    )
+    0 0 / 300% 300% no-repeat;
+  transform: translateZ(0.3px);
+  opacity: 0.05;
+}
+.phone__island-wall,
+.phone__camera {
+  left: 16px;
+  top: 16px;
+  width: 134px;
+  height: 140px;
+  border-radius: 38px;
+}
+.phone__island-wall {
+  background: #4a505c;
+}
+.phone__camera {
+  transform: translateZ(3.4px);
+  background-color: #343a46;
+  background-image: linear-gradient(150deg, #ffffff12 0%, #ffffff00 55%, #00000026 100%);
+  box-shadow:
+    inset 0 0 0 1px #ffffff1c,
+    inset 0 -2px 6px #00000040;
+}
+.phone__camera > span {
+  position: absolute;
+  border-radius: 50%;
+}
+.phone__lens {
+  width: 48px;
+  height: 48px;
+  background:
+    radial-gradient(circle at 37% 33%, #ffffffaa 0 1.5px, #fff0 3px),
+    radial-gradient(circle at 60% 64%, #8b5cf640 0 3px, #8b5cf600 7px),
+    radial-gradient(
+      circle,
+      #030409 0 21%,
+      #1c2547 25%,
+      #0b0e18 33%,
+      #050608 50%,
+      #2b3039 53%,
+      #9aa3b2 59%,
+      #4b525e 64%,
+      #1c2027 72%,
+      #30353f 100%
+    );
+  box-shadow:
+    0 1.5px 3px #000a,
+    0 0 0 1px #0009;
+}
+.phone__flash {
+  width: 15px;
+  height: 15px;
+  background: radial-gradient(circle, #fff7e6 0 30%, #d9cfb8 55%, #6b6658 100%);
+  box-shadow: 0 0 0 1px #0008;
+}
+.phone__lidar {
+  width: 15px;
+  height: 15px;
+  background: radial-gradient(circle, #1d2130 0 45%, #0a0b10 70%, #3a3f49 100%);
+  box-shadow: 0 0 0 1px #0008;
+}
+.phone__mic {
+  width: 4px;
+  height: 4px;
+  background: #0b0c10;
+}
+.phone__back-mark {
+  left: 140px;
+  top: 322px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1.5px #ffffff12,
+    0 0 0 1px #00000030;
+  transform: translateZ(0.2px);
+}
+
+/* ---------- front: bezel, live screen, gloss ---------- */
+/* Small z steps keep the coplanar front layers from z-fighting, both in
+   paint and in hit-testing. */
+.phone__body {
+  position: absolute;
+  inset: 0;
+  border-radius: 58px;
+  background: linear-gradient(225deg, #3a3f4a 0%, #1a1d24 45%, #4a505c 100%);
+  backface-visibility: hidden;
+}
+.phone__body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(240deg, #c9d2e0 0%, #5b6270 50%, #aab3c2 100%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.phone__screen {
+  position: absolute;
+  inset: 10px;
+  border-radius: 48px;
+  overflow: hidden;
+  background: #f4f2f1;
+  display: flex;
+  flex-direction: column;
+  transform: translateZ(0.5px);
+  backface-visibility: hidden;
+}
+.phone__gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 58px;
+  background: linear-gradient(
+      118deg,
+      #fff0 0%,
+      #fff0 33%,
+      #ffffff30 42%,
+      #ffffffb0 48%,
+      #ffffffd0 50%,
+      #ffffffb0 52%,
+      #ffffff30 58%,
+      #fff0 67%,
+      #fff0 100%
+    )
+    50% 50% / 300% 300% no-repeat;
+  /* Plain alpha, not a blend mode: mix-blend-mode inside a preserve-3d
+     context makes Chromium flatten/mis-sort it and hide the side walls. */
+  opacity: 0.16;
+  transform: translateZ(1px);
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---------- sparkle overlay ---------- */
+.hero3d-sparkle {
+  position: absolute;
+  left: -80px;
+  top: 240px;
+  width: 720px;
+  height: 620px;
+  pointer-events: none;
+}

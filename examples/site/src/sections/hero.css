@@ -30,8 +30,8 @@
 .hero__copy {
   position: absolute;
   left: 96px;
-  top: 200px;
-  width: 660px;
+  top: 168px;
+  width: 700px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -69,6 +69,12 @@
   letter-spacing: -2.4px;
   color: var(--text);
 }
+/* One line per span on desktop (balanced against the phone); the spaces
+   between them keep the sentence intact for AT and copy/paste. */
+.hero__headline > span {
+  display: block;
+  white-space: nowrap;
+}
 .hero__headline-grad {
   align-self: flex-start;
   background: linear-gradient(90deg, #67e8f9 0%, #a78bfa 100%);
@@ -79,7 +85,7 @@
 }
 .hero__sub {
   margin: 0;
-  width: 520px;
+  width: 560px;
   font: 400 18px/1.6 var(--font-body);
   color: var(--text-muted);
 }
@@ -201,9 +207,9 @@
 }
 
 /* ---------- 3D phone ---------- */
-/* Registered so the live intro (src/live/HeroPhoneSlot.tsx) can animate the
-   pose vars; unregistered custom properties step instead of interpolating.
-   initial-values are the design's resting pose. */
+/* The device pose (src/hero3d): the intro writes these every frame from JS
+   and relights the model with them. Registered so they are typed, and so
+   initial-values give the design's resting pose. */
 @property --phone-rotate-x {
   syntax: '<angle>';
   inherits: false;
@@ -230,58 +236,6 @@
   initial-value: 0px;
 }
 
-.phone3d {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 560px;
-  height: 780px;
-  perspective-origin: 50% 50%;
-}
-.phone3d__plane {
-  position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
-  transform: translate3d(0, var(--phone-lift, 0px), 0) rotateY(var(--phone-rotate-y))
-    rotateX(var(--phone-rotate-x)) rotateZ(var(--phone-rotate-z)) scale(var(--phone-scale));
-}
-.phone {
-  position: absolute;
-  left: 110px;
-  top: 38px;
-  width: 340px;
-  height: 704px;
-  border-radius: 58px;
-  transform-style: preserve-3d;
-}
-.phone__body {
-  position: absolute;
-  inset: 0;
-  border-radius: 58px;
-  background: linear-gradient(225deg, #3a3f4a 0%, #1a1d24 45%, #4a505c 100%);
-}
-.phone__body::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: linear-gradient(240deg, #c9d2e0 0%, #5b6270 50%, #aab3c2 100%);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-.phone__screen {
-  position: absolute;
-  inset: 10px;
-  border-radius: 48px;
-  overflow: hidden;
-  background: #f4f2f1;
-  display: flex;
-  flex-direction: column;
-}
 .phone__status {
   height: 50px;
   flex: none;
@@ -311,13 +265,6 @@
   height: 634px;
   overflow: hidden;
 }
-.phone__gloss {
-  position: absolute;
-  inset: 0;
-  border-radius: 58px;
-  mix-blend-mode: plus-lighter;
-  pointer-events: none;
-}
 
 /* ---------- mobile ---------- */
 @media (max-width: 899px) {
@@ -343,8 +290,20 @@
     order: 1;
   }
   .hero__headline {
+    display: block;
     font-size: clamp(34px, 10.4vw, 64px);
     letter-spacing: -1.2px;
+  }
+  .hero__headline > span {
+    display: inline;
+    white-space: normal;
+  }
+  .hero__headline-grad {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .hero__trail {
+    display: none;
   }
   .hero__sub {
     width: 100%;
