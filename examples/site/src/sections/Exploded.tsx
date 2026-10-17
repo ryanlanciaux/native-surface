@@ -27,7 +27,7 @@ export function Exploded() {
       <div className="exploded__top-fade" aria-hidden="true" />
 
       <header className="exploded__header">
-        <p className="eyebrow">{'03  ·  TAKE IT APART'}</p>
+        <p className="eyebrow">{'02  ·  TAKE IT APART'}</p>
         <h2 className="section-title exploded__title" id="exploded-title">
           Every screen is just components.
         </h2>

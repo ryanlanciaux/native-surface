@@ -109,7 +109,7 @@ export function UnderTheHood() {
     <section className="uth" aria-labelledby="uth-title">
       <div className="uth__header">
         <div className="uth__title-col">
-          <p className="eyebrow">{'02  ·  UNDER THE HOOD'}</p>
+          <p className="eyebrow">{'03  ·  UNDER THE HOOD'}</p>
           <h2 className="section-title uth__title" id="uth-title">
             The same layout engine. Real Skia pixels.
           </h2>
