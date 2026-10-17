@@ -39,8 +39,9 @@ or a Playwright Chromium in `~/.cache/ms-playwright`. Root devDependencies:
 pnpm exec playwright install ffmpeg
 ```
 
-Work artifacts default to the orchestrator dir
-`/home/ryan/projects/wasm-playground-site/work` (`WORK_DIR` overrides).
+Work artifacts default to `work/` at the repo root (git-excluded). `WORK_DIR`
+overrides it (e.g. from a git worktree, point it at the shared work dir), and
+`HEAVY_LOCK` overrides the lock file (default `$WORK_DIR/.heavy.lock`).
 
 ## preview.sh
 
@@ -56,7 +57,7 @@ scripts/site/preview.sh
 | `PORT` | `4870` | vite preview `--strictPort` |
 | `BASE` | `/native-surface/` | vite `--base` |
 | `SKIP_BUILD` | unset | `1` to reuse existing dist |
-| `HEAVY_LOCK` | orchestrator `.heavy.lock` | flock path |
+| `HEAVY_LOCK` | `$WORK_DIR/.heavy.lock` (`work/` at the repo root) | flock path |
 | `SITE_FILTER` | `site` | pnpm filter |
 
 If `examples/site/package.json` is missing the script exits 1 with a message.
@@ -68,9 +69,9 @@ flocked (long-running server). Kill it when done.
 Full-page PNGs at 1440×900 and 390×844, plus `[data-section]` crops.
 
 ```bash
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   node scripts/site/shoot.mjs
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   node scripts/site/shoot.mjs http://localhost:4881/ /tmp/shots --dpr 2 --delay 2000
 ```
 
@@ -91,9 +92,9 @@ Record the first ~6 s after load (Playwright `recordVideo` webm) and transcode
 to H.264 yuv420p mp4.
 
 ```bash
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   node scripts/site/record-hero.mjs
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   node scripts/site/record-hero.mjs --url http://localhost:4881/ --out work/video/hero.mp4 --mobile
 ```
 
@@ -114,19 +115,19 @@ Exit 0 unless `--max-mismatch` is set and exceeded.
 ## Temporary target (site package not built yet)
 
 ```bash
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   pnpm --filter embed-demo build
 pnpm --filter embed-demo exec vite preview --host 0.0.0.0 --port 4881 --strictPort
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+flock work/.heavy.lock \
   node scripts/site/shoot.mjs http://localhost:4881/ \
-  /home/ryan/projects/wasm-playground-site/work/shots/verify --dpr 2
-flock /home/ryan/projects/wasm-playground-site/work/.heavy.lock \
+  work/shots/verify --dpr 2
+flock work/.heavy.lock \
   node scripts/site/record-hero.mjs --url http://localhost:4881/ \
-  --out /home/ryan/projects/wasm-playground-site/work/video/hero.mp4 --seconds 6
+  --out work/video/hero.mp4 --seconds 6
 node scripts/site/diff.mjs \
-  /home/ryan/projects/wasm-playground-site/work/shots/verify/desktop-1440x900@2x.png \
-  /home/ryan/projects/wasm-playground-site/design-src/02.png \
-  /home/ryan/projects/wasm-playground-site/work/shots/verify/diff-vs-02.png
+  work/shots/verify/desktop-1440x900@2x.png \
+  design-src/02.png \
+  work/shots/verify/diff-vs-02.png
 ```
 
 Pick preview ports in **4880–4899** for ad-hoc servers; 4870 is reserved for

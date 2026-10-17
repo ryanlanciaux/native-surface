@@ -14,7 +14,6 @@ import { openLinkInBrowser } from "@/utils/openLinkInBrowser"
 const chainReactLogo = require("@assets/images/demo/cr-logo.png")
 const reactNativeLiveLogo = require("@assets/images/demo/rnl-logo.png")
 const reactNativeNewsletterLogo = require("@assets/images/demo/rnn-logo.png")
-const reactNativeRadioLogo = require("@assets/images/demo/rnr-logo.png")
 
 export const DemoCommunityScreen: FC<DemoTabScreenProps<"DemoCommunity">> =
   function DemoCommunityScreen(_props) {
@@ -51,17 +50,7 @@ export const DemoCommunityScreen: FC<DemoTabScreenProps<"DemoCommunity">> =
           style={themed($sectionTitle)}
         />
         <Text tx="demoCommunityScreen:theLatestInReactNative" style={themed($description)} />
-        <ListItem
-          tx="demoCommunityScreen:reactNativeRadioLink"
-          bottomSeparator
-          rightIcon={isRTL ? "caretLeft" : "caretRight"}
-          LeftComponent={
-            <View style={[$styles.row, themed($logoContainer)]}>
-              <Image source={reactNativeRadioLogo} style={$logo} />
-            </View>
-          }
-          onPress={() => openLinkInBrowser("https://reactnativeradio.com/")}
-        />
+        {/* native-surface adapter: the podcast link is removed; the demo's Podcasts tab plays a fictional show. */}
         <ListItem
           tx="demoCommunityScreen:reactNativeNewsletterLink"
           bottomSeparator

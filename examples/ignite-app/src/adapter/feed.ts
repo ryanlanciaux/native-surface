@@ -1,12 +1,14 @@
 /**
- * native-surface adapter: the React Native Radio feed the Ignite demo fetches
- * from rss2json (`api.json?rss_url=…simplecast…`), bundled so the app runs
- * offline. Same `ApiFeedResponse` shape the boilerplate's Api class parses;
- * titles, dates, durations and covers follow the site design (03.png).
+ * native-surface adapter: a bundled, fictional podcast feed standing in for the
+ * one the Ignite demo fetches from rss2json, so the app runs offline. Same
+ * `ApiFeedResponse` shape the boilerplate's Api class parses. "Lanternfish
+ * Radio", its hosts and episodes are made up for the demo (not a real show);
+ * dates, durations and covers follow the site design (03.png). Links point at
+ * example.com, which never resolves to a real episode.
  */
 import type { ApiFeedResponse, EpisodeItem } from "@/services/api/types"
 
-const cover = (n: number) => new URL(`../../assets/covers/rnr-${n}.jpg`, import.meta.url).href
+const cover = (n: number) => new URL(`../../assets/covers/ep-${n}.jpg`, import.meta.url).href
 
 /**
  * Ignite's EpisodeItem, plus the previous hand-built app's `cover` and
@@ -23,16 +25,16 @@ const episode = (
   duration: number,
   description: string,
 ): DemoEpisode => ({
-  title: `RNR ${n} - ${subtitle}`,
+  title: `LFR ${n} - ${subtitle}`,
   pubDate: `${pubDate} 09:00:00`,
-  link: `https://reactnativeradio.com/episodes/rnr-${n}`,
-  guid: `rnr-${n}`,
-  author: "Infinite Red",
+  link: `https://example.com/lanternfish-radio/lfr-${n}`,
+  guid: `lfr-${n}`,
+  author: "Mara Quill and Theo Brandt",
   thumbnail: cover(n),
   description,
   content: description,
   enclosure: {
-    link: `https://reactnativeradio.com/episodes/rnr-${n}`,
+    link: `https://example.com/lanternfish-radio/lfr-${n}`,
     type: "audio/mpeg",
     length: duration * 16000,
     duration,
@@ -45,7 +47,7 @@ const episode = (
 
 const mmss = (m: number, s: number) => m * 60 + s
 
-export const rnrEpisodes: DemoEpisode[] = [
+export const demoEpisodes: DemoEpisode[] = [
   episode(314, "Shipping the New Architecture", "2023-07-13", mmss(47, 2),
     "Fabric, TurboModules and bridgeless mode: what it takes to flip the switch in a production app."),
   episode(313, "Routing with Expo Router", "2023-07-06", mmss(52, 18),
@@ -60,18 +62,18 @@ export const rnrEpisodes: DemoEpisode[] = [
     "Device farms, Maestro flows and the tests worth keeping."),
 ]
 
-/** Favorited on first launch (the design shows RNR 314 with "Unlike"). */
-export const rnrInitialFavorites: readonly string[] = ["rnr-314"]
+/** Favorited on first launch (the design shows episode 314 with "Unlike"). */
+export const demoInitialFavorites: readonly string[] = ["lfr-314"]
 
-export const rnrFeed: ApiFeedResponse = {
+export const demoFeed: ApiFeedResponse = {
   status: "ok",
   feed: {
-    url: "https://feeds.simplecast.com/hEI_f9Dx",
-    title: "React Native Radio",
-    link: "https://reactnativeradio.com",
-    author: "Infinite Red",
-    description: "Exploring React Native together.",
+    url: "https://example.com/lanternfish-radio/feed.xml",
+    title: "Lanternfish Radio",
+    link: "https://example.com/lanternfish-radio",
+    author: "Mara Quill and Theo Brandt",
+    description: "A made-up show about building apps, for the demo.",
     image: cover(314),
   },
-  items: rnrEpisodes,
+  items: demoEpisodes,
 }

@@ -9,7 +9,9 @@ cd "$ROOT"
 SITE_DIR="$ROOT/examples/site"
 PORT="${PORT:-4870}"
 BASE="${BASE:-/native-surface/}"
-LOCK="${HEAVY_LOCK:-/home/ryan/projects/wasm-playground-site/work/.heavy.lock}"
+# Orchestrator work/ dir (git-excluded) at the repo root; WORK_DIR / HEAVY_LOCK override.
+WORK_DIR="${WORK_DIR:-$ROOT/work}"
+LOCK="${HEAVY_LOCK:-$WORK_DIR/.heavy.lock}"
 FILTER="${SITE_FILTER:-site}"
 
 if [[ ! -f "$SITE_DIR/package.json" ]]; then

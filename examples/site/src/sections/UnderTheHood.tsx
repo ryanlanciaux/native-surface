@@ -32,7 +32,7 @@ const STEPS: { index: string; title: string; body: string; color: string; Icon: 
   {
     index: '04',
     title: 'One <canvas>',
-    body: 'A modern browser tab is the runtime. Share a URL and the app opens, no install and no simulator.',
+    body: 'A modern browser tab is the runtime. Deploy the bundle and anyone with the URL can open the app: no install, no simulator.',
     color: '#A78BFA',
     Icon: AppWindow,
   },

@@ -27,7 +27,7 @@ import { ThemeProvider, useAppTheme } from "@/theme/context"
 import { darkTheme, lightTheme } from "@/theme/theme"
 import { storage } from "@/utils/storage"
 
-import { rnrEpisodes, rnrInitialFavorites } from "./adapter/feed"
+import { demoEpisodes, demoInitialFavorites } from "./adapter/feed"
 import { toEpisodeItem, type LegacyEpisode } from "./adapter/legacy"
 import { useIgniteReady } from "./boot"
 import { StatusBar } from "./StatusBar"
@@ -59,9 +59,9 @@ export interface IgniteAppProps {
   initialTab?: LegacyTabName | IgniteRoute
   /** Draw a 62pt (iPhone 16 Pro) "9:41" status bar inside the app (a host bezel usually draws its own). */
   showStatusBar?: boolean
-  /** Episodes to list instead of the bundled React Native Radio feed. */
+  /** Episodes to list instead of the bundled demo feed (fictional "Lanternfish Radio"). */
   episodes?: ReadonlyArray<EpisodeItem | LegacyEpisode>
-  /** Episode guids favorited at start. Default: RNR 314, as in the design. */
+  /** Episode guids favorited at start. Default: episode 314 ("lfr-314"), as in the design. */
   initialFavorites?: readonly string[]
   /** After a Like/Unlike, with the episode and its new state. */
   onPressFavorite?: (episode: EpisodeItem, isFavorite: boolean) => void
@@ -154,7 +154,7 @@ export function IgniteApp({
   initialTab,
   showStatusBar = false,
   episodes,
-  initialFavorites = rnrInitialFavorites,
+  initialFavorites = demoInitialFavorites,
   onPressFavorite,
   onTabChange,
 }: IgniteAppProps) {
@@ -167,7 +167,7 @@ export function IgniteApp({
   const onPressFavoriteRef = useRef(onPressFavorite)
   onPressFavoriteRef.current = onPressFavorite
   const [seed] = useState<EpisodeSeed>(() => ({
-    episodes: (episodes ?? rnrEpisodes).map(toEpisodeItem),
+    episodes: (episodes ?? demoEpisodes).map(toEpisodeItem),
     initialFavorites,
     onToggleFavorite: (episode, isFavorite) => onPressFavoriteRef.current?.(episode, isFavorite),
   }))

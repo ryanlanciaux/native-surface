@@ -8,15 +8,15 @@ import './ignite.css';
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 export const COVERS: Record<string, string> = {
-  'rnr-314.png': asset('images/cover-2.png'),
-  'rnr-313.png': asset('images/cover-3.png'),
-  'rnr-312.png': asset('images/cover-4.png'),
+  'lfr-314.png': asset('images/cover-2.png'),
+  'lfr-313.png': asset('images/cover-3.png'),
+  'lfr-312.png': asset('images/cover-4.png'),
 };
 
 export function IgniteHeading({ color, style }: { color?: string; style?: CSSProperties }) {
   return (
     <div className="ig-heading" style={{ color, ...style }}>
-      React Native Radio episodes
+      Lanternfish Radio episodes
     </div>
   );
 }
@@ -56,9 +56,9 @@ export interface IgniteEpisode {
 }
 
 export const EPISODES: IgniteEpisode[] = [
-  { meta: 'Jul 13, 2023 · 47:02', title: 'RNR 314 - Shipping the New Architecture', cover: 'rnr-314.png' },
-  { meta: 'Jul 06, 2023 · 52:18', title: 'RNR 313 - Routing with Expo Router', cover: 'rnr-313.png' },
-  { meta: 'Jun 29, 2023 · 44:10', title: 'RNR 312 - Yoga, Skia and the canvas', cover: 'rnr-312.png' },
+  { meta: 'Jul 13, 2023 · 47:02', title: 'LFR 314 - Shipping the New Architecture', cover: 'lfr-314.png' },
+  { meta: 'Jul 06, 2023 · 52:18', title: 'LFR 313 - Routing with Expo Router', cover: 'lfr-313.png' },
+  { meta: 'Jun 29, 2023 · 44:10', title: 'LFR 312 - Yoga, Skia and the canvas', cover: 'lfr-312.png' },
 ];
 
 export function IgniteEpisodeCard({

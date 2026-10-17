@@ -63,7 +63,7 @@ const en = {
     contributeToIgniteLink: "Contribute to Ignite",
     theLatestInReactNativeTitle: "The latest in React Native",
     theLatestInReactNative: "We're here to keep you current on all React Native has to offer.",
-    reactNativeRadioLink: "React Native Radio",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "React Native Newsletter",
     reactNativeLiveLink: "React Native Live",
     chainReactConferenceLink: "Chain React Conference",
@@ -101,7 +101,7 @@ const en = {
       "If this doesn't work, ensure the Reactotron desktop app is running and reload app.",
   },
   demoPodcastListScreen: {
-    title: "React Native Radio episodes",
+    title: "Lanternfish Radio episodes", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "Only Show Favorites",
     favoriteButton: "Favorite",
     unfavoriteButton: "Unfavorite",

@@ -16,7 +16,7 @@ import { findDeclaringFile, pickComponentPath as serverPick, sourcePlugin } from
 const Card = (props: { title?: string }): ReactElement => createElement('div', null, props.title);
 const Screen = (): ReactElement => createElement('div');
 
-const episode = { guid: 'rnr-314', title: 'RNR 314', pubDate: '2023-07-13', duration: '47:02', enclosure: { url: 'x' } };
+const episode = { guid: 'lfr-314', title: 'LFR 314', pubDate: '2023-07-13', duration: '47:02', enclosure: { url: 'x' } };
 
 function index() {
   const modules = new Map<string, Record<string, unknown>>([
@@ -72,7 +72,7 @@ describe('fields + chips', () => {
       if (apply) args = apply(args);
     });
     (bound.onPressFavorite as () => void)();
-    expect(events).toEqual(["onPressFavorite({ guid: 'rnr-314' })"]);
+    expect(events).toEqual(["onPressFavorite({ guid: 'lfr-314' })"]);
     expect(args.isFavorite).toBe(true);
   });
   it('finds the scheme: a theme arg, or a dark chip', () => {
