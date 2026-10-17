@@ -192,7 +192,7 @@ function summarize(v: unknown): string {
   return describeValue(v);
 }
 
-/** `{ guid: 'rnr-314' }` for the record a callback was about (from its args, or the story's own record). */
+/** `{ guid: 'lfr-314' }` for the record a callback was about (from its args, or the story's own record). */
 export function describeEvent(callArgs: unknown[], args: Args): string {
   if (callArgs.length) return callArgs.map(summarize).join(', ');
   const subject = Object.values(args).find((v) => isPlain(v) && ('guid' in v || 'id' in v));

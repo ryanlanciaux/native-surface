@@ -6,7 +6,7 @@
  */
 import type { ApiResponse, ApisauceConfig } from "apisauce"
 
-import { rnrFeed } from "./feed"
+import { demoFeed } from "./feed"
 
 const FEED_PATH = /(^|\/)api\.json(\?|$)/
 
@@ -19,7 +19,7 @@ function respond<T>(url: string, config: ApisauceConfig): ApiResponse<T> {
     duration: 0,
   }
   return ok
-    ? { ...base, ok: true, problem: null, originalError: null, data: rnrFeed as T }
+    ? { ...base, ok: true, problem: null, originalError: null, data: demoFeed as T }
     : ({ ...base, ok: false, problem: "CLIENT_ERROR", originalError: null, data: undefined } as unknown as ApiResponse<T>)
 }
 

@@ -40,7 +40,7 @@ Everything in `app/` is the generated boilerplate, running on native-surface:
 | `tsconfig.json` | Ignite's options without `extends: "expo/tsconfig.base"`. Expo modules point at the compat shims via `paths`, so `tsc` checks what actually runs. |
 | `types/expo-font.d.ts` | The slice of the expo-font API the app uses, typed like upstream (fonts are Metro asset numbers under RN typings). |
 | `src/vite.ts` | `igniteDemo()`, scoped to this package. It does three things: (1) resolves the `@/` and `@assets/` path aliases (Ignite's babel/tsconfig); (2) sends `apisauce` in `app/services/api` to the offline feed; (3) swaps the Showroom's two remote GitHub images, which have no CORS headers, for bundled copies in `assets/remote/`. |
-| `src/adapter/feed.ts`, `apisauce-fixture.ts` | The React Native Radio feed (rss2json shape), bundled. The design's titles, dates, durations and covers are in `assets/covers/`. Ignite's `Api` class runs unchanged on top of it. |
+| `src/adapter/feed.ts`, `apisauce-fixture.ts` | A bundled podcast feed (rss2json shape) for a **fictional** show, "Lanternfish Radio" (made-up hosts, episode titles and descriptions; links go to `example.com`). It stands in for the real feed the boilerplate fetches, so the demo never presents invented episodes as a real podcast. Dates, durations and covers (`assets/covers/ep-*.jpg`) follow the site design. Ignite's `Api` class runs unchanged on top of it. |
 | `src/adapter/legacy.ts` | Accepts the previous hand-built app's `episodes` shape. |
 | `src/IgniteApp.tsx` | `app.tsx` for embedding: the same providers and `AppNavigator`, without URL linking or persisted navigation, with per-instance auth. Props are `theme`, `initialRoute`, `initialTab`, `showStatusBar`, `episodes`, `initialFavorites`, `onPressFavorite` and `onTabChange`. |
 | `src/boot.ts` | `app.tsx`'s startup (fonts via expo-font, i18n, the date-fns locale), shared once per page. |
@@ -61,6 +61,11 @@ Everything in `app/` is the generated boilerplate, running on native-surface:
   - `EpisodeCard` is now exported.
   - The card uses the episode's own cover (a bundled `thumbnail`, @3x, 64pt) instead of a random placeholder.
 - `i18n/{en,es,fr,ja,ko}.ts`: the Welcome screen's `postscript` string loses its em dash ("psst — …" → "psst: …"), per the site's no-em-dash copy rule. Same meaning, one line per locale.
+- Fictional demo show (Lanternfish Radio), so the app matches the bundled feed:
+  - `i18n/{en,ar,es,fr,hi,ja,ko}.ts`: `demoPodcastListScreen.title` names Lanternfish Radio; the `demoCommunityScreen.reactNativeRadioLink` key is removed.
+  - `screens/DemoCommunityScreen.tsx`: the React Native Radio list item (logo and link) is removed.
+  - `context/EpisodeContext.tsx`: the title/subtitle split matches the feed's `LFR 314 - …` titles (upstream matches `RNR`).
+  - `services/api/index.ts`: doc comment only. `.maestro/flows/FavoritePodcast.yaml` follows the new title and prefix.
 - `screens/DemoShowroomScreen/SectionListWithKeyboardAwareScrollView.tsx`: moves `contentContainerStyle` after the props spread. This works around an engine gap (see below) and gives the same result on a device.
 
 ## Engine gaps found (native-surface, reported, not patched here)

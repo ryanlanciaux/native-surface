@@ -49,7 +49,7 @@ export type {
 } from "./catalog"
 
 // Episode data + the Ignite episode store (EpisodeContext).
-export { rnrEpisodes as episodes, rnrFeed } from "./adapter/feed"
+export { demoEpisodes as episodes, demoFeed } from "./adapter/feed"
 export type { DemoEpisode } from "./adapter/feed"
 export { toEpisodeItem } from "./adapter/legacy"
 export type { LegacyEpisode } from "./adapter/legacy"

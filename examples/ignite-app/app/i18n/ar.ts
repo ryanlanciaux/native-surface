@@ -64,7 +64,7 @@ const ar: Translations = {
     contributeToIgniteLink: "ساهم في Ignite",
     theLatestInReactNativeTitle: "الاحدث في React Native",
     theLatestInReactNative: "نخن هنا لنبقيك محدثاً على جميع React Native التي تعرضها",
-    reactNativeRadioLink: "راديو React Native",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "نشرة اخبار React Native",
     reactNativeLiveLink: "مباشر React Native",
     chainReactConferenceLink: "مؤتمر Chain React",
@@ -99,7 +99,7 @@ const ar: Translations = {
       "اذا لم ينجح ذلك، فتأكد من تشغيل الحاسوب ب Reactotron وأعد تحميل التطبيق",
   },
   demoPodcastListScreen: {
-    title: "حلقات إذاعية React Native",
+    title: "حلقات Lanternfish Radio", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "المفضلة فقط",
     favoriteButton: "المفضل",
     unfavoriteButton: "غير مفضل",

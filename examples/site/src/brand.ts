@@ -7,7 +7,12 @@ export const BRAND = {
   year: 2026,
   /** Ryan's X account, linked from the nav and footer. */
   x: { handle: '@ryanlanciaux', url: 'https://x.com/ryanlanciaux' },
-  cli: 'npx native-surface playground',
+  /** Hero chip. `npx native-surface playground` needs both packages in the
+   *  app first: the engine owns the bin, the playground is resolved from cwd. */
+  cli: {
+    install: 'npm i -D native-surface @native-surface/playground',
+    run: 'npx native-surface playground',
+  },
   github: 'https://github.com/ryanlanciaux/native-surface',
 } as const;
 

@@ -8,7 +8,7 @@ onFlowStart:
 ---
 - runFlow: ../shared/_Login.yaml
 - tapOn: "Podcast"
-- assertVisible: "React Native Radio episodes"
+- assertVisible: "Lanternfish Radio episodes" # native-surface adapter: fictional demo feed
 - tapOn:
     text: ${FAVORITES_TEXT}
 - assertVisible: "This looks a bit empty"
@@ -21,7 +21,7 @@ onFlowStart:
     commands:
       - scroll
 - copyTextFrom:
-    text: "RNR .*" # assumes all podcast titles start with RNR
+    text: "LFR .*" # assumes all podcast titles start with LFR (native-surface adapter: fictional demo feed)
     index: 2 # grab the third one, others might not be fully visible
 - longPressOn: ${maestro.copiedText}
 - scrollUntilVisible:

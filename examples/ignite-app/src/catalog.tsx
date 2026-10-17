@@ -29,7 +29,7 @@ import type { EpisodeItem } from "@/services/api/types"
 import { ThemeProvider } from "@/theme/context"
 import { darkTheme, lightTheme } from "@/theme/theme"
 
-import { rnrEpisodes, rnrInitialFavorites } from "./adapter/feed"
+import { demoEpisodes, demoInitialFavorites } from "./adapter/feed"
 import { useIgniteReady } from "./boot"
 import { device } from "./device"
 import { IgniteApp } from "./IgniteApp"
@@ -278,7 +278,7 @@ const opts = (values: readonly string[]): CatalogControlOption[] => values.map((
 const iconNames = Object.keys(iconRegistry) as IconTypes[]
 const iconOptions: CatalogControlOption[] = [{ label: "none", value: undefined }, ...opts(iconNames)]
 /** guid → bundled cover URL. */
-export const covers: Record<string, string> = Object.fromEntries(rnrEpisodes.map((e) => [e.guid, e.thumbnail]))
+export const covers: Record<string, string> = Object.fromEntries(demoEpisodes.map((e) => [e.guid, e.thumbnail]))
 const coverOptions: CatalogControlOption[] = Object.entries(covers).map(([guid, uri]) => ({ label: guid, value: uri }))
 const remoteImage = (name: string) => new URL(`../assets/remote/${name}.png`, import.meta.url).href
 const igniteLogo = remoteImage("188244137-a35ab1b9-658d-4701-b1dd-7caa51173fa9")
@@ -293,7 +293,7 @@ const CARD_BLEED = 28
 // Default component width (the design's 272pt column). Hosts lay components
 // out at their own device width minus the app's 24pt gutters (354 on iPhone 16 Pro).
 const W = 272
-const ep314 = rnrEpisodes[0]!
+const ep314 = demoEpisodes[0]!
 const screenSize = { width: device.screenWidth, height: device.screenHeight }
 
 export const componentCatalog: AnyCatalogEntry[] = [
@@ -304,7 +304,7 @@ export const componentCatalog: AnyCatalogEntry[] = [
     size: { width: W, height: 88 },
     bleed: 0,
     usage: `<Text preset="heading" tx="demoPodcastListScreen:title" />`,
-    defaultProps: { text: "React Native Radio episodes", preset: "heading" },
+    defaultProps: { text: "Lanternfish Radio episodes", preset: "heading" },
     variants: [
       { name: "heading", props: { preset: "heading" } },
       { name: "subheading", props: { preset: "subheading", text: "Components to jump start your project!" } },
@@ -574,7 +574,7 @@ export const screenCatalog: AnyCatalogEntry[] = [
   screen("WelcomeScreen", "Welcome", "The generated app's welcome screen; \"Let's go!\" opens the demo tabs."),
   screen("LoginScreen", "Login", "Sign-in (fresh install): prefilled demo credentials, validation, \"Tap to log in!\"."),
   screen("DemoShowroomScreen", "DemoShowroom", "Components tab: every boilerplate component with its use cases, drawer navigation."),
-  screen("DemoPodcastListScreen", "DemoPodcastList", "Podcasts tab: React Native Radio episodes, favorites and the 'Only Show Favorites' filter."),
+  screen("DemoPodcastListScreen", "DemoPodcastList", "Podcasts tab: Lanternfish Radio episodes (a fictional show), favorites and the 'Only Show Favorites' filter."),
   screen("DemoCommunityScreen", "DemoCommunity", "Community tab: Infinite Red community links."),
   screen("DemoDebugScreen", "DemoDebug", "Debug tab: app info, theme toggle, Reactotron, log out."),
 ]
@@ -583,4 +583,4 @@ export function getCatalogEntry(name: string): AnyCatalogEntry | undefined {
   return [...componentCatalog, ...screenCatalog].find((e) => e.name === name)
 }
 
-export { rnrInitialFavorites as initialFavorites }
+export { demoInitialFavorites as initialFavorites }

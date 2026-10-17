@@ -1,5 +1,5 @@
 import { Github } from 'lucide-react';
-import { LINKS } from '../brand';
+import { EXTERNAL, LINKS } from '../brand';
 import { FILLS, ShaderCanvas } from '../shaders';
 import './final-cta.css';
 
@@ -12,10 +12,10 @@ export function FinalCta() {
       </h2>
       <p className="cta__body">Add the Vite preset and run your React Native components in any React web app.</p>
       <div className="cta__buttons">
-        <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">
+        <a className="btn-primary" href={LINKS.github} {...EXTERNAL}>
           <Github size={18} strokeWidth={2} aria-hidden="true" /> View on GitHub
         </a>
-        <a className="btn-ghost" href={LINKS.docs}>
+        <a className="btn-ghost" href={LINKS.docs} {...EXTERNAL}>
           Read the docs
         </a>
       </div>

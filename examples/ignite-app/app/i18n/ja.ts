@@ -65,7 +65,7 @@ const ja: Translations = {
     contributeToIgniteLink: "Igniteにコントリビュートする",
     theLatestInReactNativeTitle: "React Nativeの今",
     theLatestInReactNative: "React Nativeの現在をあなたにお届けします。",
-    reactNativeRadioLink: "React Native Radio",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "React Native Newsletter",
     reactNativeLiveLink: "React Native Live",
     chainReactConferenceLink: "Chain React Conference",
@@ -103,7 +103,7 @@ const ja: Translations = {
       "もし動かなければ、Reactotronのデスクトップアプリが実行されていることを確認して、アプリをリロードしてください。",
   },
   demoPodcastListScreen: {
-    title: "React Native Radioのエピソード",
+    title: "Lanternfish Radioのエピソード", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "お気に入り表示",
     favoriteButton: "お気に入り",
     unfavoriteButton: "お気に入りを外す",

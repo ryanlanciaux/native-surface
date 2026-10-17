@@ -10,18 +10,15 @@ export const DEFAULT_URL = 'http://localhost:4870/native-surface/';
 export const DEFAULT_DESKTOP = { width: 1440, height: 900 };
 export const DEFAULT_MOBILE = { width: 390, height: 844 };
 
-const ORCHESTRATOR_WORK = '/home/ryan/projects/wasm-playground-site/work';
 const SYSTEM_CHROMIUM = '/usr/bin/chromium';
 
 export function repoRoot() {
   return dirname(dirname(fileURLToPath(new URL('.', import.meta.url))));
 }
 
-/** Orchestrator work/ dir (shots, video, lock). Override with WORK_DIR. */
+/** Orchestrator work/ dir (shots, video, lock): <repo root>/work, git-excluded. Override with WORK_DIR (e.g. from a lane worktree). */
 export function workDir() {
-  if (process.env.WORK_DIR) return process.env.WORK_DIR;
-  if (existsSync(ORCHESTRATOR_WORK)) return ORCHESTRATOR_WORK;
-  return join(repoRoot(), 'work');
+  return process.env.WORK_DIR || join(repoRoot(), 'work');
 }
 
 export function heavyLockPath() {

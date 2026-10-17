@@ -64,7 +64,7 @@ const hi: Translations = {
     contributeToIgniteLink: "Ignite में योगदान दें",
     theLatestInReactNativeTitle: "React Native में नवीनतम",
     theLatestInReactNative: "हम आपको React Native के सभी प्रस्तावों पर अपडेट रखने के लिए यहां हैं।",
-    reactNativeRadioLink: "React Native रेडियो",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "React Native न्यूजलेटर",
     reactNativeLiveLink: "React Native लाइव",
     chainReactConferenceLink: "Chain React कॉन्फ्रेंस",
@@ -102,7 +102,7 @@ const hi: Translations = {
       "यदि यह काम नहीं करता है, तो सुनिश्चित करें कि Reactotron डेस्कटॉप ऐप चल रहा है और ऐप को पुनः लोड करें।",
   },
   demoPodcastListScreen: {
-    title: "React Native रेडियो एपिसोड",
+    title: "Lanternfish Radio एपिसोड", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "केवल पसंदीदा दिखाएं",
     favoriteButton: "पसंदीदा",
     unfavoriteButton: "नापसंद",

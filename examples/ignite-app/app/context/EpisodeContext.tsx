@@ -150,7 +150,7 @@ export const useEpisode = (episode: EpisodeItem) => {
   }
 
   const trimmedTitle = episode.title?.trim()
-  const titleMatches = trimmedTitle?.match(/^(RNR.*\d)(?: - )(.*$)/)
+  const titleMatches = trimmedTitle?.match(/^(LFR.*\d)(?: - )(.*$)/) // native-surface adapter: the fictional demo feed's "LFR 314 - …" titles
   const parsedTitleAndSubtitle =
     titleMatches && titleMatches.length === 3
       ? { title: titleMatches[1], subtitle: titleMatches[2] }

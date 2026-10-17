@@ -66,7 +66,7 @@ const es: Translations = {
     theLatestInReactNativeTitle: "Lo último en el mundo de React Native",
     theLatestInReactNative:
       "Estamos aquí para mantenerte al día con todo lo que React Native tiene para ofrecer.",
-    reactNativeRadioLink: "React Native Radio",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "Newsletter de React Native",
     reactNativeLiveLink: "React Native Live",
     chainReactConferenceLink: "Conferencia Chain React",
@@ -104,7 +104,7 @@ const es: Translations = {
       "Si esto no funciona, asegúrate de que la app de escritorio de Reactotron se esté ejecutando, y luego recarga la app.",
   },
   demoPodcastListScreen: {
-    title: "Episodios de React Native Radio",
+    title: "Episodios de Lanternfish Radio", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "Mostrar solo favoritos",
     favoriteButton: "Favorito",
     unfavoriteButton: "No favorito",

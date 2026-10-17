@@ -91,6 +91,7 @@
 }
 .hero__ctas {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding-top: 8px;
@@ -99,7 +100,7 @@
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  padding: 15px 18px;
+  padding: 9px 16px;
   border-radius: 14px;
   background: #ffffff08;
   box-shadow: inset 0 0 0 1px #ffffff1f;
@@ -110,10 +111,19 @@
     background 160ms ease,
     color 160ms ease;
 }
+.command__lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
 .command code {
-  font: 400 15px var(--font-mono);
+  font: 400 12px/1.5 var(--font-mono);
   color: #d5dbe5;
   white-space: nowrap;
+}
+.command code + code {
+  color: #98a2b3;
 }
 .command:hover {
   background: #ffffff10;
@@ -326,9 +336,6 @@
   .hero__ctas {
     flex-wrap: wrap;
     padding-top: 4px;
-  }
-  .command code {
-    font-size: 13px;
   }
   .hero__proof {
     width: 100%;

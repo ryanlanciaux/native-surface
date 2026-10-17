@@ -2,12 +2,14 @@ import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { BRAND } from '../brand';
 
-/** "$ npx native-surface playground" chip; click copies the command. */
+const COMMAND = `${BRAND.cli.install} && ${BRAND.cli.run}`;
+
+/** Install + run chip ("$ npm i -D …" / "$ npx native-surface playground"); click copies both as one line. */
 export function CopyCommand({ className = '' }: { className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(BRAND.cli);
+      await navigator.clipboard.writeText(COMMAND);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -15,8 +17,11 @@ export function CopyCommand({ className = '' }: { className?: string }) {
     }
   };
   return (
-    <button type="button" className={`command ${className}`} onClick={copy} aria-label={`Copy command: ${BRAND.cli}`}>
-      <code>$ {BRAND.cli}</code>
+    <button type="button" className={`command ${className}`} onClick={copy} aria-label={`Copy command: ${COMMAND}`}>
+      <span className="command__lines">
+        <code>$ {BRAND.cli.install}</code>
+        <code>$ {BRAND.cli.run}</code>
+      </span>
       {copied ? <Check size={16} color="#C6F432" /> : <Copy size={16} />}
       <span className="visually-hidden" aria-live="polite">
         {copied ? 'Copied' : ''}

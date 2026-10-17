@@ -44,7 +44,7 @@ export class Api {
   }
 
   /**
-   * Gets a list of recent React Native Radio episodes.
+   * Gets a list of recent podcast episodes. (native-surface adapter: served from the bundled, fictional Lanternfish Radio feed.)
    */
   async getEpisodes(): Promise<{ kind: "ok"; episodes: EpisodeItem[] } | GeneralApiProblem> {
     // make the api call

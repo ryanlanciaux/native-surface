@@ -64,7 +64,7 @@ const ko: Translations = {
     contributeToIgniteLink: "Ignite 에 기여하기",
     theLatestInReactNativeTitle: "React Native 의 최신정보",
     theLatestInReactNative: "React Native 가 제공하는 모든 최신 정보를 알려드립니다.",
-    reactNativeRadioLink: "React Native 라디오",
+    // native-surface adapter: reactNativeRadioLink removed (the demo feed is a fictional show)
     reactNativeNewsletterLink: "React Native 뉴스레터",
     reactNativeLiveLink: "React Native 라이브 스트리밍",
     chainReactConferenceLink: "Chain React 컨퍼런스",
@@ -102,7 +102,7 @@ const ko: Translations = {
       "만약에 동작하지 않는 경우, Reactotron 데스크탑 앱이 실행중인지 확인 후 앱을 다시 실행해보세요.",
   },
   demoPodcastListScreen: {
-    title: "React Native 라디오 에피소드",
+    title: "Lanternfish Radio 에피소드", // native-surface adapter: fictional demo show (not a real podcast)
     onlyFavorites: "즐겨찾기만 보기",
     favoriteButton: "즐겨찾기",
     unfavoriteButton: "즐겨찾기 해제",

@@ -67,16 +67,15 @@ export function SurfacesApp() {
           </a>
           <a
             className="corner-link"
-            href="https://x.com/ryanlanciaux"
+            href={BRAND.x.url}
             target="_blank"
             rel="noreferrer"
           >
             <XIcon />
-            @ryanlanciaux
+            {BRAND.x.handle}
           </a>
         </div>
         <p className="eyebrow">
-          wasm-playground ·{' '}
           <a className="eyebrow__home" href={import.meta.env.BASE_URL}>
             {BRAND.name}
           </a>
