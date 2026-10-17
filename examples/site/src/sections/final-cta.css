@@ -2,8 +2,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  /* min-height, not height: the content can grow (wrap, font scaling) without being clipped. */
-  min-height: 620px;
+  height: 620px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -25,9 +24,7 @@
 }
 .cta__body {
   margin: 0;
-  max-width: 640px;
-  font: 400 18px/1.55 var(--font-body);
-  text-wrap: balance;
+  font: 400 18px var(--font-body);
   color: var(--text-muted);
 }
 .cta__buttons {
@@ -39,6 +36,7 @@
 
 @media (max-width: 899px) {
   .cta {
+    height: auto;
     min-height: 540px;
     padding: 96px 20px 150px;
     gap: 20px;
