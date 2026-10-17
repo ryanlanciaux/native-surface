@@ -24,10 +24,12 @@ const pose = perspectiveTransform(PHONE_POSE, FRAME.height);
 const REST: Pose = { lift: 0, rx: 0, ry: 0, rz: 0, scale: PHONE_POSE.scale };
 
 // Only claims that hold: layout is yoga-layout (React Native's engine) built
-// to wasm, paint is Skia through CanvasKit, and the app code is unchanged.
+// to wasm, paint is Skia through CanvasKit. The stock Ignite app needed edits
+// in 8 files under app/ (see examples/ignite-app/NATIVE-SURFACE.md), so no
+// "0 lines changed" stat.
 const STATS = [
   { value: 'Yoga', label: 'layout engine, in wasm' },
-  { value: '0', label: 'lines of app code changed' },
+  { value: 'Ignite', label: 'CLI-generated app, running live' },
   { value: 'Skia', label: 'paint, via CanvasKit' },
 ];
 
@@ -92,7 +94,7 @@ export function Hero() {
 
           <p className="hero__caption">
             <span className="live-dot" />
-            LIVE{'  ·  '}Ignite demo app, running in WebAssembly
+            LIVE{'  ·  '}Ignite demo app, laid out and painted in WebAssembly
           </p>
           <p className={`hero__hint${hint ? '' : ' is-dismissed'}`} aria-hidden="true">
             {'drag to rotate  ·  double-tap to lock'}
@@ -102,7 +104,7 @@ export function Hero() {
         <div className="hero__copy">
           <p className="chip-eyebrow">
             <span className="chip-eyebrow__dot" />
-            {'REACT NATIVE  →  WEBASSEMBLY'}
+            {'REACT NATIVE  ON  WEBASSEMBLY'}
           </p>
           <h1 className="hero__headline">
             <span>Run React Native</span>{' '}
@@ -111,8 +113,9 @@ export function Hero() {
             <span>engine as native.</span>
           </h1>
           <p className="hero__sub">
-            Your real components lay out with React Native&rsquo;s own layout engine, Yoga, compiled to
-            WebAssembly, and paint through Skia into a single canvas. No simulator to boot. No web rewrite.
+            Your real React Native components, laid out by Yoga compiled to WebAssembly: the same layout engine
+            React Native uses on iOS and Android. Skia paints them into a single canvas. No simulator to boot.
+            No web rewrite.
           </p>
           <div className="hero__ctas">
             <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">

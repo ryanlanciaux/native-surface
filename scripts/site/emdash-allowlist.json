@@ -1,7 +1,6 @@
 {
-  "//": "Phase 1 only: files with em dashes owned by running lanes (playground-pkg, iphone-dims), pending their copy pass. Empty this in phase 2.",
+  "//": "Phase 1 only: files with em dashes owned by the running playground-pkg lane, pending its copy pass. Empty this in phase 2.",
   "paths": [
-    "examples/site/src/sections/Hero.tsx",
     "examples/site/src/sections/Playground.tsx",
     "packages/playground/src/server/host-config.mjs",
     "packages/playground/src/shoot.mjs",

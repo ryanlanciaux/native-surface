@@ -33,8 +33,8 @@ export function Exploded() {
           Every component, in isolation.
         </h2>
         <p className="exploded__body">
-          Scroll and the phone comes apart into the layers your app is built from. Each one is a live WebAssembly
-          module you can render, poke and test on its own.
+          Scroll and the phone comes apart into the layers your app is built from. Each one is a real component from
+          the app, rendered on its own by the same WebAssembly engine.
         </p>
       </header>
 
