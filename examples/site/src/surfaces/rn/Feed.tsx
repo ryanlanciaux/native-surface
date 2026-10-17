@@ -26,11 +26,11 @@ const authors = [
 ];
 
 const bodies = [
-  'Shipped the layout pass today. Same Yoga build as the phone, so the frames come out identical down to the half pixel — nothing is being re-interpreted by a browser layout engine.',
+  'Shipped the layout pass today. Same Yoga engine and config as the phone, so boxes size and place by the same rules. No browser layout engine is re-interpreting anything.',
   'Reminder that this entire list is one <canvas>. Scrolling it is a hit-test against a retained tree, then a repaint. There is no scroll container in the DOM to inspect.',
   'Text measurement goes through SkParagraph with a bundled Inter, so line breaking is deterministic across machines. numberOfLines truncation happens at measure time.',
   'Spent the morning on press semantics: pointer leaving the bounds plus hitSlop has to cancel the gesture, exactly the way it does on device.',
-  'Flexbox in, pixels out. The interesting part is that none of the styling here is CSS — it is the React Native style object, applied to Yoga and Skia.',
+  'Flexbox in, pixels out. The interesting part is that none of the styling here is CSS. It is the React Native style object, applied to Yoga and Skia.',
   'Nested flex rows inside a scrolling list is the honest stress test. Every row is measured, laid out, and painted in the same frame as the scroll offset changes.',
 ];
 

@@ -7,10 +7,10 @@ import './nav.css';
 const NAV = [
   { label: 'Docs', href: LINKS.docs },
   { label: 'Playground', href: LINKS.playground },
-  { label: 'Showcase', href: LINKS.showcase },
+  { label: 'Demos', href: LINKS.showcase },
   // Design: "Pricing". native-surface is MIT; the slot points at the repo.
   { label: 'Open source', href: LINKS.github },
-  { label: 'Changelog', href: LINKS.changelog },
+  { label: 'Releases', href: LINKS.releases },
 ];
 
 export function Nav() {

@@ -10,7 +10,7 @@ const ja: Translations = {
   },
   welcomeScreen: {
     postscript:
-      "注目！ — このアプリはお好みの見た目では無いかもしれません(デザイナーがこのスクリーンを送ってこない限りは。もしそうなら公開しちゃいましょう！)",
+      "注目！ このアプリはお好みの見た目では無いかもしれません(デザイナーがこのスクリーンを送ってこない限りは。もしそうなら公開しちゃいましょう！)", // native-surface adapter: em dash removed (site copy rule)
     readyForLaunch: "このアプリはもう少しで公開できます！",
     exciting: "(楽しみですね！)",
     letsGo: "レッツゴー！",

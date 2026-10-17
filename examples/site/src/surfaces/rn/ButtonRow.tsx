@@ -8,7 +8,7 @@ import { colors } from './tokens';
 export function ButtonRow() {
   const [message, setMessage] = useState<string | null>(null);
   const setLastPressed = (label: string) =>
-    setMessage(`Pressed “${label}” — that state change repainted this text.`);
+    setMessage(`Pressed “${label}”. That state change repainted this text.`);
 
   return (
     <View style={styles.root}>
@@ -39,7 +39,7 @@ export function ButtonRow() {
           variant="secondary"
           size="sm"
           onPress={() => setLastPressed('Press and hold')}
-          onLongPress={() => setMessage('Long press fired at 500ms — the React Native threshold.')}
+          onLongPress={() => setMessage('Long press fired at 500ms, the React Native threshold.')}
           style={styles.wideCell}
         />
       </View>

@@ -1,0 +1,14 @@
+{
+  "//": "Phase 1 only: files with em dashes owned by running lanes (playground-pkg, iphone-dims), pending their copy pass. Empty this in phase 2.",
+  "paths": [
+    "examples/site/src/sections/Hero.tsx",
+    "examples/site/src/sections/Playground.tsx",
+    "packages/playground/src/server/host-config.mjs",
+    "packages/playground/src/shoot.mjs",
+    "packages/playground/src/stories/Badge.stories.tsx",
+    "packages/playground/src/stories/components/Feed.tsx",
+    "packages/playground/src/stories/components/PressableStates.tsx",
+    "packages/playground/src/stories/components/TextSpecimen.tsx",
+    "packages/playground/src/ui/Actions.tsx"
+  ]
+}

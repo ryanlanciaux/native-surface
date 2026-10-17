@@ -9,17 +9,16 @@ const COLUMNS = [
     heading: 'PRODUCT',
     links: [
       { label: 'Playground', href: LINKS.playground },
-      { label: 'Showcase', href: LINKS.showcase },
+      { label: 'Demos', href: LINKS.showcase },
       { label: 'Open source', href: LINKS.github },
-      { label: 'Changelog', href: LINKS.changelog },
     ],
   },
   {
     heading: 'DEVELOPERS',
     links: [
       { label: 'Docs', href: LINKS.docs },
-      { label: 'CLI reference', href: LINKS.cli },
-      { label: 'Expo guide', href: LINKS.expo },
+      { label: 'Playground CLI', href: LINKS.cli },
+      { label: 'Compat shims', href: LINKS.compat },
       { label: 'GitHub', href: LINKS.github },
     ],
   },
@@ -27,7 +26,7 @@ const COLUMNS = [
     heading: 'PROJECT',
     links: [
       { label: 'About', href: LINKS.docs },
-      { label: 'Releases', href: LINKS.changelog },
+      { label: 'Releases', href: LINKS.releases },
       { label: 'Issues', href: LINKS.issues },
       { label: 'License', href: `${BRAND.github}/blob/main/LICENSE` },
     ],

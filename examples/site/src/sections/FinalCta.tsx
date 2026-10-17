@@ -10,7 +10,7 @@ export function FinalCta() {
       <h2 className="section-title cta__title" id="cta-title">
         Your app is one link away.
       </h2>
-      <p className="cta__body">Point {BRAND.name} at your repo. Get a URL that runs the real thing.</p>
+      <p className="cta__body">Add the {BRAND.name} Vite preset to your app and ship it as a web page that runs the real thing.</p>
       <div className="cta__buttons">
         <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">
           <Github size={18} strokeWidth={2} aria-hidden="true" /> View on GitHub
