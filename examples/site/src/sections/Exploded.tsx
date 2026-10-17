@@ -33,7 +33,7 @@ export function Exploded() {
         </h2>
         <p className="exploded__body">
           Your app is a series of components. The native-surface playground lets you see each one in isolation, change
-          its props, and watch it render live, right below.
+          its props, and watch it render live.
         </p>
       </header>
 
