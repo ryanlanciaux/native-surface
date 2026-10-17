@@ -22,7 +22,14 @@ function hostStoriesStub(): Plugin {
     },
     load(id) {
       return id === RESOLVED
-        ? "export const hostMode = true;\nexport const modules = import.meta.glob('/src/stories/*.stories.tsx');\n"
+        ? [
+            'export const hostMode = true;',
+            "export const modules = import.meta.glob('/src/stories/*.stories.tsx');",
+            // The demo stories' own source, read-only, for the Code view and Source tab.
+            "export const rawSources = import.meta.glob(['/src/stories/**/*.{ts,tsx}'], { query: '?raw', import: 'default' });",
+            'export const sourceEndpoint = null;',
+            '',
+          ].join('\n')
         : null;
     },
   };

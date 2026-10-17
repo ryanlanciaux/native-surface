@@ -1,144 +1,185 @@
-import { useState } from 'react';
-import { buildKnobs, coerceOption, optionLabel } from '../args';
-import type { Knob } from '../args';
-import type { Args, ArgType } from '../story-types';
-import type { StoryEntry } from '../registry';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import { optionValue, selectIndex, selectOptions } from '../fields';
+import type { Field } from '../fields';
+import { CalendarIcon } from './icons';
 
 interface ControlsProps {
-  entry: StoryEntry;
-  args: Args;
-  overriddenKeys: Set<string>;
-  onChange: (name: string, value: unknown) => void;
-  onReset: () => void;
+  /** Keyed per item so editors holding drafts reset on a switch. */
+  itemId: string;
+  fields: Field[];
+  isScreen: boolean;
+  onChange: (key: string, value: unknown) => void;
 }
 
-function SelectControl(props: {
-  knob: Knob;
-  options: ReadonlyArray<string | number>;
-  argType: ArgType | undefined;
-  onChange: (value: unknown) => void;
-}): React.JSX.Element {
-  const { knob, options, argType, onChange } = props;
+/** The props panel: one live control per field (args.ts knobs, dotted object fields). */
+export function Controls({ itemId, fields, isScreen, onChange }: ControlsProps): ReactElement {
+  if (fields.length === 0) {
+    return (
+      <p className="nsp-prop__key">
+        {isScreen ? 'No props: this screen owns its state. Tap around in it.' : 'This story takes no args.'}
+      </p>
+    );
+  }
   return (
-    <select value={String(knob.value)} onChange={(event) => onChange(coerceOption(event.target.value, options))}>
-      {options.map((option) => (
-        <option key={String(option)} value={String(option)}>
-          {optionLabel(option, argType)}
-        </option>
+    <>
+      {fields.map((field) => (
+        <PropControl key={`${itemId}:${field.key}`} field={field} onChange={(value) => onChange(field.key, value)} />
       ))}
-    </select>
+    </>
   );
 }
 
-function JsonControl(props: { value: unknown; onChange: (value: unknown) => void }): React.JSX.Element {
-  const { value, onChange } = props;
-  const [text, setText] = useState(() => JSON.stringify(value, null, 0));
-  const [invalid, setInvalid] = useState(false);
-  return (
-    <textarea
-      className={invalid ? 'json invalid' : 'json'}
-      rows={2}
-      spellCheck={false}
-      value={text}
-      onChange={(event) => {
-        const next = event.target.value;
-        setText(next);
-        try {
-          onChange(JSON.parse(next));
-          setInvalid(false);
-        } catch {
-          setInvalid(true);
-        }
-      }}
-    />
-  );
-}
-
-function ControlRow(props: {
-  knob: Knob;
-  overridden: boolean;
-  onChange: (value: unknown) => void;
-}): React.JSX.Element | null {
-  const { knob, overridden, onChange } = props;
-  const options = knob.argType?.options;
-
-  let control: React.JSX.Element;
-  if (knob.kind === 'select' && options && options.length > 0) {
-    control = <SelectControl knob={knob} options={options} argType={knob.argType} onChange={onChange} />;
-  } else if (knob.kind === 'boolean') {
-    control = (
-      <label className="switch">
-        <input type="checkbox" checked={knob.value === true} onChange={(event) => onChange(event.target.checked)} />
-        <span>{knob.value === true ? 'true' : 'false'}</span>
+function PropControl({ field, onChange }: { field: Field; onChange: (value: unknown) => void }): ReactElement {
+  const { key, kind, value } = field;
+  const id = `nsp-prop-${key}`;
+  const description = field.argType?.description;
+  if (kind === 'boolean') {
+    const on = !!value;
+    return (
+      <div className="nsp-prop nsp-prop--row" title={description}>
+        <span className="nsp-prop__key" id={id}>
+          {field.argType?.name ?? key}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-labelledby={id}
+          className={`nsp-switch${on ? ' is-on' : ''}`}
+          onClick={() => onChange(!on)}
+        >
+          <span />
+        </button>
+      </div>
+    );
+  }
+  if (kind === 'select') {
+    const options = selectOptions(field);
+    const index = selectIndex(field);
+    return (
+      <label className="nsp-prop" title={description}>
+        <span className="nsp-prop__key">{field.argType?.name ?? key}</span>
+        <select
+          className="nsp-prop__input nsp-prop__select"
+          value={String(index)}
+          onChange={(event) => onChange(optionValue(field, Number(event.target.value), event.target.value))}
+        >
+          {index < 0 && <option value="-1">{value === undefined ? 'none' : String(value)}</option>}
+          {options.map((option, i) => (
+            <option key={`${option.label}:${i}`} value={String(i)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </label>
     );
-  } else if (knob.kind === 'number') {
-    control = (
+  }
+  if (kind === 'json') return <JsonControl field={field} onChange={onChange} />;
+  if (kind === 'date') return <DateControl field={field} onChange={onChange} />;
+  const isNumber = kind === 'number';
+  const at = field.argType;
+  return (
+    <label className="nsp-prop" title={description}>
+      <span className="nsp-prop__key">{at?.name ?? key}</span>
       <input
-        type="number"
-        value={typeof knob.value === 'number' ? knob.value : ''}
+        className="nsp-prop__input"
+        type={isNumber ? 'number' : 'text'}
+        min={at?.min}
+        max={at?.max}
+        step={at?.step}
+        value={value === undefined || value === null ? '' : String(value)}
+        spellCheck={false}
         onChange={(event) => {
-          const next = Number(event.target.value);
-          onChange(Number.isFinite(next) ? next : 0);
+          if (!isNumber) return onChange(event.target.value);
+          const num = event.target.valueAsNumber;
+          onChange(Number.isNaN(num) ? undefined : num);
         }}
       />
-    );
-  } else if (knob.kind === 'text') {
-    control = (
-      <input
-        type="text"
-        spellCheck={false}
-        value={typeof knob.value === 'string' ? knob.value : ''}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    );
-  } else if (knob.kind === 'action') {
-    control = <span className="static">ƒ logged to actions</span>;
-  } else if (knob.kind === 'json') {
-    control = <JsonControl value={knob.value} onChange={onChange} />;
-  } else if (knob.kind === 'none') {
-    return null;
-  } else {
-    control = <span className="static">unsupported</span>;
-  }
-
-  return (
-    <div className="control-row">
-      <label className="control-label" title={knob.argType?.description}>
-        {knob.label}
-        {overridden ? <span className="dot" title="Edited" /> : null}
-      </label>
-      <div className="control-input">{control}</div>
-    </div>
+    </label>
   );
 }
 
-export function Controls(props: ControlsProps): React.JSX.Element {
-  const { entry, args, overriddenKeys, onChange, onReset } = props;
-  const knobs = buildKnobs(args, entry.argTypes);
-
+/**
+ * ISO `yyyy-mm-dd`, typed or picked: the text stays exactly what the app
+ * stores (a native date input would show the viewer's locale format). Only
+ * real dates reach the component; anything else is held as a draft.
+ */
+function DateControl({ field, onChange }: { field: Field; onChange: (value: unknown) => void }): ReactElement {
+  const full = field.value == null ? '' : String(field.value);
+  const text = full.slice(0, 10);
+  const [draft, setDraft] = useState(text);
+  useEffect(() => setDraft(text), [text]);
+  const picker = useRef<HTMLInputElement>(null);
+  const valid = (v: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+  // Keeps a timestamp's time part: only the date is edited.
+  const commit = (v: string): void => {
+    setDraft(v);
+    if (valid(v)) onChange(full.length > 10 ? v + full.slice(10) : v);
+  };
   return (
-    <section className="panel controls">
-      <header className="panel-head">
-        <h2>Controls</h2>
-        <button type="button" className="ghost" onClick={onReset} disabled={overriddenKeys.size === 0}>
-          Reset
+    <label className="nsp-prop">
+      <span className="nsp-prop__key">{field.argType?.name ?? field.key}</span>
+      <span className="nsp-prop__date">
+        <input
+          className={`nsp-prop__input${draft && !valid(draft) ? ' is-bad' : ''}`}
+          value={draft}
+          inputMode="numeric"
+          placeholder="yyyy-mm-dd"
+          spellCheck={false}
+          onChange={(event) => commit(event.target.value)}
+        />
+        <button
+          type="button"
+          className="nsp-prop__pick"
+          aria-label={`Pick ${field.key}`}
+          onClick={(event) => {
+            event.preventDefault();
+            try {
+              picker.current?.showPicker();
+            } catch {
+              picker.current?.focus();
+            }
+          }}
+        >
+          <CalendarIcon />
         </button>
-      </header>
-      <div className="panel-body">
-        {knobs.length === 0 ? (
-          <p className="empty">This story takes no args.</p>
-        ) : (
-          knobs.map((knob) => (
-            <ControlRow
-              key={knob.name}
-              knob={knob}
-              overridden={overriddenKeys.has(knob.name)}
-              onChange={(value) => onChange(knob.name, value)}
-            />
-          ))
-        )}
-      </div>
-    </section>
+        <input
+          ref={picker}
+          className="nsp-prop__picker"
+          type="date"
+          tabIndex={-1}
+          aria-hidden="true"
+          value={valid(draft) ? draft : ''}
+          onChange={(event) => event.target.value && commit(event.target.value)}
+        />
+      </span>
+    </label>
+  );
+}
+
+function JsonControl({ field, onChange }: { field: Field; onChange: (value: unknown) => void }): ReactElement {
+  const text = JSON.stringify(field.value) ?? '';
+  const [draft, setDraft] = useState(text);
+  const [bad, setBad] = useState(false);
+  useEffect(() => setDraft(text), [text]);
+  return (
+    <label className="nsp-prop" title={field.argType?.description}>
+      <span className="nsp-prop__key">{field.argType?.name ?? field.key}</span>
+      <input
+        className={`nsp-prop__input${bad ? ' is-bad' : ''}`}
+        value={draft}
+        spellCheck={false}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          try {
+            onChange(JSON.parse(event.target.value));
+            setBad(false);
+          } catch {
+            setBad(true);
+          }
+        }}
+      />
+    </label>
   );
 }

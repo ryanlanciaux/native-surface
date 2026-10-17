@@ -19,7 +19,8 @@ function isTextEntry(target: EventTarget | null): boolean {
 export function useStoryNav(
   visibleIds: string[],
   selectedId: string | null,
-  onSelect: (id: string) => void
+  onSelect: (id: string) => void,
+  enabled = true
 ): void {
   const step = useCallback(
     (delta: number) => {
@@ -38,6 +39,7 @@ export function useStoryNav(
   );
 
   useEffect(() => {
+    if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const filterFocused = isFilterBox(event.target);
@@ -67,5 +69,5 @@ export function useStoryNav(
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [step]);
+  }, [step, enabled]);
 }

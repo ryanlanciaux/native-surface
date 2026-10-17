@@ -1,45 +1,71 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Theme } from '../story-types';
-import { VIEWPORTS } from '../viewports';
+import type { ReactElement } from 'react';
+import { LockIcon } from './icons';
+import { Segmented } from './Segmented';
 
-export type DprMode = 'auto' | 1 | 2 | 3;
+export type View = 'preview' | 'code';
 
 interface ToolbarProps {
-  width: number;
-  height: number;
-  activeViewportId: string | null;
-  onViewport: (width: number, height: number) => void;
-  onSize: (size: { width?: number; height?: number }) => void;
-  dprMode: DprMode;
-  onDprMode: (mode: DprMode) => void;
-  effectiveDpr: number;
-  theme: Theme;
-  onTheme: (theme: Theme) => void;
+  view: View;
+  onView: (view: View) => void;
+  /** Address shown in the URL pill. */
+  url: string;
+  /** Copy a shareable link to the story on click (the selection lives in the hash). */
+  copyable: boolean;
+  /** Laid-out size of what's on stage, pt. */
+  size: { width: number; height: number } | null;
+  /** Extra link at the right (the standalone tool's design plane). */
+  planeHref?: string;
 }
 
-const DPR_MODES: DprMode[] = ['auto', 1, 2, 3];
-
-function clampSize(raw: string, current: number): number {
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isFinite(value)) return current;
-  return Math.min(2000, Math.max(80, value));
+/** Window bar: traffic lights, Preview | Code, the story's address, size, LIVE · WASM. */
+export function Toolbar(props: ToolbarProps): ReactElement {
+  const { view, onView, url, copyable, size, planeHref } = props;
+  return (
+    <div className="nsp__bar">
+      <span className="nsp__lights" aria-hidden="true">
+        <i style={{ background: '#FF5F57CC' }} />
+        <i style={{ background: '#FEBC2ECC' }} />
+        <i style={{ background: '#28C840CC' }} />
+      </span>
+      <Segmented
+        className="nsp__view"
+        value={view}
+        options={['preview', 'code'] as const}
+        labels={{ preview: 'Preview', code: 'Code' }}
+        onChange={onView}
+        label="View"
+      />
+      {copyable ? <CopyUrl url={url} /> : <span className="nsp__url"><LockIcon size={12} /><span>{url}</span></span>}
+      <span className="nsp__spacer" />
+      {planeHref && (
+        <a className="nsp__size nsp__link" href={planeHref} title="Pan/zoom mock of app routes">
+          Plane
+        </a>
+      )}
+      <span className="nsp__size" title="Laid-out size (pt)">
+        {size ? `${size.width} × ${size.height}` : ' '}
+      </span>
+      <span className="nsp__live">
+        <span className="nsp__live-dot" />
+        LIVE · WASM
+      </span>
+    </div>
+  );
 }
 
-/** The story id already lives in the URL hash, so "copy link" is just the
- *  current address — shareable deep link included. */
-function CopyLink(): React.JSX.Element {
+function CopyUrl({ url }: { url: string }): ReactElement {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
-
   const copy = async (): Promise<void> => {
-    const url = window.location.href;
+    const href = window.location.href;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(href);
     } catch {
       // Clipboard API needs a secure context; fall back to execCommand.
       const input = document.createElement('input');
-      input.value = url;
+      input.value = href;
       document.body.appendChild(input);
       input.select();
       document.execCommand('copy');
@@ -49,115 +75,10 @@ function CopyLink(): React.JSX.Element {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 1500);
   };
-
   return (
-    <button type="button" className="chip" title="Copy a shareable link to this story" onClick={() => void copy()}>
-      {copied ? 'Copied' : 'Copy link'}
+    <button type="button" className="nsp__url" title="Copy a shareable link to this story" onClick={() => void copy()}>
+      <LockIcon size={12} />
+      <span>{copied ? 'Link copied' : url}</span>
     </button>
-  );
-}
-
-export function Toolbar(props: ToolbarProps): React.JSX.Element {
-  const {
-    width,
-    height,
-    activeViewportId,
-    onViewport,
-    onSize,
-    dprMode,
-    onDprMode,
-    effectiveDpr,
-    theme,
-    onTheme,
-  } = props;
-
-  return (
-    <header className="toolbar">
-      <div className="brand">
-        <span className="brand-mark" aria-hidden="true" />
-        <span className="brand-name">Native Surface Playground</span>
-        <a className="chip" href="/plane" title="Pan/zoom mock of app routes">
-          Plane
-        </a>
-      </div>
-
-      <div className="tool-group" role="group" aria-label="Viewport preset">
-        {VIEWPORTS.map((viewport) => (
-          <button
-            key={viewport.id}
-            type="button"
-            className={viewport.id === activeViewportId ? 'chip active' : 'chip'}
-            title={`${viewport.width}×${viewport.height}`}
-            onClick={() => onViewport(viewport.width, viewport.height)}
-          >
-            {viewport.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="tool-group sizes">
-        <label className="field">
-          <span>W</span>
-          <input
-            type="number"
-            value={width}
-            min={80}
-            max={2000}
-            step={1}
-            onChange={(event) => onSize({ width: clampSize(event.target.value, width) })}
-          />
-        </label>
-        <label className="field">
-          <span>H</span>
-          <input
-            type="number"
-            value={height}
-            min={80}
-            max={2000}
-            step={1}
-            onChange={(event) => onSize({ height: clampSize(event.target.value, height) })}
-          />
-        </label>
-      </div>
-
-      <div className="tool-group">
-        <label className="field">
-          <span>DPR</span>
-          <select
-            value={String(dprMode)}
-            onChange={(event) => {
-              const raw = event.target.value;
-              onDprMode(raw === 'auto' ? 'auto' : (Number(raw) as DprMode));
-            }}
-          >
-            {DPR_MODES.map((mode) => (
-              <option key={String(mode)} value={String(mode)}>
-                {mode === 'auto' ? 'Auto' : `${mode}×`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="badge" title="Device pixel ratio of the canvas backing store">
-          {effectiveDpr}× · {Math.round(width * effectiveDpr)}×{Math.round(height * effectiveDpr)}px
-        </span>
-      </div>
-
-      <div className="tool-group theme" role="group" aria-label="Platform theme">
-        {(['ios', 'android'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={option === theme ? 'chip active' : 'chip'}
-            onClick={() => onTheme(option)}
-          >
-            {option === 'ios' ? 'iOS' : 'Android'}
-          </button>
-        ))}
-      </div>
-
-      <div className="tool-group">
-        <CopyLink />
-      </div>
-    </header>
   );
 }

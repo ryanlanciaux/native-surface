@@ -75,7 +75,7 @@ export function PressableStates(props: PressableStatesProps): React.JSX.Element 
           style={({ pressed }) => [styles.target, pressed && styles.targetPressed, disabled && styles.disabled]}
         >
           {({ pressed }) => (
-            <Text style={styles.targetLabel}>{pressed ? 'Pressed — hold for long press' : 'Press me'}</Text>
+            <Text style={styles.targetLabel}>{pressed ? 'Pressed: hold for long press' : 'Press me'}</Text>
           )}
         </Pressable>
         <Text style={styles.note}>Drag off the button before releasing: the press cancels, RN-style.</Text>

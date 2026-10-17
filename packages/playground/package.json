@@ -12,6 +12,13 @@
   "bin": {
     "native-surface-playground": "./bin/cli.mjs"
   },
+  "exports": {
+    ".": "./src/embed.ts",
+    "./embed": "./src/embed.ts",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./bin/cli.mjs": "./bin/cli.mjs"
+  },
   "files": [
     "bin",
     "src",
@@ -28,14 +35,18 @@
     "postpack": "node ../../scripts/rewrite-workspace-protocol.mjs --restore"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.5",
+    "@fontsource/jetbrains-mono": "^5.2.5",
     "@native-surface/design-plane": "workspace:*",
     "@vitejs/plugin-react": "^4.3.0",
     "native-surface": "workspace:*",
+    "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "vite": "^6.0.0"
   },
   "devDependencies": {
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.0",

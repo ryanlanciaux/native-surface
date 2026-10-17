@@ -308,7 +308,7 @@ export async function shoot(options = {}) {
         result = await captureStory(page, story, outDir, settle);
       }
       results.push(result);
-      log(`  ${result.status.padEnd(7)} ${result.id}${result.reason ? ` — ${result.reason.split('\n')[0]}` : ''}`);
+      log(`  ${result.status.padEnd(7)} ${result.id}${result.reason ? `: ${result.reason.split('\n')[0]}` : ''}`);
     }
 
     if (baselineDir) {

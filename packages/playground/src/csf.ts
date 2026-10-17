@@ -23,6 +23,8 @@ export interface StoryGroup {
   id: string;
   title: string;
   stories: StoryEntry[];
+  /** Module path the group was loaded from (story file key). */
+  path?: string;
 }
 
 export interface StoryIndex {
@@ -124,7 +126,7 @@ export function buildGroup(path: string, mod: Record<string, unknown>): StoryGro
     return a.exportName.localeCompare(b.exportName);
   });
 
-  return { id: groupId, title, stories };
+  return { id: groupId, title, stories, path };
 }
 
 /** A module that failed to LOAD (top-level throw — usually an unbridged native
@@ -142,6 +144,7 @@ export function errorGroup(path: string, error: Error): StoryGroup {
   return {
     id: groupId,
     title,
+    path,
     stories: [
       {
         id: `${groupId}--load-error`,

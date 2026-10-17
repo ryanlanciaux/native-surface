@@ -1,8 +1,8 @@
 // The two host-facing Vite plugins behind `native-surface playground`:
 // story discovery (virtual:host-stories) and the import-audit stub that turns
 // unresolvable native imports into per-story errors instead of dead servers.
-import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, relative, resolve, sep } from 'node:path';
 import { createStoryMatcher, findStoryFiles } from './glob.mjs';
 
 const VIRTUAL_ID = 'virtual:host-stories';
@@ -36,7 +36,7 @@ export function hostStoriesPlugin({ hostRoot, globs, setup = null }) {
       // playground-config side-effect-imports setup + awaits initEngine({fonts})
       // before this module finishes evaluating, so lazy story imports below
       // cannot outrun boot on a full reload.
-      return `import 'virtual:playground-config';\nexport const hostMode = true;\nexport const modules = {\n${entries.join('\n')}\n};\n`;
+      return `import 'virtual:playground-config';\nexport const hostMode = true;\nexport const sourceEndpoint = ${JSON.stringify(SOURCE_ENDPOINT)};\nexport const rawSources = null;\nexport const modules = {\n${entries.join('\n')}\n};\n`;
     },
     configureServer(server) {
       for (const dir of matcher.baseDirs) server.watcher.add(dir);
@@ -52,6 +52,106 @@ export function hostStoriesPlugin({ hostRoot, globs, setup = null }) {
   };
 }
 
+
+export const SOURCE_ENDPOINT = '/__ns_source';
+const SOURCE_EXTS = new Set(['.tsx', '.ts', '.jsx', '.js']);
+const SOURCE_SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'ios', 'android', '.expo', 'coverage']);
+const MAX_SOURCE_FILES = 5000;
+
+/** Host source files (relative posix paths), skipping deps, builds and native dirs. */
+export function listSourceFiles(hostRoot) {
+  const out = [];
+  const walk = (dir) => {
+    let names;
+    try {
+      names = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of names) {
+      if (out.length >= MAX_SOURCE_FILES) return;
+      if (entry.name.startsWith('.') || SOURCE_SKIP.has(entry.name)) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (SOURCE_EXTS.has(extname(entry.name))) out.push(relative(hostRoot, full).split(sep).join('/'));
+    }
+  };
+  walk(hostRoot);
+  return out;
+}
+
+/** Same rule as the UI's sources.ts pickComponentPath: basename match, components/ before screens/. */
+export function pickComponentPath(paths, names) {
+  const base = (p) => p.split('/').pop().replace(/\.(tsx?|jsx?)$/, '');
+  const rank = (p) => (/(^|\/)components\//.test(p) ? 0 : /(^|\/)screens\//.test(p) ? 1 : 2);
+  const candidates = paths.filter((p) => !/\.(stories|story|play)\./.test(p) && !/\.(test|spec|d)\./.test(p));
+  for (const name of names) {
+    const hits = candidates.filter((p) => base(p) === name);
+    if (hits.length) return hits.sort((a, b) => rank(a) - rank(b) || a.length - b.length)[0];
+  }
+  return null;
+}
+
+/** Fallback when no file is named after the component: the file that declares it (`function EpisodeCard`, `const EpisodeCard =`). */
+export function findDeclaringFile(hostRoot, paths, names) {
+  const rank = (p) => (/(^|\/)components\//.test(p) ? 0 : /(^|\/)screens\//.test(p) ? 1 : 2);
+  const candidates = paths
+    .filter((p) => !/\.(stories|story|play|test|spec|d)\./.test(p))
+    .sort((a, b) => rank(a) - rank(b) || a.length - b.length);
+  for (const name of names) {
+    const declares = new RegExp(`(?:^|\\n)\\s*(?:export\\s+)?(?:default\\s+)?(?:const|let|function|class)\\s+${name}\\b`);
+    for (const rel of candidates) {
+      try {
+        if (declares.test(readFileSync(join(hostRoot, rel), 'utf8'))) return rel;
+      } catch {
+        // Vanished between listing and reading.
+      }
+    }
+  }
+  return null;
+}
+
+function readHostFile(hostRoot, rel) {
+  if (!rel || !SOURCE_EXTS.has(extname(rel))) return null;
+  const full = resolve(hostRoot, rel);
+  if (full !== hostRoot && !full.startsWith(hostRoot + sep)) return null;
+  try {
+    if (!statSync(full).isFile()) return null;
+    return { file: relative(hostRoot, full).split(sep).join('/'), text: readFileSync(full, 'utf8') };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GET /__ns_source?story=<host-relative story path>&names=A,B — read-only
+ * source text for the playground's Code view and Source tab: the story file
+ * and the component's own file (first basename hit among `names`, else the
+ * file declaring one of them). Only
+ * script files inside the host root are ever served.
+ */
+export function sourcePlugin({ hostRoot }) {
+  return {
+    name: 'native-surface-playground:source',
+    configureServer(server) {
+      server.middlewares.use(SOURCE_ENDPOINT, (req, res) => {
+        const params = new URL(req.url ?? '', 'http://x').searchParams;
+        const names = (params.get('names') ?? '').split(',').filter((n) => /^[A-Za-z_$][\w$]*$/.test(n));
+        const files = names.length ? listSourceFiles(hostRoot) : [];
+        const componentPath = names.length
+          ? (pickComponentPath(files, names) ?? findDeclaringFile(hostRoot, files, names))
+          : null;
+        res.setHeader('content-type', 'application/json');
+        res.end(
+          JSON.stringify({
+            story: readHostFile(hostRoot, params.get('story')),
+            component: componentPath ? readHostFile(hostRoot, componentPath) : null,
+          })
+        );
+      });
+    },
+  };
+}
 
 const CONFIG_ID = 'virtual:playground-config';
 const CONFIG_RESOLVED = '\0virtual:playground-config';

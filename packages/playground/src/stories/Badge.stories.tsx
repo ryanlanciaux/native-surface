@@ -24,7 +24,7 @@ export const meta: Meta = {
   },
   argTypes: {
     tone: { options: [...TONES] },
-    labels: { description: 'Edited as JSON — the row re-wraps live.' },
+    labels: { description: 'Edited as JSON, the row re-wraps live.' },
     containerWidth: { description: 'Constrains the flex container so wrapping is visible.' },
   },
 };

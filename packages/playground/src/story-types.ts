@@ -2,6 +2,9 @@ import type { ComponentType, ReactElement } from 'react';
 
 export type Theme = 'ios' | 'android';
 
+/** Light/dark, the playground's Environment toggle (Storybook-style global). */
+export type ColorScheme = 'light' | 'dark';
+
 export type Args = Record<string, unknown>;
 
 export type ControlKind = 'text' | 'number' | 'boolean' | 'select' | 'json' | 'action' | 'none';
@@ -11,11 +14,19 @@ export interface ArgType {
   options?: ReadonlyArray<string | number>;
   /** Display labels for `options`, keyed by String(option). */
   labels?: Record<string, string>;
-  /** Overrides the control inferred from the arg's runtime type. */
-  control?: ControlKind;
+  /** Overrides the control inferred from the arg's runtime type. Storybook's
+   *  object form (`{ type: 'radio' }`) and `false` (hidden) are accepted too. */
+  control?: ControlKind | 'date' | false | { type: string };
   /** Label shown in the controls panel; defaults to the arg name. */
   name?: string;
   description?: string;
+  /** Storybook `mapping`: option label → the value the story receives. */
+  mapping?: Record<string, unknown>;
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Storybook `table.disable` hides the arg from the panel. */
+  table?: { disable?: boolean };
 }
 
 export interface StoryContext {
@@ -24,6 +35,8 @@ export interface StoryContext {
   name: string;
   args: Args;
   theme: Theme;
+  /** Playground globals; absent outside the playground UI (e.g. tests). */
+  globals?: { colorScheme: ColorScheme };
 }
 
 /** Wraps a story's element tree — theme frames, safe-area padding, canvas chrome. */

@@ -1,7 +1,7 @@
 # @native-surface/playground
 
-A component playground whose preview pane is a `<canvas>`. The chrome — sidebar,
-controls, actions — is ordinary DOM; the preview is exclusively
+A component playground whose preview pane is a `<canvas>`. The chrome (sidebar,
+props, event log, drawer) is ordinary DOM; the preview is exclusively
 `NativeSurface` from `native-surface`, which lays out with Yoga (WASM)
 and paints with Skia (CanvasKit). No React Native Web anywhere: inspect the preview and
 you find one canvas element, not a `div` tree.
@@ -12,6 +12,47 @@ It runs in two modes:
   playground UI against *that app's* story files, on that app's dependencies.
 - **Standalone** (this repo's demo): `pnpm --filter @native-surface/playground dev`
   serves the built-in `src/stories/` demo set.
+
+The UI: a filterable sidebar (Components + Screens, ⌘K or `/` to filter, ↑/↓ to
+step through stories), a live canvas with one state chip per story and measured
+render stats (`rendered in X ms · N nodes · Skia`), a props panel with live
+controls and the event log, a Usage / Source / Console drawer (plus Audit under
+the CLI), Environment (device at its true logical size, light/dark, pixel ratio,
+custom W × H), and a top bar with Preview | Code. Code, Source and Usage are
+read-only highlighted text.
+
+Devices are real point sizes: iPhone 16 Pro (402×874, default), 16 Pro Max
+(440×956), 16 / 15 (393×852), SE (375×667), plus Pixel 8 and Square. Screens
+lay out at the device's exact size with its safe-area insets (`useSurfaceInsets()`)
+and are scaled to fit with a CSS transform only. Pixel 8 renders with
+`Platform.OS === 'android'`.
+
+## Embedding
+
+The same UI is one component, `@native-surface/playground/embed`:
+
+```tsx
+import { Playground, loadIndex, globSources, IPHONES } from '@native-surface/playground/embed';
+
+const index = await loadIndex(import.meta.glob('./src/**/*.stories.tsx'));
+const sources = globSources(import.meta.glob('./src/**/*.tsx', { query: '?raw', import: 'default' }));
+
+<Playground index={index} sources={sources} devices={IPHONES} />;
+```
+
+Skin it with `className` / `style` on the root `.nsp` and the `--nsp-*` custom
+properties (colors, fonts, `--nsp-height`, `--nsp-radius`), `canvasBackground`
+(anything painted behind the stage), and `renderSurface` (render the canvas
+yourself, e.g. to lazy-mount it or budget WebGL contexts). `writeBack` maps a
+callback onto args (`{ onPressFavorite: flip('isFavorite') }`) and `usage`
+teaches the Usage tab your idioms. `hash`, `keyboard`, `devTools` and `audit`
+are off by default; the standalone tool turns them all on. One surface is reused
+for every story, so switching stories never creates a new WebGL context.
+
+Stories can read the light/dark toggle with `usePlaygroundGlobals()` or
+`context.globals.colorScheme` in a decorator. The toggle also drives a story's
+own `theme` / `colorScheme` arg, or selects its dark chip (a story named "Dark",
+or with `parameters.colorScheme: 'dark'`).
 
 ## CLI
 
@@ -160,34 +201,37 @@ runtime; unlisted stories follow alphabetically.
 
 ## Controls
 
-Knobs are inferred from each arg's runtime value: `string` → text, `number` → number,
-`boolean` → checkbox, object/array → JSON textarea (applied as you type, invalid JSON
-just marks the field), function → a read-only "logged to actions" row. `argTypes[name]`
-overrides that:
+Fields are inferred from each arg's runtime value: `string` → text (ISO dates get a
+date field), `number` → number, `boolean` → switch, a record of mostly primitives →
+one field per key (`episode.title`), other objects/arrays → JSON (applied as you
+type, invalid JSON just marks the field). Functions are not fields: they feed the
+event log. `argTypes[name]` overrides that:
 
 | Field | Effect |
 | --- | --- |
 | `options` | Renders a `<select>`; values keep their original type |
 | `labels` | Display names for `options`, keyed by `String(option)` |
-| `control` | Forces a kind (`'none'` hides the knob) |
+| `control` | Forces a kind (`'none'` / `false` hides it); Storybook's `{ type }` form works |
+| `mapping` | Option label → the value the story receives |
+| `min` / `max` / `step` | Number field bounds |
 | `name` | Label shown instead of the arg name |
 | `description` | Tooltip on the label |
 
-Edits are per-story and live for the session; **Reset** restores the story's declared
-args.
+Picking a chip applies that story's args and keeps your edits to args no chip
+owns; once edits leave every chip, **reset** restores the story's declared args.
 
 ## Actions
 
-Every function-valued arg is wrapped so calls log with name, a depth-capped JSON-ish
-payload, and a timestamp (`arg` tag). The surface's own `onAction` hook is wired too, so
-the engine reports presses it dispatches even for handlers the story did not pass
-(`surface` tag). Consecutive identical calls collapse into one row with a count.
+Every function-valued arg is wrapped so calls land in the props panel's event log
+(newest highlighted) and the Console tab, with a depth-capped payload. The
+surface's own `onAction` hook is wired too (tagged `surface`). Consecutive
+identical calls collapse into one row with a count.
 
 ## Sharing
 
 The selected story lives in the URL hash (`#/story/<group>--<story>`), so reloads
-and shared links reopen the same story; the toolbar's **Copy link** button copies
-the current address.
+and shared links reopen the same story; clicking the address in the top bar
+copies it.
 
 ## Layout
 

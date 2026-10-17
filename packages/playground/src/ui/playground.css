@@ -1,0 +1,1246 @@
+/*
+ * native-surface playground UI. Everything is scoped under `.nsp` (the root
+ * the <Playground> component renders), so it embeds in any page. Skin it
+ * with the custom properties below (set them on `.nsp` or a wrapper class).
+ */
+.nsp {
+  --nsp-bg: #06070a;
+  --nsp-window: #0d0f14;
+  --nsp-bar: #12151c;
+  --nsp-panel: #0a0c10;
+  --nsp-canvas: #0b0d12;
+  --nsp-drawer: #08090d;
+  --nsp-surface: #0e1015;
+  --nsp-surface-2: #151821;
+  --nsp-line: #ffffff14;
+  --nsp-text: #f2f5f9;
+  --nsp-text-2: #e5e9f0;
+  --nsp-muted: #98a2b3;
+  --nsp-dim: #5f6879;
+  --nsp-glow: #22d3ee;
+  --nsp-glow-2: #8b5cf6;
+  --nsp-live: #c6f432;
+  --nsp-error: #fb7185;
+  --nsp-dot: #232937;
+  --nsp-font-body: 'Inter', system-ui, sans-serif;
+  --nsp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --nsp-height: 780px;
+  --nsp-radius: 20px;
+  box-sizing: border-box;
+  color: var(--nsp-text);
+  -webkit-font-smoothing: antialiased;
+}
+.nsp *,
+.nsp *::before,
+.nsp *::after {
+  box-sizing: border-box;
+}
+.nsp button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.nsp a {
+  color: inherit;
+  text-decoration: none;
+}
+.nsp p {
+  margin: 0;
+}
+.nsp canvas {
+  display: block;
+}
+.nsp :focus-visible {
+  outline: 2px solid var(--nsp-glow);
+  outline-offset: 2px;
+}
+.nsp [hidden] {
+  display: none !important;
+}
+
+/* ---------- IDE window ---------- */
+.nsp {
+  position: relative;
+  height: var(--nsp-height);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--nsp-radius);
+  background: var(--nsp-window);
+  box-shadow:
+    0 40px 120px #22d3ee1a,
+    0 0 60px #8b5cf614;
+  overflow: hidden;
+  font-family: var(--nsp-font-mono);
+}
+/* Gradient hairline border (design stroke: 60° cyan → line → violet). */
+.nsp::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(60deg, #22d3ee66 0%, #ffffff14 50%, #8b5cf666 100%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 3;
+}
+.nsp__bar {
+  height: 52px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--nsp-bar);
+  box-shadow: inset 0 -1px 0 #ffffff10;
+}
+.nsp__lights {
+  display: flex;
+  gap: 7px;
+}
+.nsp__lights i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.nsp__spacer {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.nsp-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff14;
+}
+.nsp-seg button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font: 500 12px var(--nsp-font-body);
+  color: #7a8496;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.nsp-seg button:hover {
+  color: #c3cad6;
+}
+.nsp-seg button.is-on {
+  background: #ffffff14;
+  color: var(--nsp-text);
+}
+.nsp__url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #ffffff08;
+  font-size: 12px;
+  color: var(--nsp-muted);
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+.nsp__size {
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #ffffff08;
+  font-size: 11px;
+  color: #7a8496;
+}
+.nsp__live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--nsp-live);
+  white-space: nowrap;
+}
+.nsp__live-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--nsp-live);
+  box-shadow: 0 0 6px var(--nsp-live);
+}
+.nsp__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* sidebar */
+.nsp__sidebar {
+  width: 240px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 14px;
+  background: var(--nsp-panel);
+  box-shadow: inset -1px 0 0 #ffffff10;
+}
+.nsp__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff10;
+  font: 400 12px var(--nsp-font-body);
+  color: var(--nsp-dim);
+}
+.nsp__search:focus-within {
+  box-shadow: inset 0 0 0 1px #22d3ee66;
+}
+.nsp__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--nsp-text-2);
+  outline: none;
+}
+.nsp__search input::placeholder {
+  color: var(--nsp-dim);
+}
+.nsp__search input::-webkit-search-cancel-button {
+  display: none;
+}
+.nsp__search kbd {
+  font: 400 11px var(--nsp-font-mono);
+}
+.nsp__clear {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: #7a8496;
+}
+.nsp__clear:hover {
+  background: #ffffff10;
+  color: var(--nsp-text-2);
+}
+.nsp__lists {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 14px -6px 0;
+  padding: 0 6px 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff1a transparent;
+}
+.nsp__empty {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 11.5px;
+  color: var(--nsp-dim);
+}
+.nsp__heading {
+  margin: 0;
+  font: 400 10px var(--nsp-font-mono);
+  letter-spacing: 1px;
+  color: var(--nsp-dim);
+}
+.nsp__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--nsp-muted);
+  white-space: nowrap;
+}
+.nsp__item svg {
+  color: var(--nsp-dim);
+  flex: none;
+}
+.nsp__item.is-selected {
+  background: #22d3ee14;
+  color: #e6fbff;
+}
+.nsp__item.is-selected svg {
+  color: #67e8f9;
+}
+.nsp__group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.nsp__group .nsp__heading {
+  padding-bottom: 6px;
+}
+
+/* centre */
+.nsp__center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nsp__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--nsp-canvas);
+  overflow: hidden;
+}
+.nsp__stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.nsp__states {
+  background: #ffffff0a;
+}
+.nsp__states button {
+  padding: 5px 10px;
+  font: 400 11px var(--nsp-font-mono);
+}
+.nsp__states button.is-on {
+  background: #22d3ee1f;
+  color: #a5f3fc;
+}
+.nsp__preview {
+  width: 340px;
+}
+.nsp__timing {
+  margin: 0;
+  font-size: 11px;
+  color: var(--nsp-dim);
+  white-space: pre;
+}
+.nsp__source,
+.nsp__drawer-source {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  max-width: 100%;
+  padding: 24px;
+  overflow: auto;
+  font: 400 12.5px/1.6 var(--nsp-font-mono);
+  color: #c3cad6;
+}
+.nsp__drawer-source {
+  padding: 0;
+  max-height: 120px;
+  font-size: 12px;
+}
+.nsp__drawer {
+  flex: none;
+  background: var(--nsp-drawer);
+  box-shadow: inset 0 1px 0 #ffffff10;
+}
+.nsp__drawer-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 18px;
+  box-shadow: inset 0 -1px 0 #ffffff0a;
+}
+.nsp__drawer-bar button {
+  font: 400 11px var(--nsp-font-mono);
+  letter-spacing: 0.5px;
+  color: var(--nsp-dim);
+}
+.nsp__drawer-bar button.is-on {
+  color: #a5f3fc;
+}
+.nsp__code {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px 20px;
+  font-size: 13px;
+  white-space: pre;
+  min-height: 135px;
+}
+
+/* props */
+.nsp__props {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--nsp-panel);
+  box-shadow: inset 1px 0 0 #ffffff10;
+}
+.nsp-prop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nsp-prop--row {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+.nsp-prop__key {
+  font-size: 11px;
+  color: var(--nsp-muted);
+}
+.nsp-prop__input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff14;
+  font: 400 12px var(--nsp-font-mono);
+  color: var(--nsp-text-2);
+  text-overflow: ellipsis;
+  outline: none;
+  transition: box-shadow 140ms ease;
+}
+.nsp-prop__input:focus,
+.nsp-prop__input.is-hot {
+  box-shadow: inset 0 0 0 1px #22d3ee80;
+}
+.nsp-switch {
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 9px;
+  background: #2a303c;
+  display: flex;
+  justify-content: flex-start;
+  transition: background 160ms ease;
+}
+.nsp-switch span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--nsp-muted);
+  transition: transform 160ms ease;
+}
+.nsp-switch.is-on {
+  background: var(--nsp-glow);
+}
+.nsp-switch.is-on span {
+  background: var(--nsp-bg);
+  transform: translateX(14px);
+}
+.nsp__event {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #c6f43210;
+  font-size: 11px;
+  color: var(--nsp-muted);
+}
+.nsp__event-name {
+  color: var(--nsp-live);
+  white-space: pre;
+}
+.nsp__env {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  box-shadow: inset 0 1px 0 #ffffff10;
+}
+.nsp__select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff14;
+  font-size: 12px;
+  color: var(--nsp-text-2);
+}
+.nsp__theme button {
+  flex: 1;
+  padding: 5px 0;
+  font: 400 11px var(--nsp-font-mono);
+}
+
+@media (max-width: 1240px) {
+  .nsp__sidebar {
+    width: 200px;
+  }
+  .nsp__props {
+    width: 260px;
+  }
+}
+@media (max-width: 1023px) {
+  .nsp__sidebar {
+    display: none;
+  }
+}
+@media (max-width: 899px) {
+  .nsp {
+    height: auto;
+  }
+  .nsp__bar {
+    height: 46px;
+    gap: 10px;
+    padding: 0 12px;
+  }
+  .nsp__url,
+  .nsp__size {
+    display: none;
+  }
+  .nsp__body {
+    flex-direction: column;
+  }
+  .nsp__canvas {
+    min-height: 360px;
+    padding: 28px 12px;
+  }
+  .nsp__preview {
+    width: auto;
+  }
+  .nsp__code {
+    min-height: 0;
+    overflow-x: auto;
+    font-size: 11.5px;
+  }
+  .nsp__props {
+    width: 100%;
+    box-shadow: inset 0 1px 0 #ffffff10;
+  }
+  .nsp__props > .nsp__spacer {
+    display: none;
+  }
+}
+
+/* ---------- live playground (src/playground) ---------- */
+.nsp--loading {
+  background: var(--nsp-window);
+}
+.nsp__states button {
+  text-transform: lowercase;
+}
+.nsp__stage[hidden] {
+  display: none;
+}
+.nsp__preview {
+  position: relative;
+}
+.nsp-live__frame {
+  position: relative;
+  transform-origin: 0 0;
+}
+.nsp__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #1a0d12f2;
+  box-shadow: inset 0 0 0 1px #fb718566;
+  font-size: 11.5px;
+  color: #fda4af;
+  white-space: pre-wrap;
+}
+.nsp__error strong {
+  color: #fb7185;
+  font-weight: 500;
+}
+.nsp__muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--nsp-dim);
+  white-space: normal;
+}
+.nsp__filepath {
+  font-size: 10.5px;
+  color: var(--nsp-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.nsp__badge {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #c6f4321f;
+  color: var(--nsp-live);
+  font-size: 10px;
+}
+.nsp__drawer-action {
+  font: 400 10.5px var(--nsp-font-mono);
+  color: var(--nsp-dim);
+}
+.nsp__drawer-action:hover {
+  color: #c3cad6;
+}
+
+/* Code view (top Preview | Code) */
+.nsp__codeview {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0b0d12f0;
+}
+.nsp__files {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  box-shadow: inset 0 -1px 0 #ffffff0a;
+}
+.nsp__files button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font: 400 11.5px var(--nsp-font-mono);
+  color: #7a8496;
+}
+.nsp__files button.is-on {
+  background: #ffffff0f;
+  color: var(--nsp-text-2);
+}
+.nsp__codeview .nsp__source {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  padding: 16px 18px;
+}
+
+/* Highlighted source (Usage / Source / Console / Code view) */
+.nsp-code {
+  margin: 0;
+  font: 400 13px/1.75 var(--nsp-font-mono);
+  color: #c3cad6;
+  white-space: pre;
+  tab-size: 2;
+}
+.nsp-code code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+.nsp-code__line {
+  display: flex;
+}
+.nsp-code__n {
+  flex: none;
+  width: 2.2em;
+  padding-right: 1em;
+  text-align: right;
+  color: #3d4452;
+  user-select: none;
+}
+.nsp-console {
+  font-size: 12px;
+}
+.nsp-code .token.comment,
+.nsp-code .token.prolog {
+  color: var(--nsp-dim);
+  font-style: italic;
+}
+.nsp-code .token.keyword,
+.nsp-code .token.module,
+.nsp-code .token.control-flow {
+  color: #c4b5fd;
+}
+.nsp-code .token.string,
+.nsp-code .token.template-string,
+.nsp-code .token.number,
+.nsp-code .token.boolean {
+  color: var(--nsp-live);
+}
+.nsp-code .token.tag,
+.nsp-code .token.class-name,
+.nsp-code .token.builtin {
+  color: #67e8f9;
+}
+.nsp-code .token.attr-name,
+.nsp-code .token.property {
+  color: #c4b5fd;
+}
+.nsp-code .token.function {
+  color: var(--nsp-text);
+}
+.nsp-code .token.punctuation,
+.nsp-code .token.operator {
+  color: #7a8496;
+}
+
+/* Drawer: fixed height, its content scrolls */
+.nsp__code {
+  height: 146px;
+  min-height: 0;
+  overflow: auto;
+  gap: 0;
+  padding: 14px 18px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff1a transparent;
+}
+.nsp__code .nsp-code {
+  font-size: 13px;
+}
+.nsp__code[data-tab='Source'] .nsp-code,
+.nsp__code[data-tab='Console'] .nsp-code {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* Props panel */
+.nsp__fields {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 -20px;
+  padding: 2px 20px 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff1a transparent;
+}
+.nsp-prop__input[type='date'] {
+  color-scheme: dark;
+}
+.nsp-prop__input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+}
+.nsp-prop__input.is-bad {
+  box-shadow: inset 0 0 0 1px #fb718599;
+}
+.nsp__event {
+  transition: background 200ms ease;
+}
+.nsp__event.is-fired {
+  background: #c6f4321a;
+}
+.nsp__event-state {
+  color: var(--nsp-live);
+}
+.nsp__event:not(.is-fired) .nsp__event-state {
+  color: #7a8496;
+}
+.nsp__select {
+  position: relative;
+  gap: 8px;
+  cursor: pointer;
+}
+.nsp__select select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+.nsp__select::before {
+  content: attr(data-label);
+}
+.nsp__select-dim {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--nsp-dim);
+}
+.nsp__select:focus-within {
+  box-shadow: inset 0 0 0 1px #22d3ee66;
+}
+
+/* Device chrome over a screen's safe area (DOM, click-through) */
+.nsp-device {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: -apple-system, 'SF Pro Text', var(--nsp-font-body);
+  color: #191015;
+}
+.nsp-device--dark {
+  color: #f4f2f1;
+}
+.nsp-device__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 34px 0 46px;
+}
+.nsp-device--island .nsp-device__bar {
+  align-items: flex-start;
+  padding-top: 21px;
+}
+.nsp-device--notch-less .nsp-device__bar {
+  padding: 0 10px;
+}
+.nsp-device--android .nsp-device__bar {
+  padding: 0 22px;
+}
+.nsp-device__time {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.nsp-device--notch-less .nsp-device__time,
+.nsp-device--android .nsp-device__time {
+  font-size: 13px;
+}
+.nsp-device__island {
+  position: absolute;
+  left: 50%;
+  top: 11px;
+  width: 124px;
+  height: 36px;
+  margin-left: -62px;
+  border-radius: 18px;
+  background: #000;
+}
+.nsp-device__icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 3px;
+}
+.nsp-device__icons i {
+  display: block;
+  background: currentColor;
+}
+.nsp-device__signal {
+  width: 17px;
+  height: 11px;
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  border-radius: 1px;
+}
+.nsp-device__wifi {
+  width: 15px;
+  height: 11px;
+  clip-path: polygon(50% 100%, 0 25%, 15% 8%, 50% 0, 85% 8%, 100% 25%);
+}
+.nsp-device__battery {
+  width: 25px;
+  height: 12px;
+  border-radius: 3.5px;
+  opacity: 0.9;
+}
+.nsp-device--notch-less .nsp-device__icons i,
+.nsp-device--android .nsp-device__icons i {
+  transform: scale(0.8);
+}
+.nsp-device__home {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 140px;
+  height: 5px;
+  margin-left: -70px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
+/* Screens get more room: the canvas grows and the stage fills it. */
+.nsp__canvas[data-layout='fullscreen'] .nsp__stage {
+  gap: 16px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  /* Touch: switches get a 44px hit area without changing their look. */
+  .nsp-switch {
+    position: relative;
+  }
+  .nsp-switch::after {
+    content: '';
+    position: absolute;
+    inset: -13px -6px;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 900px) {
+  .nsp__sidebar {
+    display: flex;
+    width: 184px;
+  }
+}
+@media (max-width: 899px) {
+  .nsp__sidebar {
+    display: flex;
+    width: 100%;
+    padding: 12px;
+    box-shadow: inset 0 -1px 0 #ffffff10;
+  }
+  .nsp__lists {
+    flex-direction: row;
+    gap: 14px;
+    margin: 10px -12px 0;
+    padding: 0 12px 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .nsp__group {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+  }
+  .nsp__group .nsp__heading {
+    padding: 0 4px 0 0;
+    white-space: nowrap;
+  }
+  button.nsp__item {
+    width: auto;
+    padding: 8px 10px;
+    min-height: 36px;
+    box-shadow: inset 0 0 0 1px #ffffff10;
+  }
+  .nsp__canvas {
+    min-height: 380px;
+  }
+  .nsp__canvas[data-layout='fullscreen'] {
+    height: 620px;
+  }
+  .nsp__codeview {
+    position: relative;
+    max-height: 520px;
+  }
+  .nsp__code {
+    height: 200px;
+    overflow-x: auto;
+  }
+  .nsp__fields {
+    overflow: visible;
+  }
+  /* iOS zooms into inputs under 16px. */
+  .nsp-prop__input,
+  .nsp__search input {
+    font-size: 16px;
+  }
+  .nsp__search {
+    padding: 10px 12px;
+  }
+  .nsp-switch {
+    position: relative;
+  }
+  .nsp-switch::after {
+    content: '';
+    position: absolute;
+    inset: -13px -6px;
+  }
+}
+.nsp-prop__date {
+  position: relative;
+  display: flex;
+}
+.nsp-prop__date .nsp-prop__input {
+  padding-right: 34px;
+}
+.nsp-prop__pick {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--nsp-dim);
+}
+.nsp-prop__pick:hover {
+  color: var(--nsp-text-2);
+  background: #ffffff0d;
+}
+.nsp-prop__picker {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  color-scheme: dark;
+}
+.nsp__code[hidden] {
+  display: none;
+}
+.nsp .nsp-prop__select {
+  padding-right: 26px;
+  background-color: #ffffff08;
+  background-image: linear-gradient(45deg, transparent 50%, #7a8496 50%), linear-gradient(135deg, #7a8496 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 52%,
+    calc(100% - 11px) 52%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+/* The slot clips its (fixed-size) surface to the component's box. */
+.nsp-live {
+  /* clip, not hidden: a hidden box can still be scrolled programmatically
+     (focus inside the engine's DOM layer did, shifting the canvas out of view). */
+  overflow: hidden;
+  overflow: clip;
+  isolation: isolate;
+}
+.nsp-live--framed {
+  box-shadow: 0 24px 60px #000000a0;
+}
+
+/* ---------- package additions ---------- */
+.nsp__live-dot {
+  border-radius: 50%;
+}
+.nsp__preview {
+  width: auto;
+}
+.nsp-live {
+  position: relative;
+}
+button.nsp__url {
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--nsp-muted);
+}
+button.nsp__url:hover {
+  color: var(--nsp-text-2);
+}
+.nsp__url svg {
+  flex: none;
+  color: var(--nsp-dim);
+}
+.nsp__url span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nsp__link:hover {
+  color: var(--nsp-text-2);
+}
+/* Default canvas fill: the design's dot grid with a soft glow (embeds may pass a shader instead). */
+.nsp__dots {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 45% at 50% 45%, #22d3ee0d 0%, #22d3ee00 100%),
+    radial-gradient(circle, var(--nsp-dot) 1.1px, transparent 1.6px) 0 0 / 22px 22px,
+    var(--nsp-canvas);
+  pointer-events: none;
+}
+/* Sidebar entries are buttons (they select the entry). */
+button.nsp__item {
+  width: 100%;
+  font-size: 12.5px;
+  text-align: left;
+}
+button.nsp__item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+button.nsp__item:hover:not(.is-selected) {
+  background: #ffffff08;
+  color: #c3cad6;
+}
+.nsp-prop__select {
+  appearance: none;
+  cursor: pointer;
+}
+.nsp-prop__key {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Story errors (inner canvas boundary or DOM boundary): over the preview box. */
+.nsp .story-error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #1a0d12f2;
+  box-shadow: inset 0 0 0 1px #fb718566;
+  font-size: 11.5px;
+  color: #fda4af;
+  white-space: pre-wrap;
+}
+.nsp .story-error strong {
+  color: var(--nsp-error);
+  font-weight: 500;
+}
+.nsp .story-error pre {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.nsp .story-error.not-bridged {
+  background: #1a160df2;
+  box-shadow: inset 0 0 0 1px #fbbf2466;
+  color: #fde68a;
+}
+.nsp .story-error.not-bridged strong {
+  color: #fbbf24;
+}
+.nsp .story-error-hint {
+  color: var(--nsp-muted);
+}
+
+/* Event log (props panel) */
+.nsp__events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nsp__event-tag {
+  margin-left: 8px;
+  color: var(--nsp-dim);
+}
+.nsp__event-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 10px;
+  font-size: 10.5px;
+  color: var(--nsp-dim);
+}
+.nsp__event-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nsp__events-clear {
+  align-self: flex-end;
+  padding: 2px 0;
+}
+
+/* Usage tokens + console kinds */
+.nsp-tok--punct {
+  color: #7a8496;
+}
+.nsp-tok--tag {
+  color: #67e8f9;
+}
+.nsp-tok--attr {
+  color: #c4b5fd;
+}
+.nsp-tok--ident {
+  color: var(--nsp-text);
+}
+.nsp-tok--lit {
+  color: var(--nsp-live);
+}
+.nsp-log--mount {
+  color: var(--nsp-muted);
+}
+.nsp-log--render {
+  color: #67e8f9;
+}
+.nsp-log--event {
+  color: var(--nsp-live);
+}
+.nsp-log--env {
+  color: #c4b5fd;
+}
+.nsp-log--error {
+  color: var(--nsp-error);
+}
+.nsp__badge--warn {
+  background: #fbbf241f;
+  color: #fbbf24;
+}
+
+/* Audit tab */
+.nsp-audit {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  white-space: normal;
+}
+.nsp-audit li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.nsp-audit__spec {
+  color: #fbbf24;
+}
+.nsp-audit__importer {
+  color: var(--nsp-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Environment: custom size */
+.nsp__sizes {
+  display: flex;
+  gap: 8px;
+}
+.nsp__field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--nsp-dim);
+}
+
+.nsp__blank {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+}
+.nsp__muted {
+  font-family: var(--nsp-font-mono);
+}
+
+/* Shoot mode: just the story canvas, top-left, nothing else on the page. */
+.nsp--shoot {
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.nsp--shoot::after {
+  display: none;
+}
+.nsp-shoot {
+  position: relative;
+  background: #ffffff;
+}
+
+.nsp__props-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
