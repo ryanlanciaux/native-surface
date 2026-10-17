@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createDragRotate } from './dragRotate';
+import { DEVICE } from './geometry';
 import { createIntro, introPose, type IntroHandle } from './intro';
 import type { Pose } from './math';
 import { Phone3D, rigFor } from './Phone3D';
@@ -22,6 +24,8 @@ export interface HeroDeviceProps {
   perspective: string;
   /** The live app has painted: start the intro. */
   ready: boolean;
+  /** First drag or lock toggle on the settled phone. */
+  onInteract?: () => void;
   children: ReactNode;
 }
 
@@ -29,11 +33,15 @@ export interface HeroDeviceProps {
  * The hero's 3D phone plus its intro. The phone waits above the viewport
  * (set before first paint) until the live app has painted, so the spin shows
  * the real app, then spins in, touches the ring (ring pulse + sparkle burst),
- * rebounds and settles at the design pose. Toggles `is-intro` / `is-landed` /
- * `is-settled` on `.hero__device` and sets `window.__siteReady` once settled.
+ * in the design's tilt, then turns face-on (`rest`) and settles. Toggles
+ * `is-intro` / `is-landed` / `is-settled` on `.hero__device` and sets
+ * `window.__siteReady` once settled; from then on the phone can be dragged
+ * round and double-tapped to lock (dragRotate.ts).
  * Reduced motion: no spin, no sparkle, at rest from the start.
  */
-export function HeroDevice({ rest, perspective, ready, children }: HeroDeviceProps) {
+export function HeroDevice({ rest, perspective, ready, onInteract, children }: HeroDeviceProps) {
+  const onInteractRef = useRef(onInteract);
+  onInteractRef.current = onInteract;
   const sparkRef = useRef<HTMLCanvasElement>(null);
   const intro = useRef<IntroHandle | null>(null);
   const [timedOut, setTimedOut] = useState(false);
@@ -46,9 +54,11 @@ export function HeroDevice({ rest, perspective, ready, children }: HeroDevicePro
     const phone = deviceEl?.querySelector<HTMLElement>('.phone');
     const rig = rigFor(phone);
     if (!canvas || !deviceEl || !phone || !rig) return;
+    const drag = createDragRotate({ root: deviceEl, phone, rig, onInteract: () => onInteractRef.current?.() });
     const settle = () => {
       deviceEl.classList.add('is-landed', 'is-settled');
       deviceEl.classList.remove('is-intro');
+      drag.enable();
       requestAnimationFrame(() => {
         window.__siteReady = true;
       });
@@ -56,13 +66,15 @@ export function HeroDevice({ rest, perspective, ready, children }: HeroDevicePro
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
       intro.current = { play: settle, cancel() {} };
       return () => {
+        drag.dispose();
         intro.current = null;
       };
     }
     // Start far enough up that the tilted, spinning phone is fully above
-    // the viewport (in the plane's own px, the stage may be scaled).
+    // the viewport (in the plane's own px: the stage may be scaled, and
+    // `.phone` is scaled by DEVICE.scale inside the plane).
     const r = phone.getBoundingClientRect();
-    const k = r.height / phone.offsetHeight || 1;
+    const k = r.height / (phone.offsetHeight * DEVICE.scale) || 1;
     const lift = -Math.max(r.top + 0.95 * r.height + 40, 360) / k;
     // Inspection hooks: `?hero-progress=0.4` freezes the intro at that
     // point, `?hero-pose=rx,ry,rz` holds an arbitrary pose.
@@ -72,7 +84,7 @@ export function HeroDevice({ rest, perspective, ready, children }: HeroDevicePro
     if ((frozen >= 0 && frozen <= 1) || held?.length === 3) {
       const [rx, ry, rz] = held ?? [];
       rig.setPose(held ? { ...rig.rest, rx: rx!, ry: ry!, rz: rz! } : introPose(rig.rest, lift, frozen));
-      return;
+      return () => drag.dispose();
     }
     let stopSparkle = () => {};
     const handle = createIntro(rig, lift, {
@@ -86,6 +98,7 @@ export function HeroDevice({ rest, perspective, ready, children }: HeroDevicePro
     intro.current = handle;
     return () => {
       handle.cancel();
+      drag.dispose();
       stopSparkle();
       intro.current = null;
       deviceEl.classList.remove('is-intro', 'is-landed', 'is-settled');

@@ -31,11 +31,30 @@ const STATS = [
   { value: 'Skia', label: 'paint, via CanvasKit' },
 ];
 
+const HINT_KEY = 'ns-hero-rotate-hint';
+function hintSeen() {
+  try {
+    return localStorage.getItem(HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function Hero() {
   const deviceRef = useRef<HTMLDivElement>(null);
   const active = useOnScreen(deviceRef);
   const [painted, setPainted] = useState(false);
   const onPainted = useCallback(() => setPainted(true), []);
+  // The rotate hint fades out on the first drag / lock and stays gone.
+  const [hint, setHint] = useState(() => !hintSeen());
+  const onInteract = useCallback(() => {
+    setHint(false);
+    try {
+      localStorage.setItem(HINT_KEY, '1');
+    } catch {
+      // Storage blocked: dismissed for this page load only.
+    }
+  }, []);
 
   return (
     <section className="hero" id="top">
@@ -52,7 +71,7 @@ export function Hero() {
           <div className="hero__pad" aria-hidden="true" />
           <div className="hero__pad-glow" aria-hidden="true" />
 
-          <HeroDevice rest={REST} perspective={pose.perspective} ready={painted}>
+          <HeroDevice rest={REST} perspective={pose.perspective} ready={painted} onInteract={onInteract}>
             <div className="phone__app">
               <HeroPhoneSlot {...SCREEN_SLOT} active={active} onPainted={onPainted} />
             </div>
@@ -74,6 +93,9 @@ export function Hero() {
           <p className="hero__caption">
             <span className="live-dot" />
             LIVE{'  ·  '}Ignite demo app, running in WebAssembly
+          </p>
+          <p className={`hero__hint${hint ? '' : ' is-dismissed'}`} aria-hidden="true">
+            {'drag to rotate  ·  double-tap to lock'}
           </p>
         </div>
 

@@ -57,7 +57,42 @@
     transform: scale(1);
   }
 }
+/* Drag to rotate (src/hero3d/dragRotate.ts), live once settled. Touch keeps
+   vertical page scroll over the device; a sideways start rotates. */
+.hero__device {
+  touch-action: pan-y;
+}
+.hero__device.is-dragging,
+.hero__device.is-dragging * {
+  cursor: grabbing !important;
+}
+.hero__hint {
+  position: absolute;
+  left: 20px;
+  top: 824px;
+  width: 520px;
+  margin: 0;
+  text-align: center;
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.5px;
+  color: #5f6879;
+  white-space: pre;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.hero__device.is-settled .hero__hint {
+  opacity: 1;
+  transition: opacity 700ms ease 900ms;
+}
+.hero__device .hero__hint.is-dismissed {
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
 @media (prefers-reduced-motion: reduce) {
+  .hero__hint {
+    transition: none !important;
+  }
   .hero__device.is-landed .hero__pad,
   .hero__device.is-landed .hero__pad-glow {
     animation: none;
