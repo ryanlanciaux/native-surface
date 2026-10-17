@@ -9,7 +9,7 @@ const en = {
   },
   welcomeScreen: {
     postscript:
-      "psst  — This probably isn't what your app looks like. (Unless your designer handed you these screens, and in that case, ship it!)",
+      "psst: This probably isn't what your app looks like. (Unless your designer handed you these screens, and in that case, ship it!)", // native-surface adapter: em dash removed (site copy rule)
     readyForLaunch: "Your app, almost ready for launch!",
     exciting: "(ohh, this is exciting!)",
     letsGo: "Let's go!",

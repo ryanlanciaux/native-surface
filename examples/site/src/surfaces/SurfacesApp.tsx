@@ -53,7 +53,7 @@ export function SurfacesApp() {
     <div className="page">
       <header className="hero">
         <div className="hero__corner">
-          <span className="badge-experimental" title="A speed-run test project — expect rough edges">
+          <span className="badge-experimental" title="A speed-run test project: expect rough edges">
             Experimental
           </span>
           <a
@@ -249,7 +249,7 @@ function ActionLog({ actions }: { actions: ActionEntry[] }) {
         <span className="log__title">onAction</span>
       </div>
       {actions.length === 0 ? (
-        <p className="log__empty">—</p>
+        <p className="log__empty">No actions yet</p>
       ) : (
         <ol className="log__list">
           {actions.map((entry) => (

@@ -109,7 +109,7 @@ function SavedScreen() {
     <View style={[styles.screen, { paddingTop: 24 }]}>
       <Text style={styles.sectionTitle}>Saved places</Text>
       <Text style={styles.body}>
-        {saved.length === 0 ? 'Nothing saved yet — tap below.' : `${saved.length} saved. Switch tabs and back: this state survives.`}
+        {saved.length === 0 ? 'Nothing saved yet. Tap below.' : `${saved.length} saved. Switch tabs and back: this state survives.`}
       </Text>
       {PLACES.slice(0, 3).map((p) => (
         <Pressable

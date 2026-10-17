@@ -160,11 +160,11 @@ export interface Callout {
 }
 
 export const CALLOUTS: Callout[] = [
-  { component: '<Text preset="heading" />', layer: 'heading', meta: 'wasm · 3.8 kb · i18n ready', side: 'left', x: 40, y: 12, leader: [356, 35.5, 404], anchor: [763, 31] },
-  { component: '<Toggle variant="switch" />', layer: 'toggle', meta: 'wasm · 6.4 kb · controlled', side: 'right', x: 1060, y: 252, leader: [963, 275.5, 81], anchor: [950, 271] },
-  { component: '<Button />', layer: 'buttons', meta: 'wasm · 5.1 kb · press = Skia repaint', side: 'left', x: 40, y: 337, leader: [356, 360.5, 269], anchor: [628, 356] },
-  { component: '<EpisodeCard />', layer: 'cards', meta: 'Card + AutoImage · 12.9 kb', side: 'right', x: 1060, y: 611, leader: [817, 634.5, 227], anchor: [804, 630] },
-  { component: '<Screen preset="scroll" />', layer: 'screen', meta: 'safe areas · Yoga layout', side: 'right', x: 1060, y: 740, leader: [926, 763.5, 118], anchor: [913, 759] },
+  { component: '<Text preset="heading" />', layer: 'heading', meta: 'theme presets · i18n via tx', side: 'left', x: 40, y: 12, leader: [356, 35.5, 404], anchor: [763, 31] },
+  { component: '<Switch />', layer: 'toggle', meta: 'Ignite Toggle · controlled', side: 'right', x: 1060, y: 252, leader: [963, 275.5, 81], anchor: [950, 271] },
+  { component: '<Button />', layer: 'buttons', meta: 'press = Skia repaint', side: 'left', x: 40, y: 337, leader: [356, 360.5, 269], anchor: [628, 356] },
+  { component: '<EpisodeCard />', layer: 'cards', meta: 'Card + Image · bundled cover art', side: 'right', x: 1060, y: 611, leader: [817, 634.5, 227], anchor: [804, 630] },
+  { component: '<Screen preset="fixed" />', layer: 'screen', meta: 'safe areas · Yoga layout', side: 'right', x: 1060, y: 740, leader: [926, 763.5, 118], anchor: [913, 759] },
   { component: '<DemoNavigator />', layer: 'tabbar', meta: 'bottom tabs · react-navigation', side: 'left', x: 40, y: 828, leader: [356, 851.5, 83], anchor: [442, 847] },
   { component: 'Device frame', layer: 'device', meta: 'iPhone 16 Pro · 402 × 874 @3x', side: 'right', x: 1060, y: 1021, leader: [756, 1044.5, 288], anchor: [743, 1040] },
 ];

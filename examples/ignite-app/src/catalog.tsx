@@ -308,7 +308,7 @@ export const componentCatalog: AnyCatalogEntry[] = [
     variants: [
       { name: "heading", props: { preset: "heading" } },
       { name: "subheading", props: { preset: "subheading", text: "Components to jump start your project!" } },
-      { name: "default", props: { preset: "default", text: "The same layout engine. The same pixels." } },
+      { name: "default", props: { preset: "default", text: "The same layout engine. Real Skia pixels." } },
       { name: "bold", props: { preset: "bold", text: "Only Show Favorites" } },
     ],
     controls: {
@@ -349,7 +349,7 @@ export const componentCatalog: AnyCatalogEntry[] = [
     usage: `<Card heading="Card" content="Content" footer="Footer" preset="default" />`,
     defaultProps: {
       heading: "Yoga, Skia and the canvas",
-      content: "The layout engine and the 2D graphics library behind modern React Native rendering.",
+      content: "Yoga lays out React Native on iOS and Android. Here it runs in wasm, and Skia paints the result.",
       footer: "Jun 29, 2023",
       preset: "default",
       verticalAlignment: "top",

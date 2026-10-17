@@ -52,6 +52,30 @@
   height: 2px;
   background: linear-gradient(90deg, #22d3ee10 0%, #22d3ee 35%, #8b5cf6 75%, #8b5cf610 100%);
   box-shadow: 0 0 12px #22d3ee99;
+  transform-origin: left center;
+}
+/* Travelling spark: same box as the rail, its dot sits on the far end, so
+   translating the box from -100% to 0 walks the dot along the drawn line. */
+.pipeline__head {
+  position: absolute;
+  left: 32px;
+  top: 31px;
+  width: 960px;
+  max-width: calc(100% - 64px);
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+}
+.pipeline__head::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ecfeff 0%, #67e8f9 35%, #22d3ee00 70%);
+  box-shadow: 0 0 18px 4px #22d3ee88;
 }
 .step {
   position: relative;
@@ -67,11 +91,20 @@
   border-radius: 20px;
   display: grid;
   place-items: center;
+  position: relative;
   background: #0b0e14;
   box-shadow:
     inset 0 0 0 1.5px color-mix(in srgb, var(--c) 60%, transparent),
-    0 0 28px color-mix(in srgb, var(--c) 33%, transparent),
     inset 0 0 14px color-mix(in srgb, var(--c) 19%, transparent);
+}
+/* Outer glow on its own layer so the reveal animates opacity, not box-shadow. */
+.step__node::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 33%, transparent);
+  pointer-events: none;
 }
 .step__text {
   display: flex;
@@ -136,6 +169,19 @@
     height: calc(100% - 64px);
     max-width: none;
     background: linear-gradient(180deg, #22d3ee10 0%, #22d3ee 35%, #8b5cf6 75%, #8b5cf610 100%);
+    transform-origin: center top;
+  }
+  .pipeline__head {
+    left: 31px;
+    top: 32px;
+    width: 2px;
+    height: calc(100% - 64px);
+    max-width: none;
+  }
+  .pipeline__head::after {
+    right: -5px;
+    top: auto;
+    bottom: -5px;
   }
   .step {
     flex-direction: row;
@@ -146,5 +192,124 @@
   }
   .step__text {
     padding-top: 2px;
+  }
+}
+
+/* ── Reveal (one shot, see useReveal in UnderTheHood.tsx) ─────────────────
+   .pipeline--armed holds the start pose (layout is already final, only
+   transform/opacity/filter differ); .pipeline--in plays it. The rail takes
+   1.2s; step i starts as the line reaches it. */
+.pipeline {
+  --draw: 1200ms;
+  --stagger: 180ms;
+  --lead: 120ms;
+}
+.pipeline--armed .pipeline__rail {
+  transform: scaleX(0);
+}
+.pipeline--armed .step__node {
+  opacity: 0;
+  transform: scaleY(0.6);
+  transform-origin: center bottom;
+}
+.pipeline--armed .step__node::before {
+  opacity: 0.25;
+}
+.pipeline--armed .step__index,
+.pipeline--armed .step__title,
+.pipeline--armed .step__body {
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(4px);
+}
+
+.pipeline--in .pipeline__rail {
+  animation: uth-draw-x var(--draw) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pipeline--in .pipeline__head {
+  animation: uth-head-x var(--draw) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pipeline--in .step__node {
+  animation: uth-node 560ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+  animation-delay: calc(var(--lead) + var(--i) * var(--stagger));
+}
+.pipeline--in .step__node::before {
+  animation: uth-glow 700ms ease-out both;
+  animation-delay: calc(var(--lead) + var(--i) * var(--stagger) + 80ms);
+}
+.pipeline--in .step__index,
+.pipeline--in .step__title,
+.pipeline--in .step__body {
+  animation: uth-text 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--lead) + var(--i) * var(--stagger) + 220ms + var(--t, 0ms));
+}
+.pipeline--in .step__title {
+  --t: 50ms;
+}
+.pipeline--in .step__body {
+  --t: 100ms;
+}
+
+@keyframes uth-draw-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes uth-draw-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes uth-head-x {
+  0% { opacity: 0; transform: translateX(-100%); }
+  8% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(0); }
+}
+@keyframes uth-head-y {
+  0% { opacity: 0; transform: translateY(-100%); }
+  8% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes uth-node {
+  0% { opacity: 0; transform: scaleY(0.6); }
+  25% { opacity: 1; }
+  60% { transform: scaleY(1.04); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes uth-glow {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+@keyframes uth-text {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@media (max-width: 899px) {
+  .pipeline--armed .pipeline__rail {
+    transform: scaleY(0);
+  }
+  .pipeline--in .pipeline__rail {
+    animation-name: uth-draw-y;
+  }
+  .pipeline--in .pipeline__head {
+    animation-name: uth-head-y;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline--armed .pipeline__rail,
+  .pipeline--armed .step__node,
+  .pipeline--armed .step__node::before,
+  .pipeline--armed .step__index,
+  .pipeline--armed .step__title,
+  .pipeline--armed .step__body {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none;
+  }
+  .pipeline__head {
+    display: none;
   }
 }

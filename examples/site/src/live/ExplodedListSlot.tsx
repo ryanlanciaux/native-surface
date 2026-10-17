@@ -4,7 +4,7 @@ import { EPISODES, IgniteEpisodeCard, IgniteFavButton, IgniteHeading, IgniteTabB
 /** Callout (as written in the exploded view) → static art of that component. */
 const ART: Record<string, () => ReactElement> = {
   '<Text preset="heading" />': () => <IgniteHeading />,
-  '<Toggle variant="switch" />': () => <IgniteToggle />,
+  '<Switch />': () => <IgniteToggle />,
   '<Button />': () => <IgniteFavButton favorited />,
   '<EpisodeCard />': () => <IgniteEpisodeCard episode={EPISODES[0]!} favorited />,
   '<DemoNavigator />': () => <IgniteTabBar />,

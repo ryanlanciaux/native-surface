@@ -1,4 +1,29 @@
-# scripts/site — preview, shoot, record, diff
+# scripts/site — preview, shoot, record, diff, copy check
+
+## check-emdash.mjs (build gate)
+
+Copy rule: no em dash (U+2014) in user-visible text. The script parses
+TS/TSX/JS with the TypeScript compiler API and flags U+2014 in string
+literals, template literals and JSX text (comments are ignored). It also scans
+`examples/site/*.html` raw, minus `<!-- -->` comments.
+
+Scanned: `examples/site/src`, `examples/site/*.html`,
+`examples/ignite-app/{app,src}`, `packages/playground/src`.
+
+```bash
+node scripts/site/check-emdash.mjs        # exit 1 on hits
+node scripts/site/check-emdash.mjs --all  # same, ignoring the allowlist
+```
+
+It fails the build: `examples/site/vite.config.ts` registers a `site:check-emdash`
+plugin (`apply: 'build'`) whose `buildStart` calls `checkEmdash()` and
+`this.error`s on hits, so `pnpm --filter site build` and the Pages workflow's
+`vite build` both stop. Dev server is unaffected.
+
+`emdash-allowlist.json` (`{ "paths": [...] }`, repo-relative files or dir
+prefixes) skips files owned by lanes that have not done their copy pass yet.
+It should be empty once they have. Fix a hit by rewriting the sentence with a
+comma, period or colon, never an en dash or hyphen.
 
 Verification tooling for the native-surface marketing site (`examples/site`,
 base path `/native-surface/`). Chromium runs headless with SwiftShader so
