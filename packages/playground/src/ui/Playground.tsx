@@ -73,7 +73,7 @@ export interface PlaygroundProps {
   /** Teach the Usage tab the host's idioms. */
   usage?: UsageHooks;
   /** Address in the URL pill. */
-  urlLabel?: (item: PlaygroundItem) => string;
+  urlLabel?: (item: PlaygroundItem, storyId: string) => string;
   /** Name of the app in the console's mount lines. */
   appName?: string;
   /** Render the canvas yourself (wrap NativeSurface: lazy mount, context budget, input remapping). */
@@ -329,7 +329,7 @@ function Ide(props: PlaygroundProps & { items: ReturnType<typeof toItems>; rootC
 
   const renderSurface = props.renderSurface ?? DefaultSurface;
   const sheet = { ...DEFAULT_SHEET, ...props.sheet };
-  const url = props.urlLabel?.(item) ?? `${typeof location === 'undefined' ? '' : location.host}/#/story/${sel.story.id}`;
+  const url = props.urlLabel?.(item, sel.story.id) ?? `${typeof location === 'undefined' ? '' : location.host}/#/story/${sel.story.id}`;
   const codeShown = codeFile === 'story' ? storySrc : (componentSrc ?? storySrc);
 
   if (shoot?.enabled) {

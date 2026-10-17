@@ -23,11 +23,11 @@ const AUTHORS = [
 ];
 
 const MESSAGES = [
-  'Pushed the Yoga measure-function cache: text layout is one pass per paragraph now.',
+  'Pushed the Yoga measure-function cache. Text layout is one pass per paragraph now.',
   'Skia paints the whole display list in a single traversal; no per-node canvas state churn.',
   'Hit-testing walks the retained tree in reverse paint order, so overlays win taps.',
   'flexWrap + gap match the on-device numbers to the pixel on every fixture I tried.',
-  'Shadows are outset-only for v1. Inset needs a second blur pass we do not need yet.',
+  'Shadows are outset-only for v1: inset needs a second blur pass we do not need yet.',
   'Fling it: real momentum with iOS deceleration, rubber-band edges, and bounce-back.',
 ];
 

@@ -35,8 +35,8 @@ export function Playground() {
           </h2>
         </div>
         <p className="pg__body">
-          Right here, on this page. Pick any component from your app, change its props, and watch the exact
-          WebAssembly build repaint.
+          Right here, on this page. Pick any component from your app, change its props, and watch Yoga and Skia,
+          running in WebAssembly, lay it out and repaint it.
         </p>
       </div>
       {index ? (

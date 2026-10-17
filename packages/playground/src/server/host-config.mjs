@@ -134,7 +134,7 @@ export async function storybookStoryGlobs(hostRoot) {
     const mainJs = ['main.js', 'main.mjs', 'main.cjs'].map((f) => join(dir, f)).find(existsSync);
     if (!mainJs) {
       if (['main.ts', 'main.mts', 'main.cts'].some((f) => existsSync(join(dir, f)))) {
-        return { globs: null, warning: `${dirName}/main.ts found, but TS Storybook configs are not read yet; pass --stories` };
+        return { globs: null, warning: `${dirName}/main.ts found. TS Storybook config is not read yet; pass --stories` };
       }
       continue;
     }

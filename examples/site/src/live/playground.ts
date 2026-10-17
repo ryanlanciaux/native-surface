@@ -93,4 +93,5 @@ export const renderSurface: RenderSurface = (slot) =>
     children: slot.children,
   });
 
-export const urlLabel = (host: string) => (item: PlaygroundItem) => `${host}/ignite-demo/${item.name}`;
+/** The tool's own address for the story: the CLI keeps the selection in the hash (`#/story/<id>`). */
+export const urlLabel = (host: string) => (_item: PlaygroundItem, storyId: string) => `${host}/#/story/${storyId}`;
