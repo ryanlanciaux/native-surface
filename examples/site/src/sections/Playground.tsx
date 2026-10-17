@@ -8,7 +8,7 @@ import './playground.css';
 const playgroundUrl = urlLabel('ignite-demo');
 
 /**
- * Section 04: the native-surface playground itself (packages/playground's
+ * Section 03: the native-surface playground itself (packages/playground's
  * embeddable UI, the same component `npx native-surface playground` runs),
  * pointed at ignite-demo's real CSF stories.
  */
@@ -27,7 +27,7 @@ export function Playground() {
       <div className="pg__header">
         <div className="pg__copy">
           <p className="eyebrow" style={{ color: '#C4B5FD' }}>
-            {'04  ·  PLAYGROUND'}
+            {'03  ·  PLAYGROUND'}
           </p>
           <h2 className="section-title pg__title" id="pg-title">
             Now try them yourself.

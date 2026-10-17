@@ -11,6 +11,8 @@ export interface ShaderCanvasProps extends ShaderRunnerOptions {
   timeOffset?: number;
   /** Render once and never animate (static fills such as the dot grid). */
   still?: boolean;
+  /** Feed `u_pointer` (uv xy, eased strength z) from the pointer over the parent. */
+  pointer?: boolean;
 }
 
 const reducedMotion = () =>
@@ -28,6 +30,7 @@ export function ShaderCanvas({
   style,
   timeOffset = 0,
   still = false,
+  pointer = false,
   maxDpr,
   resolutionScale,
 }: ShaderCanvasProps) {
@@ -53,8 +56,14 @@ export function ShaderCanvas({
     const start = performance.now();
     const now = () => timeOffset + (animate ? (performance.now() - start) / 1000 : 0);
 
+    // Pointer target (uv, origin bottom-left like gl_FragCoord) and an eased strength.
+    const ptr = { x: 0.5, y: 0.5, on: 0, k: 0 };
     const paint = () => {
       runner.resize();
+      if (pointer) {
+        ptr.k += (ptr.on - ptr.k) * 0.08;
+        runner.setUniforms({ u_pointer: [ptr.x, ptr.y, ptr.k] });
+      }
       runner.draw(now());
     };
     const loop = () => {
@@ -88,6 +97,20 @@ export function ShaderCanvas({
       kick();
     };
     mq.addEventListener('change', onMotion);
+
+    const host = pointer ? canvas.parentElement : null;
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
+      const r = canvas.getBoundingClientRect();
+      ptr.x = (e.clientX - r.left) / r.width;
+      ptr.y = 1 - (e.clientY - r.top) / r.height;
+      ptr.on = 1;
+    };
+    const onLeave = () => {
+      ptr.on = 0;
+    };
+    host?.addEventListener('pointermove', onMove, { passive: true });
+    host?.addEventListener('pointerleave', onLeave);
     paint();
 
     return () => {
@@ -95,9 +118,11 @@ export function ShaderCanvas({
       io.disconnect();
       ro.disconnect();
       mq.removeEventListener('change', onMotion);
+      host?.removeEventListener('pointermove', onMove);
+      host?.removeEventListener('pointerleave', onLeave);
       runner.dispose();
     };
-  }, [source, uniformsKey, timeOffset, still, maxDpr, resolutionScale]);
+  }, [source, uniformsKey, timeOffset, still, pointer, maxDpr, resolutionScale]);
 
   return <canvas ref={ref} className={className} style={style} aria-hidden="true" />;
 }

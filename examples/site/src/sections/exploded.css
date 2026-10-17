@@ -2,12 +2,25 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: var(--bg);
+  /* Static stand-in for the flow-dots shader (reduced motion, no WebGL, first paint). */
+  background:
+    radial-gradient(45% 35% at 28% 62%, #22d3ee0d 0%, #22d3ee00 100%),
+    radial-gradient(40% 35% at 74% 42%, #8b5cf611 0%, #8b5cf600 100%),
+    radial-gradient(circle at center, #1b2130 1px, #1b213000 1.6px) center / 24px 24px,
+    var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 40px;
   padding: 140px 0 120px;
+}
+.exploded__bg[data-failed] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .exploded__bg {
+    display: none;
+  }
 }
 .exploded__top-fade {
   position: absolute;

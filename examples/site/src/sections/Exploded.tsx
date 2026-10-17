@@ -23,7 +23,7 @@ export function Exploded() {
 
   return (
     <section className="exploded" aria-labelledby="exploded-title">
-      <ShaderCanvas className="shader-fill" {...FILLS.exploded} />
+      <ShaderCanvas className="shader-fill exploded__bg" {...FILLS.exploded} />
       <div className="exploded__top-fade" aria-hidden="true" />
 
       <header className="exploded__header">
