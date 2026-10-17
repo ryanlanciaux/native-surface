@@ -107,15 +107,12 @@ export function UnderTheHood() {
 
   return (
     <section className="uth" aria-labelledby="uth-title">
-      <div className="uth__header">
-        <div className="uth__title-col">
-          <p className="eyebrow">{'04  ·  UNDER THE HOOD'}</p>
-          <h2 className="section-title uth__title" id="uth-title">
-            The same layout engine. Real Skia pixels.
-          </h2>
-        </div>
-        <p className="uth__body">Laid out by Yoga, painted by Skia, both running in WebAssembly.</p>
-      </div>
+      <header className="uth__header">
+        <p className="eyebrow">{'04  ·  UNDER THE HOOD'}</p>
+        <h2 className="section-title uth__title" id="uth-title">
+          The same layout engine. Real Skia pixels.
+        </h2>
+      </header>
 
       <ol className={pipelineClass} ref={ref}>
         <span className="pipeline__rail" aria-hidden="true" />

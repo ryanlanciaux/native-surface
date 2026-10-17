@@ -24,20 +24,14 @@ export function Playground() {
 
   return (
     <section className="pg" id="playground" aria-labelledby="pg-title">
-      <div className="pg__header">
-        <div className="pg__copy">
-          <p className="eyebrow" style={{ color: '#C4B5FD' }}>
-            {'03  ·  PLAYGROUND'}
-          </p>
-          <h2 className="section-title pg__title" id="pg-title">
-            Now try them yourself.
-          </h2>
-        </div>
-        <p className="pg__body">
-          Right here, on this page. Pick any component from your app, change its props, and watch Yoga and Skia,
-          running in WebAssembly, lay it out and repaint it.
+      <header className="pg__header">
+        <p className="eyebrow" style={{ color: '#C4B5FD' }}>
+          {'03  ·  PLAYGROUND'}
         </p>
-      </div>
+        <h2 className="section-title pg__title" id="pg-title">
+          Now try them yourself.
+        </h2>
+      </header>
       {index ? (
         <NativeSurfacePlayground
           index={index}

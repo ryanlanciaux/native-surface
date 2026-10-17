@@ -8,15 +8,6 @@
     radial-gradient(60% 45% at 50% 60%, #8b5cf614 0%, #8b5cf600 100%),
     #06070a;
 }
-.pg__copy {
-  width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.pg__body {
-  width: 420px;
-}
 
 /* ---------- the playground (packages/playground, skinned via --nsp-*) ---------- */
 .pg__ide {
@@ -38,9 +29,5 @@
   .pg {
     padding: 88px 16px 96px;
     gap: 36px;
-  }
-  .pg__copy,
-  .pg__body {
-    width: 100%;
   }
 }

@@ -8,15 +8,10 @@
     radial-gradient(55% 45% at 50% 75%, #22d3ee12 0%, #22d3ee00 100%),
     #06070a;
 }
+/* Eyebrow + title, left-aligned; same 20px rhythm as the Exploded header. */
 .uth__header,
 .pg__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 40px;
-}
-.uth__title-col {
-  width: 640px;
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -26,14 +21,6 @@
   font-size: 48px;
   line-height: 1.08;
   letter-spacing: -1.5px;
-}
-.uth__body,
-.pg__body {
-  margin: 0;
-  width: 440px;
-  flex: none;
-  font: 400 17px/1.6 var(--font-body);
-  color: var(--text-muted);
 }
 .pipeline {
   position: relative;
@@ -134,24 +121,10 @@
     padding: 88px 20px 72px;
     gap: 36px;
   }
-  .uth__header,
-  .pg__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
-  }
-  .uth__title-col {
-    width: 100%;
-  }
   .uth__title,
   .pg__title {
     font-size: clamp(32px, 9vw, 44px);
     letter-spacing: -1px;
-  }
-  .uth__body,
-  .pg__body {
-    width: 100%;
-    font-size: 16px;
   }
   /* Vertical pipeline: rail runs down the node column. */
   .pipeline {
