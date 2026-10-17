@@ -1,4 +1,5 @@
 import { ArrowRight, BatteryFull, Signal, Wifi } from 'lucide-react';
+import { device } from 'ignite-demo';
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import { LINKS } from '../brand';
 import { CopyCommand } from '../components/CopyCommand';
@@ -13,10 +14,14 @@ import './hero.css';
 // Node "Phone 3D": perspective3d.glsl on a 560×780 frame holding the phone at (110, 38).
 const PHONE_POSE = { rotX: -6, rotY: -24, rotZ: 0, focal: 3, scale: 1 };
 const FRAME = { width: 560, height: 780 };
-const SCREEN_SLOT = { width: 320, height: 634 };
+/** The app's slot: the whole iPhone 16 Pro screen, at its true logical size. */
+const SCREEN_SLOT = { width: device.screenWidth, height: device.screenHeight };
 const pose = perspectiveTransform(PHONE_POSE, FRAME.height);
-/** The design pose in CSS terms (GL y/z rotations flip sign, see shaders/perspective.ts). */
-const REST: Pose = { lift: 0, rx: PHONE_POSE.rotX, ry: -PHONE_POSE.rotY, rz: -PHONE_POSE.rotZ, scale: PHONE_POSE.scale };
+/**
+ * Resting pose: face-on (Ryan; supersedes the design's three-quarter tilt,
+ * which the intro still lands in, see hero3d/intro.ts LAND_TILT).
+ */
+const REST: Pose = { lift: 0, rx: 0, ry: 0, rz: 0, scale: PHONE_POSE.scale };
 
 // Only claims that hold: layout is yoga-layout (React Native's engine) built
 // to wasm, paint is Skia through CanvasKit, and the app code is unchanged.
@@ -48,18 +53,22 @@ export function Hero() {
           <div className="hero__pad-glow" aria-hidden="true" />
 
           <HeroDevice rest={REST} perspective={pose.perspective} ready={painted}>
-            <div className="phone__status">
-              <span className="phone__time">9:41</span>
-              <span className="phone__island" />
-              <span className="phone__indicators" aria-hidden="true">
-                <Signal size={15} strokeWidth={2} />
-                <Wifi size={15} strokeWidth={2} />
-                <BatteryFull size={15} strokeWidth={2} />
-              </span>
-            </div>
             <div className="phone__app">
               <HeroPhoneSlot {...SCREEN_SLOT} active={active} onPainted={onPainted} />
             </div>
+            <div className="phone__status" style={{ height: device.safeAreaInsets.top }}>
+              <span className="phone__time">9:41</span>
+              <span
+                className="phone__island"
+                style={{ width: device.island.width, height: device.island.height, top: device.island.top }}
+              />
+              <span className="phone__indicators" aria-hidden="true">
+                <Signal size={17} strokeWidth={2} />
+                <Wifi size={17} strokeWidth={2} />
+                <BatteryFull size={17} strokeWidth={2} />
+              </span>
+            </div>
+            <span className="phone__home" aria-hidden="true" />
           </HeroDevice>
 
           <p className="hero__caption">

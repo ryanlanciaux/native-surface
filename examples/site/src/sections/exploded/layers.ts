@@ -1,12 +1,37 @@
 // Geometry of the "Layer Stack" node (1440×1120): seven 980×980 frames, each
-// running perspective3d.glsl over one 340×704 plane, stacked 98 px apart;
+// running perspective3d.glsl over one phone plane, stacked 98 px apart;
 // callouts, leader lines and anchors sit flat on top.
+//
+// A plane is an iPhone 16 Pro in points (426×898 body, 12 pt bezel, 402×874
+// screen with 62/34 safe areas), scaled to the design's 340×704 footprint
+// centred in the frame. Items keep the design's spots on that footprint (so
+// the callout anchors still land on them) but are laid out at true size.
+import { device } from 'ignite-demo';
 import type { ExplodedLayerId, LayerItem } from '../../live/types';
 import type { PerspectiveParams } from '../../shaders';
 
 export const STACK = { width: 1440, height: 1120 };
 export const FRAME = 980;
-export const PLANE = { width: 340, height: 704, x: 320, y: 138 };
+const FOOTPRINT = { width: 340, height: 704 };
+const SCALE = FOOTPRINT.height / device.frameHeight;
+export const PLANE = {
+  width: device.frameWidth,
+  height: device.frameHeight,
+  radius: device.frameRadius,
+  x: (FRAME - device.frameWidth) / 2,
+  y: (FRAME - device.frameHeight) / 2,
+  /** Plane px → frame px (x/y only: the extrusion depths stay in frame px). */
+  scale: SCALE,
+};
+/** The glass on a plane. */
+export const GLASS = { x: device.bezel, y: device.bezel, width: device.screenWidth, height: device.screenHeight, radius: device.screenRadius };
+const GUTTER = 24;
+/** Content column: the screen minus the app's 24 pt gutters (354 pt). */
+const COL = { x: GLASS.x + GUTTER, width: GLASS.width - 2 * GUTTER };
+/** Ignite's bottom tabs: 49 pt of tabs over the 34 pt home-indicator inset. */
+const TABBAR_H = 49 + device.safeAreaInsets.bottom;
+/** Design y on the 704-tall footprint → plane y. */
+const y = (designY: number) => Math.round(designY / SCALE);
 export const POSE: PerspectiveParams = { rotX: 52, rotY: 0, rotZ: -34, focal: 3.2, scale: 1.22 };
 
 /** An opaque rect on a plane that gets the shader's thickness. */
@@ -33,6 +58,10 @@ export interface LayerSpec {
 
 const EDGE = '#B9B0AB';
 const CARD_H = 96;
+/** Like buttons at the design's spots; each card sits around its button. */
+const BUTTON_Y = [292, 440, 588].map(y);
+const CARD_Y = BUTTON_Y.map((b) => b - 88);
+const TOGGLE = { width: 52, height: 30 };
 
 export const LAYERS: LayerSpec[] = [
   {
@@ -43,7 +72,7 @@ export const LAYERS: LayerSpec[] = [
     gloss: 0.08,
     sheet: false,
     items: [],
-    solids: [{ x: 0, y: 0, width: 340, height: 704, radius: 58 }],
+    solids: [{ x: 0, y: 0, width: PLANE.width, height: PLANE.height, radius: PLANE.radius }],
   },
   {
     id: 'screen',
@@ -53,7 +82,7 @@ export const LAYERS: LayerSpec[] = [
     gloss: 0.08,
     sheet: false,
     items: [],
-    solids: [{ x: 10, y: 10, width: 320, height: 684, radius: 48 }],
+    solids: [GLASS],
   },
   {
     id: 'tabbar',
@@ -62,8 +91,16 @@ export const LAYERS: LayerSpec[] = [
     edge: EDGE,
     gloss: 0,
     sheet: true,
-    items: [{ id: 'tabbar', x: 10, y: 620, width: 320 }],
-    solids: [{ x: 10, y: 620, width: 320, height: 74, radius: '0 0 48px 48px' }],
+    items: [{ id: 'tabbar', x: GLASS.x, y: GLASS.y + GLASS.height - TABBAR_H, width: GLASS.width }],
+    solids: [
+      {
+        x: GLASS.x,
+        y: GLASS.y + GLASS.height - TABBAR_H,
+        width: GLASS.width,
+        height: TABBAR_H,
+        radius: `0 0 ${GLASS.radius}px ${GLASS.radius}px`,
+      },
+    ],
   },
   {
     id: 'cards',
@@ -72,8 +109,8 @@ export const LAYERS: LayerSpec[] = [
     edge: EDGE,
     gloss: 0,
     sheet: true,
-    items: [0, 1, 2].map((index) => ({ id: `card-${index}`, x: 34, y: 204 + 148 * index, width: 272, props: { index } })),
-    solids: [0, 1, 2].map((i) => ({ x: 34, y: 204 + 148 * i, width: 272, height: CARD_H, radius: 16 })),
+    items: CARD_Y.map((cy, index) => ({ id: `card-${index}`, x: COL.x, y: cy, width: COL.width, props: { index } })),
+    solids: CARD_Y.map((cy) => ({ x: COL.x, y: cy, width: COL.width, height: CARD_H, radius: 16 })),
   },
   {
     id: 'buttons',
@@ -82,16 +119,8 @@ export const LAYERS: LayerSpec[] = [
     edge: EDGE,
     gloss: 0,
     sheet: true,
-    items: [
-      { id: 'button-0', x: 48, y: 292, props: { favorited: true } },
-      { id: 'button-1', x: 48, y: 440 },
-      { id: 'button-2', x: 48, y: 588 },
-    ],
-    solids: [
-      { x: 48, y: 292, width: 88, height: 32, radius: 17 },
-      { x: 48, y: 440, width: 74, height: 32, radius: 17 },
-      { x: 48, y: 588, width: 74, height: 32, radius: 17 },
-    ],
+    items: BUTTON_Y.map((by, i) => ({ id: `button-${i}`, x: COL.x + 14, y: by, ...(i === 0 && { props: { favorited: true } }) })),
+    solids: BUTTON_Y.map((by, i) => ({ x: COL.x + 14, y: by, width: i === 0 ? 88 : 74, height: 32, radius: 17 })),
   },
   {
     id: 'toggle',
@@ -100,8 +129,8 @@ export const LAYERS: LayerSpec[] = [
     edge: EDGE,
     gloss: 0,
     sheet: true,
-    items: [{ id: 'toggle', x: 34, y: 156, props: { labelColor: '#F4F2F1', trackColor: '#4A4F5C' } }],
-    solids: [{ x: 254, y: 156, width: 52, height: 30, radius: 15 }],
+    items: [{ id: 'toggle', x: COL.x, y: y(156), width: COL.width, props: { labelColor: '#F4F2F1', trackColor: '#4A4F5C' } }],
+    solids: [{ x: COL.x + COL.width - TOGGLE.width, y: y(156), ...TOGGLE, radius: TOGGLE.height / 2 }],
   },
   {
     id: 'heading',
@@ -110,7 +139,7 @@ export const LAYERS: LayerSpec[] = [
     edge: EDGE,
     gloss: 0,
     sheet: true,
-    items: [{ id: 'heading', x: 34, y: 70, props: { color: '#F4F2F1' } }],
+    items: [{ id: 'heading', x: COL.x, y: y(70), width: COL.width, props: { color: '#F4F2F1' } }],
     solids: [],
   },
 ];
@@ -137,5 +166,5 @@ export const CALLOUTS: Callout[] = [
   { component: '<EpisodeCard />', layer: 'cards', meta: 'Card + AutoImage · 12.9 kb', side: 'right', x: 1060, y: 611, leader: [817, 634.5, 227], anchor: [804, 630] },
   { component: '<Screen preset="scroll" />', layer: 'screen', meta: 'safe areas · Yoga layout', side: 'right', x: 1060, y: 740, leader: [926, 763.5, 118], anchor: [913, 759] },
   { component: '<DemoNavigator />', layer: 'tabbar', meta: 'bottom tabs · react-navigation', side: 'left', x: 40, y: 828, leader: [356, 851.5, 83], anchor: [442, 847] },
-  { component: 'Device frame', layer: 'device', meta: 'iPhone 16 Pro · 393 × 852 @3x', side: 'right', x: 1060, y: 1021, leader: [756, 1044.5, 288], anchor: [743, 1040] },
+  { component: 'Device frame', layer: 'device', meta: 'iPhone 16 Pro · 402 × 874 @3x', side: 'right', x: 1060, y: 1021, leader: [756, 1044.5, 288], anchor: [743, 1040] },
 ];

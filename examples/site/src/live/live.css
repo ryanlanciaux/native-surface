@@ -2,13 +2,9 @@
    only adapts it to real canvases and drives the hero intro states. */
 
 /* ---------- hero phone ---------- */
-/* The app surface is the full 320×684 screen behind the DOM status bar
-   (safe-area top 50), so the app area must not clip it to 634. */
-.phone__app {
-  overflow: visible;
-}
+/* The app surface is the full 402×874 pt screen behind the DOM status bar
+   (safe area top 62) and home indicator (bottom 34). */
 .phone__status {
-  position: relative;
   z-index: 1;
   pointer-events: none;
 }

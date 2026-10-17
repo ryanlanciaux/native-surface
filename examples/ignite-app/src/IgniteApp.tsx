@@ -31,6 +31,7 @@ import { rnrEpisodes, rnrInitialFavorites } from "./adapter/feed"
 import { toEpisodeItem, type LegacyEpisode } from "./adapter/legacy"
 import { useIgniteReady } from "./boot"
 import { StatusBar } from "./StatusBar"
+import { device } from "./device"
 
 export type IgniteRoute = "Login" | "Welcome" | keyof DemoTabParamList
 /** The hand-built app's tab names, still accepted by `initialTab`. */
@@ -56,7 +57,7 @@ export interface IgniteAppProps {
   initialRoute?: IgniteRoute
   /** Alias of `initialRoute` that takes the hand-built app's tab names. */
   initialTab?: LegacyTabName | IgniteRoute
-  /** Draw a 50pt "9:41" status bar inside the app (a host bezel usually draws its own). */
+  /** Draw a 62pt (iPhone 16 Pro) "9:41" status bar inside the app (a host bezel usually draws its own). */
   showStatusBar?: boolean
   /** Episodes to list instead of the bundled React Native Radio feed. */
   episodes?: ReadonlyArray<EpisodeItem | LegacyEpisode>
@@ -130,11 +131,11 @@ function Splash({ scheme }: { scheme: "light" | "dark" }) {
   return <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
 }
 
-/** Reserves the status bar's 50pt as the top safe-area inset (what a device reports). */
+/** Reserves the status bar's height as the top safe-area inset (what a device reports). */
 function StatusBarInsets({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets()
   return (
-    <SafeAreaProvider initialMetrics={{ insets: { ...insets, top: 50 }, frame: { x: 0, y: 0, width: 0, height: 0 } }}>
+    <SafeAreaProvider initialMetrics={{ insets: { ...insets, top: device.statusBarHeight }, frame: { x: 0, y: 0, width: 0, height: 0 } }}>
       {children}
     </SafeAreaProvider>
   )

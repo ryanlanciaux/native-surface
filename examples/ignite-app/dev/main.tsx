@@ -56,7 +56,7 @@ function Phone() {
         <NativeSurface
           width={device.screenWidth}
           height={device.screenHeight}
-          safeAreaInsets={{ top: device.statusBarHeight, bottom: 0, left: 0, right: 0 }}
+          safeAreaInsets={{ ...device.safeAreaInsets, left: 0, right: 0 }}
           onReady={onReadyFor('phone')}
         >
           <IgniteApp
@@ -76,14 +76,14 @@ function Phone() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 28px 0 34px',
+            padding: '0 34px 3px 40px',
             boxSizing: 'border-box',
             font: '600 15px system-ui',
             color: theme === 'dark' ? '#fff' : '#191015',
           }}
         >
           <span>9:41</span>
-          <span style={{ width: 96, height: 28, borderRadius: 14, background: '#000', marginLeft: 6 }} />
+          <span style={{ width: device.island.width, height: device.island.height, borderRadius: device.island.height / 2, background: '#000', marginLeft: 6 }} />
           <span style={{ width: 54 }} />
         </div>
       </div>

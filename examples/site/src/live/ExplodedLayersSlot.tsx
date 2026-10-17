@@ -1,3 +1,4 @@
+import { device } from 'ignite-demo';
 import type { ReactNode } from 'react';
 import { EPISODES, IgniteEpisodeCard, IgniteFavButton, IgniteHeading, IgniteTabBar, IgniteToggle } from './placeholder/Ignite';
 import type { ExplodedLayersSlotProps, LayerItem } from './types';
@@ -7,7 +8,7 @@ const APP_INK = '#191015';
 const APP_TRACK = '#D7CEC9';
 
 /**
- * Content of one exploded layer plane (340×704, design coordinates): static
+ * Content of one exploded layer plane (iPhone 16 Pro points, 426×898): static
  * DOM art of the Ignite components on the shell's item rects. Static on
  * purpose: the section animates the planes in 3D, and art costs no WebGL
  * contexts (the live components are in the hero and the playground).
@@ -42,12 +43,17 @@ function renderItem(layer: ExplodedLayersSlotProps['layer'], item: LayerItem) {
   const p = item.props ?? {};
   switch (layer) {
     case 'heading':
-      return <Inked flat={<IgniteHeading color={APP_INK} />} lifted={<IgniteHeading color={p.color as string} />} />;
+      return (
+        <Inked
+          flat={<IgniteHeading color={APP_INK} style={{ width: item.width }} />}
+          lifted={<IgniteHeading color={p.color as string} style={{ width: item.width }} />}
+        />
+      );
     case 'toggle':
       return (
         <Inked
-          flat={<IgniteToggle labelColor={APP_INK} trackColor={APP_TRACK} />}
-          lifted={<IgniteToggle labelColor={p.labelColor as string} trackColor={p.trackColor as string} />}
+          flat={<IgniteToggle labelColor={APP_INK} trackColor={APP_TRACK} style={{ width: item.width }} />}
+          lifted={<IgniteToggle labelColor={p.labelColor as string} trackColor={p.trackColor as string} style={{ width: item.width }} />}
         />
       );
     case 'buttons':
@@ -55,7 +61,7 @@ function renderItem(layer: ExplodedLayersSlotProps['layer'], item: LayerItem) {
     case 'cards':
       return <IgniteEpisodeCard episode={EPISODES[(p.index as number) ?? 0]!} showButton={false} style={{ width: item.width }} />;
     case 'tabbar':
-      return <IgniteTabBar style={{ borderRadius: '0 0 48px 48px' }} />;
+      return <IgniteTabBar style={{ width: item.width, paddingBottom: device.safeAreaInsets.bottom, borderRadius: `0 0 ${device.screenRadius}px ${device.screenRadius}px` }} />;
     case 'screen':
       return null;
   }
