@@ -57,14 +57,18 @@
     transform: scale(1);
   }
 }
-/* Drag to rotate (src/hero3d/dragRotate.ts), live once settled. Touch keeps
-   vertical page scroll over the device; a sideways start rotates. */
+/* Drag the FRAME to rotate (src/hero3d/dragRotate.ts), live once settled.
+   Touch on the frame keeps vertical page scroll; a sideways start rotates. */
 .hero__device {
   touch-action: pan-y;
 }
 .hero__device.is-dragging,
 .hero__device.is-dragging * {
   cursor: grabbing !important;
+}
+/* The app keeps its normal cursor even while the frame shows 'grab'. */
+.hero__device .live-hero {
+  cursor: auto;
 }
 .hero__hint {
   position: absolute;
@@ -166,10 +170,6 @@ button.ide__item.is-selected {
 .phone3d__plane {
   pointer-events: none;
 }
-/* Mobile: a vertical swipe over the phone scrolls the page (the app's own
-   scrolling yields to it); taps and horizontal drags still reach the app. */
-@media (max-width: 899px) {
-  .live-hero canvas {
-    touch-action: pan-y !important;
-  }
-}
+/* The hero screen keeps NativeSurface's own touch-action (none): touch drags
+   inside the glass scroll the app's lists, not the page. Rotation and page
+   scroll live on the frame only (src/hero3d/dragRotate.ts). */

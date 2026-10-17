@@ -5,21 +5,20 @@ import type { PhoneRig } from './Phone3D';
 
 // Drag-to-rotate for the hero phone, once the intro has settled.
 //
-// Who gets a press:
-// - On the bezel / frame (or anywhere on the device while its back or edge
-//   faces the viewer): rotation, straight away.
-// - On the screen: the app, as usual (LiveSurface's homography forwarding).
-//   It becomes a rotation only once it travels DRAG_SLOP px; then the device
-//   takes pointer capture, which makes the engine cancel the app's gesture
-//   (lostpointercapture), so the app never sees a tap.
-// - Locked: everything goes to the app.
-// Touch keeps page scroll: the device is `touch-action: pan-y`, so a vertical
-// swipe scrolls the page (the browser cancels the pointer) and only a
-// sideways start rotates; after that the drag turns freely in both axes.
+// Who gets a press (decided once, at pointerdown):
+// - On the screen glass (the target is inside the live surface `.live-hero`,
+//   or the hit lands inside the glass while the front faces the viewer): the
+//   app, 100%. No capture, no preventDefault, no drag threshold, touch-action
+//   untouched, so the app's lists scroll (wheel, trackpad, touch) and taps and
+//   swipes behave normally.
+// - On the frame (bezel, sides, or anywhere while the back/edge faces the
+//   viewer): rotation, straight away. Locked: frame presses only count taps.
+// Touch on the frame keeps vertical page scroll: the device is
+// `touch-action: pan-y` (the canvas's own `none` wins inside the glass).
 //
-// Double-tap / double-click anywhere on the device toggles the lock. Taps are
-// never swallowed, so on the screen both taps also reach the app; the second
-// tap only toggles if it comes within DOUBLE_MS and DOUBLE_PX of the first.
+// Double-tap / double-click on the FRAME toggles the lock; double taps inside
+// the app go to the app. The second tap only toggles within DOUBLE_MS and
+// DOUBLE_PX of the first.
 //
 // Release: inertia plus a gentle spring that settles face-on (the nearest
 // whole turn). Locking springs face-on, stiffer. Reduced motion: the drag
@@ -93,6 +92,9 @@ export function createDragRotate({ root, phone, rig, onInteract }: DragRotateOpt
     onInteract?.();
   };
 
+  /** The screen glass faces the viewer (else the whole device is frame). */
+  const frontFacing = () => apply(poseRotation(pose()), [0, 0, 1])[2] >= 0.1;
+
   /** Where a client point lands on the device's front plane, in device pt. */
   const classify = (x: number, y: number): Hit => {
     const screen = probes.map((p): Pt => {
@@ -109,8 +111,7 @@ export function createDragRotate({ root, phone, rig, onInteract }: DragRotateOpt
     if (!h) return null;
     const [u, v] = applyHomography(h, [x, y]);
     if (!inRoundRect(u, v, 0, 0, W, H, R)) return null;
-    const facing = apply(poseRotation(pose()), [0, 0, 1])[2];
-    if (facing < 0.1) return 'frame';
+    if (!frontFacing()) return 'frame';
     return inRoundRect(u, v, B, B, W - B, H - B, R - B) ? 'screen' : 'frame';
   };
 
@@ -154,6 +155,7 @@ export function createDragRotate({ root, phone, rig, onInteract }: DragRotateOpt
   const toggleLock = () => {
     locked = !locked;
     root.classList.toggle('is-locked', locked);
+    if (locked) root.style.cursor = ''; // locked frame: no grab affordance
     interact();
     if (locked) faceOn();
   };
@@ -178,9 +180,11 @@ export function createDragRotate({ root, phone, rig, onInteract }: DragRotateOpt
   const onDown = (e: PointerEvent) => {
     if (!enabled || !e.isTrusted || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const hit = classify(e.clientX, e.clientY);
-    if (!hit) return;
+    // Screen (or off the device): the app / the page own it. Never touched.
+    if (hit !== 'frame') return;
+    if (frontFacing() && (e.target as Element | null)?.closest?.('.live-hero')) return;
     g = { id: e.pointerId, hit, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, x: e.clientX, y: e.clientY, dragging: false, samples: [] };
-    if (locked || hit === 'screen') return; // the app's, until it moves
+    if (locked) return; // frame taps still count toward the unlock double-tap
     e.preventDefault();
     startDrag(e);
   };
@@ -193,10 +197,7 @@ export function createDragRotate({ root, phone, rig, onInteract }: DragRotateOpt
       }
       return;
     }
-    if (!g.dragging) {
-      if (locked || Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < DRAG_SLOP) return;
-      startDrag(e);
-    }
+    if (!g.dragging) return; // locked frame press: tap counting only
     e.stopPropagation();
     ry += (e.clientX - g.x) * SENSITIVITY;
     rx = clamp(rx - (e.clientY - g.y) * SENSITIVITY, -MAX_TILT, MAX_TILT);

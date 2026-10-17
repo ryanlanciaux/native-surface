@@ -95,7 +95,7 @@ export function Hero() {
             LIVE{'  ·  '}Ignite demo app, running in WebAssembly
           </p>
           <p className={`hero__hint${hint ? '' : ' is-dismissed'}`} aria-hidden="true">
-            {'drag to rotate  ·  double-tap to lock'}
+            {'drag the frame to rotate  ·  double-tap the frame to lock'}
           </p>
         </div>
 
