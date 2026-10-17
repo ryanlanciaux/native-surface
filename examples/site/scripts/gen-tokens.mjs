@@ -1,15 +1,21 @@
 // Generates src/styles/tokens.css from the design file's variables.
-// The .pen source lives outside the repo (design-src is git-excluded), so
-// pass its path explicitly or rely on the orchestrator's default location:
-//   node scripts/gen-tokens.mjs [path/to/untitled.pen]
+// The .pen source lives outside the repo (design-src is git-excluded).
+// Pass its path as an argument or set DESIGN_SRC — there is no machine-local default:
+//   node scripts/gen-tokens.mjs path/to/untitled.pen
+//   DESIGN_SRC=path/to/untitled.pen node scripts/gen-tokens.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const penPath =
-  process.argv[2] ??
-  '/home/ryan/projects/wasm-playground-site/design-src/source/untitled.pen';
+const penPath = process.argv[2] ?? process.env.DESIGN_SRC;
+if (!penPath) {
+  console.error('gen-tokens: pass the .pen path as an argument, or set DESIGN_SRC.');
+  console.error('  node scripts/gen-tokens.mjs path/to/untitled.pen');
+  console.error('  pnpm tokens -- path/to/untitled.pen');
+  console.error('  DESIGN_SRC=path/to/untitled.pen pnpm tokens');
+  process.exit(1);
+}
 const pen = JSON.parse(readFileSync(penPath, 'utf8'));
 
 const fallbacks = {

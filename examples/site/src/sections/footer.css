@@ -19,6 +19,7 @@
 }
 .footer__copy {
   font-size: 13px;
+  color: #7A8496;
 }
 .footer__cols {
   display: flex;
@@ -62,5 +63,13 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 32px 20px;
+  }
+  .footer__col {
+    gap: 4px;
+  }
+  .footer__col a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
   }
 }
