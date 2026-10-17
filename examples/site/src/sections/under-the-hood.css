@@ -3,7 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: 56px;
-  padding: 130px 96px 110px;
+  /* Top + the playground's 140 bottom = the 240 between 02 and 03. */
+  padding: 100px 96px 110px;
   background:
     radial-gradient(55% 45% at 50% 75%, #22d3ee12 0%, #22d3ee00 100%),
     #06070a;
@@ -21,6 +22,15 @@
   font-size: 48px;
   line-height: 1.08;
   letter-spacing: -1.5px;
+}
+/* One line on desktop: the 04 title is wider than the shared 720 header. */
+.uth__header {
+  max-width: none;
+}
+@media (min-width: 1100px) {
+  .uth__title {
+    white-space: nowrap;
+  }
 }
 .pipeline {
   position: relative;
@@ -118,7 +128,8 @@
 }
 @media (max-width: 899px) {
   .uth {
-    padding: 88px 20px 72px;
+    /* 64 + the playground's 96 = the 160 between 02 and 03. */
+    padding: 64px 20px 72px;
     gap: 36px;
   }
   .uth__title,
