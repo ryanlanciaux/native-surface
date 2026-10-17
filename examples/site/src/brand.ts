@@ -23,6 +23,7 @@ export const LINKS = {
   docs: `${repo}#readme`,
   playground: '#playground',
   github: repo,
+  ignite: 'https://infinite.red/ignite',
 } as const;
 
 /** Off-site links open in a new tab. */

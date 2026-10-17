@@ -34,6 +34,19 @@ a {
   color: inherit;
   text-decoration: none;
 }
+/* Link inside running copy: keeps the surrounding colour, faint underline that brightens on hover. */
+.inline-link {
+  text-decoration: underline;
+  text-decoration-color: #22d3ee59;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.inline-link:hover,
+.inline-link:focus-visible {
+  color: #67e8f9;
+  text-decoration-color: #67e8f9;
+}
 button {
   font: inherit;
   color: inherit;

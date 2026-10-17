@@ -1,7 +1,7 @@
 import { device } from 'ignite-demo';
 import { BatteryFull, Github, Signal, Wifi } from 'lucide-react';
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
-import { LINKS } from '../brand';
+import { EXTERNAL, LINKS } from '../brand';
 import { CopyCommand } from '../components/CopyCommand';
 import { useOnScreen } from '../components/useOnScreen';
 import { HeroDevice } from '../hero3d/HeroDevice';
@@ -32,6 +32,14 @@ const STATS = [
   { value: 'Ignite', label: 'CLI-generated app, running live' },
   { value: 'Skia', label: 'paint, via CanvasKit' },
 ];
+
+function IgniteLink() {
+  return (
+    <a className="inline-link" href={LINKS.ignite} {...EXTERNAL}>
+      Ignite
+    </a>
+  );
+}
 
 const HINT_KEY = 'ns-hero-rotate-hint';
 function hintSeen() {
@@ -94,7 +102,11 @@ export function Hero() {
 
           <p className="hero__caption">
             <span className="live-dot" />
-            LIVE{'  ·  '}Ignite demo app, laid out and painted in WebAssembly
+            {/* One inline run, so the link isn't split off as its own flex item. */}
+            <span>
+              LIVE{'  ·  '}
+              <IgniteLink /> demo app, laid out and painted in WebAssembly
+            </span>
           </p>
           <p className={`hero__hint${hint ? '' : ' is-dismissed'}`} aria-hidden="true">
             {'drag the frame to rotate  ·  double-tap the frame to lock'}
@@ -133,7 +145,7 @@ export function Hero() {
           <dl className="hero__proof">
             {STATS.map((s) => (
               <div key={s.value}>
-                <dt>{s.value}</dt>
+                <dt>{s.value === 'Ignite' ? <IgniteLink /> : s.value}</dt>
                 <dd>{s.label}</dd>
               </div>
             ))}
