@@ -1,4 +1,4 @@
-import { ArrowRight, BatteryFull, Signal, Wifi } from 'lucide-react';
+import { BatteryFull, Github, Signal, Wifi } from 'lucide-react';
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import { LINKS } from '../brand';
 import { CopyCommand } from '../components/CopyCommand';
@@ -84,8 +84,8 @@ export function Hero() {
             WebAssembly, and paint through Skia into a single canvas. No simulator to boot. No web rewrite.
           </p>
           <div className="hero__ctas">
-            <a className="btn-primary" href={LINKS.launch}>
-              Launch your app <ArrowRight size={18} strokeWidth={2} />
+            <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">
+              <Github size={18} strokeWidth={2} aria-hidden="true" /> View on GitHub
             </a>
             <CopyCommand />
           </div>
