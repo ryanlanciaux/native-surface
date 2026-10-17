@@ -1,5 +1,5 @@
 import { AppWindow, Brush, FileCode, LayoutGrid, type LucideIcon } from 'lucide-react';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import './under-the-hood.css';
 
 // Claims checked against the repo: the bundle is built by Vite through the
@@ -71,8 +71,44 @@ function useReveal<T extends Element>() {
   return { ref, armed, shown };
 }
 
+/**
+ * Sizes the rail (and its travelling spark) from the first to the last step
+ * node's centre, measured from layout offsets (unaffected by the nodes' reveal
+ * transforms) and kept current with a ResizeObserver, so the line runs through
+ * all four icons at every width, horizontal or stacked.
+ */
+function useRailGeometry(ref: RefObject<HTMLOListElement | null>) {
+  useLayoutEffect(() => {
+    const ol = ref.current;
+    if (!ol) return;
+    const center = (node: HTMLElement) => {
+      // node → .step (position: relative) → ol (position: relative)
+      const step = node.offsetParent as HTMLElement | null;
+      const x = node.offsetLeft + (step && step !== ol ? step.offsetLeft : 0) + node.offsetWidth / 2;
+      const y = node.offsetTop + (step && step !== ol ? step.offsetTop : 0) + node.offsetHeight / 2;
+      return { x, y };
+    };
+    const measure = () => {
+      const nodes = ol.querySelectorAll<HTMLElement>('.step__node');
+      if (nodes.length < 2) return;
+      const a = center(nodes[0]!);
+      const b = center(nodes[nodes.length - 1]!);
+      const vertical = getComputedStyle(ol).flexDirection.startsWith('column');
+      ol.style.setProperty('--rail-x', `${a.x - (vertical ? 1 : 0)}px`);
+      ol.style.setProperty('--rail-y', `${a.y - (vertical ? 0 : 1)}px`);
+      ol.style.setProperty('--rail-len', `${Math.max(0, vertical ? b.y - a.y : b.x - a.x)}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(ol);
+    ol.querySelectorAll('.step').forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, [ref]);
+}
+
 export function UnderTheHood() {
   const { ref, armed, shown } = useReveal<HTMLOListElement>();
+  useRailGeometry(ref);
   const pipelineClass = ['pipeline', armed && 'pipeline--armed', shown && 'pipeline--in'].filter(Boolean).join(' ');
 
   return (

@@ -43,14 +43,16 @@
   display: flex;
   gap: 32px;
 }
+/* Geometry comes from useRailGeometry (first → last node centre); the
+   fallbacks match a 1248px row. Solid end to end: the ends sit under the
+   opaque node tiles. */
 .pipeline__rail {
   position: absolute;
-  left: 32px;
-  top: 31px;
-  width: 960px;
-  max-width: calc(100% - 64px);
+  left: var(--rail-x, 32px);
+  top: var(--rail-y, 31px);
+  width: var(--rail-len, 960px);
   height: 2px;
-  background: linear-gradient(90deg, #22d3ee10 0%, #22d3ee 35%, #8b5cf6 75%, #8b5cf610 100%);
+  background: linear-gradient(90deg, #22d3ee 0%, #22d3ee 30%, #8b5cf6 100%);
   box-shadow: 0 0 12px #22d3ee99;
   transform-origin: left center;
 }
@@ -58,10 +60,9 @@
    translating the box from -100% to 0 walks the dot along the drawn line. */
 .pipeline__head {
   position: absolute;
-  left: 32px;
-  top: 31px;
-  width: 960px;
-  max-width: calc(100% - 64px);
+  left: var(--rail-x, 32px);
+  top: var(--rail-y, 31px);
+  width: var(--rail-len, 960px);
   height: 2px;
   opacity: 0;
   pointer-events: none;
@@ -163,20 +164,18 @@
     gap: 28px;
   }
   .pipeline__rail {
-    left: 31px;
-    top: 32px;
+    left: var(--rail-x, 31px);
+    top: var(--rail-y, 32px);
     width: 2px;
-    height: calc(100% - 64px);
-    max-width: none;
-    background: linear-gradient(180deg, #22d3ee10 0%, #22d3ee 35%, #8b5cf6 75%, #8b5cf610 100%);
+    height: var(--rail-len, calc(100% - 64px));
+    background: linear-gradient(180deg, #22d3ee 0%, #22d3ee 30%, #8b5cf6 100%);
     transform-origin: center top;
   }
   .pipeline__head {
-    left: 31px;
-    top: 32px;
+    left: var(--rail-x, 31px);
+    top: var(--rail-y, 32px);
     width: 2px;
-    height: calc(100% - 64px);
-    max-width: none;
+    height: var(--rail-len, calc(100% - 64px));
   }
   .pipeline__head::after {
     right: -5px;
