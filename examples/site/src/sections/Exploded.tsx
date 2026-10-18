@@ -3,7 +3,7 @@ import { Extrusion } from '../components/Extrusion';
 import { COLLAPSE_TOP, FLAT_SCALE, calloutAt, calloutParts, explodeAt, lerp, tiltAt } from '../exploded/timeline';
 import { useExplodeScroll } from '../exploded/useExplodeScroll';
 import { ExplodedLayersSlot } from '../live/ExplodedLayersSlot';
-import { FILLS, ShaderCanvas, glossGradient, perspectiveTransform } from '../shaders';
+import { glossGradient, perspectiveTransform } from '../shaders';
 import { CALLOUTS, FRAME, GLASS, LAYERS, PLANE, POSE, type Callout, type LayerSpec } from './exploded/layers';
 import './exploded.css';
 
@@ -23,9 +23,6 @@ export function Exploded() {
 
   return (
     <section className="exploded" aria-labelledby="exploded-title">
-      <ShaderCanvas className="shader-fill exploded__bg" {...FILLS.exploded} />
-      <div className="exploded__top-fade" aria-hidden="true" />
-
       <header className="exploded__header">
         <p className="eyebrow">{'02  ·  TAKE IT APART'}</p>
         <h2 className="section-title exploded__title" id="exploded-title">
@@ -84,7 +81,7 @@ function Layer({ layer }: { layer: LayerSpec }) {
               className="xl-solid"
               style={{ left: s.x, top: s.y, width: s.width, height: s.height, borderRadius: s.radius }}
             >
-              <Extrusion depth={layer.depth} edge={layer.edge} rim="#22D3EE" radius={s.radius} slices={layer.depth > 10 ? 8 : 4} />
+              <Extrusion depth={layer.depth} edge={layer.edge} rim="#C4CAD4" radius={s.radius} slices={layer.depth > 10 ? 8 : 4} />
             </div>
           ))}
           {layer.id === 'device' && <div className="xl-glass" style={GLASS_BOX} />}

@@ -99,7 +99,7 @@ button.ide__item:hover:not(.is-selected) {
   color: #c3cad6;
 }
 button.ide__item.is-selected {
-  background: #22d3ee14;
+  background: #ffffff0f;
 }
 .prop__select {
   appearance: none;

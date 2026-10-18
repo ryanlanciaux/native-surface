@@ -150,7 +150,7 @@
   }
 }
 
-/* Quiet header: neutral logo tile, plain bordered handle (shared atoms stay as is in the footer). */
+/* Quiet header: neutral logo tile, plain bordered handle (the shared atoms match). */
 .nav .brand {
   font: 600 18px var(--font-body);
   letter-spacing: -0.03em;

@@ -6,6 +6,8 @@ import { FILLS, ShaderCanvas } from '../shaders';
 import './playground.css';
 
 const playgroundUrl = urlLabel('ignite-demo');
+/** The canvas dot grid without its cyan centre glow (a neutral lift instead). */
+const CANVAS_UNIFORMS = { ...FILLS.playground.uniforms, u_glow: '#3A4150' };
 
 /**
  * Section 03: the native-surface playground itself (packages/playground's
@@ -25,9 +27,7 @@ export function Playground() {
   return (
     <section className="pg" id="playground" aria-labelledby="pg-title">
       <header className="pg__header">
-        <p className="eyebrow" style={{ color: '#C4B5FD' }}>
-          {'03  ·  PLAYGROUND'}
-        </p>
+        <p className="eyebrow">{'03  ·  PLAYGROUND'}</p>
         <h2 className="section-title pg__title" id="pg-title">
           Now try them yourself.
         </h2>
@@ -46,7 +46,7 @@ export function Playground() {
           urlLabel={playgroundUrl}
           appName="ignite-demo"
           renderSurface={renderSurface}
-          canvasBackground={<ShaderCanvas className="shader-fill" {...FILLS.playground} still />}
+          canvasBackground={<ShaderCanvas className="shader-fill" {...FILLS.playground} uniforms={CANVAS_UNIFORMS} still />}
         />
       ) : (
         <div className="nsp pg__ide pg__ide--loading" />

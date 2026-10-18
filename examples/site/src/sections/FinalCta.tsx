@@ -1,12 +1,10 @@
 import { Github } from 'lucide-react';
 import { EXTERNAL, LINKS } from '../brand';
-import { FILLS, ShaderCanvas } from '../shaders';
 import './final-cta.css';
 
 export function FinalCta() {
   return (
     <section className="cta" aria-labelledby="cta-title">
-      <ShaderCanvas className="shader-fill" {...FILLS.cta} />
       <h2 className="section-title cta__title" id="cta-title">
         Try today
       </h2>

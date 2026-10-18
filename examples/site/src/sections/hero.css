@@ -67,7 +67,7 @@
   gap: 12px;
   margin-top: 36px;
 }
-/* Flat, neutral, no glow (the shared .btn-primary stays as is elsewhere). */
+/* Flat, neutral, no glow (same look as the shared .btn-primary). */
 .hero .btn-primary {
   gap: 9px;
   padding: 14px 22px;

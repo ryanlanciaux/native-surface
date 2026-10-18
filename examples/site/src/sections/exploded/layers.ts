@@ -50,7 +50,7 @@ export interface LayerSpec {
   depth: number;
   edge: string;
   gloss: number;
-  /** Outline-only planes are the design's #22D3EE08 sheets with a #22D3EE42 rim. */
+  /** Outline-only planes: a faint neutral sheet with a hairline rim (exploded.css .xl-sheet). */
   sheet: boolean;
   items: LayerItem[];
   solids: Solid[];
