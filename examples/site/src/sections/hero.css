@@ -4,6 +4,8 @@
   overflow: hidden;
   background: var(--bg);
   isolation: isolate;
+  /* The hero's single accent (the app's own lime): the headline's full stop and the LIVE dot. */
+  --hero-accent: var(--app-accent);
 }
 /* The design's absolute 1440×980 layout, scaled down on laptop widths. */
 .hero__stage {
@@ -16,99 +18,83 @@
   transform-origin: top center;
   z-index: 1;
 }
-.hero__fade {
-  position: absolute;
-  left: -100vw;
-  right: -100vw;
-  top: 820px;
-  height: 160px;
-  background: linear-gradient(180deg, #06070a00 0%, #06070a 100%);
-  pointer-events: none;
-}
 
 /* ---------- copy ---------- */
 .hero__copy {
   position: absolute;
   left: 96px;
-  top: 168px;
+  top: 244px;
   width: 700px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 28px;
-}
-.chip-eyebrow {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 14px 7px 10px;
-  border-radius: 999px;
-  background: #22d3ee0f;
-  box-shadow: inset 0 0 0 1px #22d3ee40;
-  font: 400 12px var(--font-mono);
-  letter-spacing: 1px;
-  color: #a5f3fc;
-  white-space: pre;
-}
-.chip-eyebrow__dot,
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22d3ee;
-  box-shadow: 0 0 8px #22d3ee;
-  flex: none;
 }
 .hero__headline {
   margin: 0;
-  width: 100%;
   display: flex;
   flex-direction: column;
-  font: 600 74px/1.04 var(--font-display);
-  letter-spacing: -2.4px;
+  font: 600 92px/0.98 var(--font-body);
+  letter-spacing: -0.045em;
   color: var(--text);
 }
-/* One line per span on desktop (balanced against the phone); the spaces
-   between them keep the sentence intact for AT and copy/paste. */
+/* One line per span on desktop; the space between them keeps the sentence
+   intact for AT and copy/paste. */
 .hero__headline > span {
   display: block;
   white-space: nowrap;
 }
-.hero__headline-grad {
-  align-self: flex-start;
-  background: linear-gradient(90deg, #67e8f9 0%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 15px #22d3ee55);
+.hero__stop {
+  color: var(--hero-accent);
+}
+.hero__dek {
+  margin: 22px 0 0;
+  font: 500 30px/1.2 var(--font-body);
+  letter-spacing: -0.025em;
+  color: #c4cad4;
 }
 .hero__sub {
-  margin: 0;
-  width: 560px;
-  font: 400 18px/1.6 var(--font-body);
+  margin: 26px 0 0;
+  max-width: 54ch;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+  font: 400 17px/1.6 var(--font-body);
   color: var(--text-muted);
 }
 .hero__ctas {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  padding-top: 8px;
+  gap: 12px;
+  margin-top: 36px;
+}
+/* Flat, neutral, no glow (the shared .btn-primary stays as is elsewhere). */
+.hero .btn-primary {
+  gap: 9px;
+  padding: 14px 22px;
+  border-radius: 10px;
+  background: var(--text);
+  box-shadow: none;
+  font: 600 15px var(--font-body);
+  letter-spacing: -0.01em;
+  color: #0a0b0d;
+  transition: background 160ms ease;
+}
+.hero .btn-primary:hover {
+  background: #ffffff;
+  box-shadow: none;
+  transform: none;
 }
 .command {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  padding: 9px 16px;
-  border-radius: 14px;
-  background: #ffffff08;
-  box-shadow: inset 0 0 0 1px #ffffff1f;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #5f6879;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: none;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+  color: var(--text-dim);
   transition:
-    background 160ms ease,
+    box-shadow 160ms ease,
     color 160ms ease;
 }
 .command__lines {
@@ -119,35 +105,45 @@
 }
 .command code {
   font: 400 12px/1.5 var(--font-mono);
-  color: #d5dbe5;
+  color: #c4cad4;
   white-space: nowrap;
 }
 .command code + code {
-  color: #98a2b3;
+  color: #7a8496;
 }
 .command:hover {
-  background: #ffffff10;
-  color: #98a2b3;
+  box-shadow: inset 0 0 0 1px #ffffff33;
+  color: var(--text-muted);
 }
+/* "Yoga layout, in wasm  ·  Skia ..." as one quiet mono line. */
 .hero__proof {
-  margin: 0;
+  margin: 30px 0 0;
   display: flex;
-  gap: 36px;
-  padding-top: 20px;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  font: 400 12px/1.5 var(--font-mono);
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
 }
 .hero__proof div {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  white-space: nowrap;
 }
 .hero__proof dt {
-  font: 600 22px var(--font-display);
-  color: var(--text);
+  font-weight: 500;
+  color: var(--text-muted);
 }
 .hero__proof dd {
-  margin: 0;
-  font: 400 13px var(--font-body);
-  color: #7A8496;
+  margin: 0 0 0 0.6em;
+}
+.hero .inline-link {
+  text-decoration-color: #ffffff38;
+}
+.hero .inline-link:hover,
+.hero .inline-link:focus-visible {
+  color: var(--text);
+  text-decoration-color: currentColor;
 }
 
 /* ---------- device group (origin = design (800, 110)) ---------- */
@@ -158,41 +154,17 @@
   width: 560px;
   height: 830px;
 }
-.hero__aura {
+/* Neutral contact shadow under the resting phone; fades in on landing (live.css). */
+.hero__shadow {
   position: absolute;
-  left: 20px;
-  top: 70px;
-  width: 520px;
-  height: 640px;
+  left: 120px;
+  top: 716px;
+  width: 320px;
+  height: 46px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, #22d3ee40 0%, #8b5cf61f 50%, #22d3ee00 100%);
-  filter: blur(30px);
-}
-.hero__trail {
-  position: absolute;
-  top: -120px;
-  width: 2px;
-  background: linear-gradient(180deg, #22d3ee00 0%, var(--trail) 100%);
-}
-.hero__pad {
-  position: absolute;
-  left: 70px;
-  top: 696px;
-  width: 420px;
-  height: 70px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, transparent 81%, #22d3ee 82.5%, #22d3ee 99%, transparent 100%);
-  filter: blur(1.5px) drop-shadow(0 0 20px #22d3eecc);
-}
-.hero__pad-glow {
-  position: absolute;
-  left: 100px;
-  top: 702px;
-  width: 360px;
-  height: 56px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, #22d3ee55 0%, #22d3ee00 100%);
-  filter: blur(5px);
+  background: radial-gradient(closest-side, #000000d9 0%, #00000080 45%, #00000000 100%);
+  filter: blur(6px);
+  pointer-events: none;
 }
 .hero__caption {
   position: absolute;
@@ -205,15 +177,16 @@
   align-items: center;
   gap: 10px;
   font: 400 12px var(--font-mono);
-  letter-spacing: 0.5px;
-  color: #98a2b3;
+  letter-spacing: 0.04em;
+  color: #7a8496;
   white-space: pre;
 }
-.hero__caption .live-dot {
-  width: 7px;
-  height: 7px;
-  background: #c6f432;
-  box-shadow: 0 0 8px #c6f432;
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hero-accent);
+  flex: none;
 }
 
 /* ---------- 3D phone ---------- */
@@ -310,47 +283,34 @@
     top: 0;
     width: 100%;
     padding: 44px 20px 0;
-    gap: 22px;
     order: 1;
   }
   .hero__headline {
     display: block;
-    font-size: clamp(34px, 10.4vw, 64px);
-    letter-spacing: -1.2px;
+    font-size: clamp(40px, 11vw, 72px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
   }
   .hero__headline > span {
     display: inline;
     white-space: normal;
   }
-  .hero__headline-grad {
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
-  }
-  .hero__trail {
-    display: none;
+  .hero__dek {
+    margin-top: 16px;
+    font-size: 22px;
   }
   .hero__sub {
-    width: 100%;
+    max-width: none;
+    margin-top: 20px;
+    padding-top: 20px;
     font-size: 16px;
   }
   .hero__ctas {
-    flex-wrap: wrap;
-    padding-top: 4px;
+    margin-top: 26px;
   }
   .hero__proof {
-    width: 100%;
-    display: grid;
-    grid-template-columns: auto auto auto;
-    justify-content: space-between;
-    gap: 16px;
-    padding-top: 8px;
-  }
-  .hero__proof dt {
-    font-size: 18px;
-    white-space: nowrap;
-  }
-  .hero__proof dd {
-    font-size: 12px;
+    margin-top: 22px;
   }
   /* The device group keeps its design geometry, scaled to the viewport with
      the empty 60 px gutters either side cropped. */
@@ -364,44 +324,41 @@
     transform: translateX(-50%) scale(var(--device-scale));
     transform-origin: top center;
   }
-  .hero__fade {
-    display: none;
-  }
 }
 
 /* ---------- phones (≤599): device above the fold ---------- */
-.hero__mob,
 .hero__sub--mob {
   display: none;
 }
 @media (max-width: 599px) {
-  .hero__desk,
+  .hero__dek,
   .hero__sub--desk,
   .hero__ctas .command,
   .hero__proof {
     display: none !important;
-  }
-  .hero__mob {
-    display: inline;
   }
   .hero__sub--mob {
     display: block;
   }
   .hero__copy {
     padding: 16px 20px 0;
-    gap: 14px;
   }
   .hero__headline {
-    font-size: 36px;
-    line-height: 1.06;
-    letter-spacing: -1px;
+    font-size: 40px;
+    line-height: 1.02;
   }
   .hero__sub {
+    margin-top: 14px;
+    padding-top: 0;
+    border-top: 0;
     font-size: 15px;
     line-height: 1.45;
   }
   .hero__ctas {
-    padding-top: 2px;
+    margin-top: 18px;
+  }
+  .hero .btn-primary {
+    padding: 13px 20px;
   }
   .hero__device {
     margin-top: 4px;
