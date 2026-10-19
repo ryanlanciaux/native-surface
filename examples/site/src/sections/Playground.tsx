@@ -31,6 +31,7 @@ export function Playground() {
         <h2 className="section-title pg__title" id="pg-title">
           Now try them yourself.
         </h2>
+        <p className="pg__lede">A component playground with real React Native components, not DOM.</p>
       </header>
       {index ? (
         <NativeSurfacePlayground

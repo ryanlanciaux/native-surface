@@ -7,6 +7,12 @@
   background: var(--bg);
 }
 
+.pg__lede {
+  margin: 0;
+  font: 400 18px/1.6 var(--font-body);
+  color: var(--text-muted);
+}
+
 /* ---------- the playground (packages/playground, skinned via --nsp-*) ---------- */
 .pg .pg__ide {
   --nsp-font-body: var(--font-body);
@@ -82,5 +88,9 @@
   .pg {
     padding: 88px 16px 96px;
     gap: 36px;
+  }
+  .pg__lede {
+    font-size: 16px;
+    line-height: 1.5;
   }
 }

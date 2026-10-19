@@ -363,4 +363,22 @@
   .hero__device {
     margin-top: 4px;
   }
+  /* The device group's 60 px gutters are cropped here, so the caption wraps
+     inside the visible width, growing upward from its usual baseline. */
+  .hero__caption {
+    left: 72px;
+    width: 416px;
+    top: auto;
+    bottom: 12px;
+    display: block;
+    text-align: center;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    white-space: normal;
+  }
+  .hero__caption .live-dot {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
 }

@@ -119,8 +119,9 @@ export function Hero() {
             Same Yoga layout engine as React Native on iOS and Android, in WebAssembly.
           </p>
           <p className="hero__sub hero__sub--desk">
-            Your React Native components, laid out by Yoga and painted by Skia, both compiled to WebAssembly.
-            Yoga is the layout engine React Native uses on iOS and Android. No simulator to boot. No web rewrite.
+            Your React Native components, laid out with Yoga and painted with Skia in WebAssembly, so they render far
+            closer to iOS and Android than the DOM can. Put your real app UI on the web, and give cloud agents a native
+            surface to build and test against, no simulator required.
           </p>
           <div className="hero__ctas">
             <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">

@@ -53,7 +53,9 @@ vec3 hero(vec2 p, vec2 s, float t) {
   float x = p.x / s.x;
   float w = mix(0.35, 1.0, smoothstep(0.15, 0.8, x)) * mix(1.0, 0.55, smoothstep(0.55, 1.0, p.y / s.y));
   float ribbon = smoothstep(0.42, 0.78, n);
-  vec3 c = vec3(0.085) * ribbon * w + vec3(0.025) * n * w;
+  // Phones: the phone sits centred under the copy, so the aurora spreads evenly, lifted, and eases off behind the text.
+  w = mix(w, 1.8 * smoothstep(0.12, 0.42, p.y / s.y) + 0.25, u_narrow);
+  vec3 c = vec3(0.11) * ribbon * w + vec3(0.034) * n * w;
   c += LIME * 0.05 * smoothstep(0.6, 0.85, n) * smoothstep(0.45, 0.9, x);
   return c;
 }
