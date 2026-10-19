@@ -4,15 +4,74 @@
   flex-direction: column;
   gap: 56px;
   padding: 120px 96px 140px;
-  background:
-    radial-gradient(60% 45% at 50% 60%, #8b5cf614 0%, #8b5cf600 100%),
-    #06070a;
+  background: var(--bg);
+}
+
+.pg__lede {
+  margin: 0;
+  font: 400 18px/1.6 var(--font-body);
+  color: var(--text-muted);
 }
 
 /* ---------- the playground (packages/playground, skinned via --nsp-*) ---------- */
-.pg__ide {
+.pg .pg__ide {
   --nsp-font-body: var(--font-body);
   --nsp-font-mono: var(--font-mono);
+  /* One accent, the hero's lime: the on-switch and focus ring. No cyan/violet. */
+  --nsp-glow: var(--app-accent);
+  --nsp-glow-2: #c4cad4;
+}
+/* Flat window: hairline border, neutral drop shadow, no coloured glow or gradient rim. */
+.pg .nsp {
+  box-shadow: 0 30px 80px #0000008c;
+}
+.pg .nsp::after {
+  background: #ffffff1a;
+}
+.pg .nsp__live-dot {
+  box-shadow: none;
+}
+.pg .nsp__item.is-selected {
+  background: #ffffff0f;
+  color: var(--text);
+}
+.pg .nsp__item.is-selected svg {
+  color: var(--text);
+}
+.pg .nsp__states button.is-on {
+  background: #ffffff14;
+  color: var(--text);
+}
+.pg .nsp__drawer-bar button.is-on {
+  color: var(--text);
+}
+.pg .nsp__search:focus-within,
+.pg .nsp__select:focus-within,
+.pg .nsp-prop__input:focus,
+.pg .nsp-prop__input.is-hot {
+  box-shadow: inset 0 0 0 1px #ffffff40;
+}
+.pg .nsp__dots {
+  background:
+    radial-gradient(circle, var(--nsp-dot) 1.1px, transparent 1.6px) 0 0 / 22px 22px,
+    var(--nsp-canvas);
+}
+/* Code + console: neutral greys, strings and events keep the lime. */
+.pg .nsp-code .token.tag,
+.pg .nsp-code .token.class-name,
+.pg .nsp-code .token.builtin,
+.pg .nsp-tok--tag,
+.pg .nsp-log--render {
+  color: var(--text);
+}
+.pg .nsp-code .token.keyword,
+.pg .nsp-code .token.module,
+.pg .nsp-code .token.control-flow,
+.pg .nsp-code .token.attr-name,
+.pg .nsp-code .token.property,
+.pg .nsp-tok--attr,
+.pg .nsp-log--env {
+  color: var(--text-muted);
 }
 .pg__ide--loading {
   height: var(--nsp-height, 780px);
@@ -29,5 +88,9 @@
   .pg {
     padding: 88px 16px 96px;
     gap: 36px;
+  }
+  .pg__lede {
+    font-size: 16px;
+    line-height: 1.5;
   }
 }

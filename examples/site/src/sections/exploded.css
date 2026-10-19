@@ -2,35 +2,13 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  /* Static stand-in for the flow-dots shader (reduced motion, no WebGL, first paint). */
-  background:
-    radial-gradient(45% 35% at 28% 62%, #22d3ee0d 0%, #22d3ee00 100%),
-    radial-gradient(40% 35% at 74% 42%, #8b5cf611 0%, #8b5cf600 100%),
-    radial-gradient(circle at center, #1b2130 1px, #1b213000 1.6px) center / 24px 24px,
-    var(--bg);
+  /* Flat, like the hero: no shader, no dot field. */
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 40px;
   padding: 140px 0 120px;
-}
-.exploded__bg[data-failed] {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .exploded__bg {
-    display: none;
-  }
-}
-.exploded__top-fade {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 220px;
-  background: linear-gradient(180deg, #06070a 0%, #06070a00 100%);
-  z-index: 0;
-  pointer-events: none;
 }
 .exploded__header {
   position: relative;
@@ -45,8 +23,8 @@
 }
 .exploded__title {
   font-size: 52px;
-  letter-spacing: -1.6px;
-  line-height: normal;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
 .exploded__body {
   margin: 0;
@@ -95,8 +73,8 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: #22d3ee08;
-  box-shadow: inset 0 0 0 1.5px #22d3ee42;
+  background: #ffffff05;
+  box-shadow: inset 0 0 0 1.5px #ffffff2e;
 }
 /* Copy drawn twice: app ink while fused, stage ink once lifted (at rest). */
 .xl-ink--flat {
@@ -116,7 +94,7 @@
 .xl-screen {
   position: absolute;
   background: #f4f2f1;
-  box-shadow: inset 0 0 0 1px #22d3ee40;
+  box-shadow: inset 0 0 0 1px #ffffff1f;
 }
 /* Dynamic Island 126×37, 11 pt down on the 402 pt glass. */
 .xl-screen__island {
@@ -162,7 +140,7 @@
 .callout code,
 .callout-legend code {
   font: 500 15px var(--font-mono);
-  color: #a5f3fc;
+  color: var(--text);
   white-space: nowrap;
 }
 .callout span {
@@ -176,11 +154,11 @@
 /* Leaders draw out of their anchor dot. */
 .leader--left {
   transform-origin: 100% 50%;
-  background: linear-gradient(270deg, #22d3eeb0 0%, #22d3ee20 100%);
+  background: #ffffff33;
 }
 .leader--right {
   transform-origin: 0 50%;
-  background: linear-gradient(90deg, #22d3eeb0 0%, #22d3ee20 100%);
+  background: #ffffff33;
 }
 .anchor {
   position: absolute;
@@ -188,9 +166,7 @@
   height: 10px;
   border-radius: 50%;
   background: #0b0d12;
-  box-shadow:
-    inset 0 0 0 2px #67e8f9,
-    0 0 12px #22d3ee;
+  box-shadow: inset 0 0 0 1.5px #c4cad4;
 }
 .callout-legend {
   display: none;
@@ -204,7 +180,7 @@
   }
   .exploded__title {
     font-size: clamp(32px, 9vw, 44px);
-    letter-spacing: -1px;
+    letter-spacing: -0.035em;
     line-height: 1.1;
   }
   .exploded__body {
@@ -239,8 +215,8 @@
   .callout-legend li {
     padding: 5px 10px;
     border-radius: 999px;
-    background: #22d3ee0f;
-    box-shadow: inset 0 0 0 1px #22d3ee33;
+    background: none;
+    box-shadow: inset 0 0 0 1px #ffffff1f;
   }
   .callout-legend code {
     font-size: 12px;

@@ -5,11 +5,13 @@ import { Playground } from './sections/Playground';
 import { FinalCta } from './sections/FinalCta';
 import { Footer } from './sections/Footer';
 import { useStageScale } from './components/useStageScale';
+import { Backdrop } from './backdrop/Backdrop';
 
 export function App() {
   useStageScale();
   return (
     <>
+      <Backdrop />
       <main>
         <Hero />
         <Exploded />

@@ -12,50 +12,18 @@
   position: relative;
 }
 
-/* Intro: ring dim while the phone falls, pulse on landing, caption last. */
-.hero__device.is-intro .hero__caption {
+/* Intro: contact shadow appears as the phone lands, caption last. */
+.hero__device.is-intro .hero__caption,
+.hero__device.is-intro .hero__shadow {
   opacity: 0;
 }
-.hero__device.is-intro .hero__pad,
-.hero__device.is-intro .hero__pad-glow {
-  opacity: 0.35;
-}
-.hero__device.is-landed .hero__pad {
+.hero__device.is-landed .hero__shadow {
   opacity: 1;
-  animation: live-ring-pulse 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-.hero__device.is-landed .hero__pad-glow {
-  opacity: 1;
-  animation: live-glow-pulse 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transition: opacity 700ms ease;
 }
 .hero__device.is-settled .hero__caption {
   opacity: 1;
   transition: opacity 600ms ease 120ms;
-}
-@keyframes live-ring-pulse {
-  0% {
-    transform: scale(0.9);
-    filter: blur(1.5px) drop-shadow(0 0 40px #22d3ee) brightness(1.8);
-  }
-  35% {
-    transform: scale(1.08);
-    filter: blur(1.5px) drop-shadow(0 0 34px #22d3ee) brightness(1.5);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-@keyframes live-glow-pulse {
-  0% {
-    transform: scale(0.85);
-    opacity: 1;
-  }
-  30% {
-    transform: scale(1.25);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 /* Drag the FRAME to rotate (src/hero3d/dragRotate.ts), live once settled.
    Touch on the frame keeps vertical page scroll; a sideways start rotates. */
@@ -94,12 +62,9 @@
   transition: opacity 600ms ease;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero__hint {
+  .hero__hint,
+  .hero__shadow {
     transition: none !important;
-  }
-  .hero__device.is-landed .hero__pad,
-  .hero__device.is-landed .hero__pad-glow {
-    animation: none;
   }
 }
 
@@ -134,7 +99,7 @@ button.ide__item:hover:not(.is-selected) {
   color: #c3cad6;
 }
 button.ide__item.is-selected {
-  background: #22d3ee14;
+  background: #ffffff0f;
 }
 .prop__select {
   appearance: none;

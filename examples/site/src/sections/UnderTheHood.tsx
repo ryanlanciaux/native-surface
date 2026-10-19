@@ -5,29 +5,25 @@ import './under-the-hood.css';
 // Claims checked against the repo: layout is yoga-layout 3.x (wasm) with
 // Errata.All like RN (packages/native-surface/src/engine/init.ts); paint is
 // canvaskit-wasm.
-const STEPS: { index: string; title: string; color: string; Icon: LucideIcon }[] = [
+const STEPS: { index: string; title: string; Icon: LucideIcon }[] = [
   {
     index: '01',
     title: 'Your bundle',
-    color: '#22D3EE',
     Icon: FileCode,
   },
   {
     index: '02',
     title: 'Yoga, compiled to wasm',
-    color: '#38BDF8',
     Icon: LayoutGrid,
   },
   {
     index: '03',
     title: 'Skia, compiled to wasm',
-    color: '#818CF8',
     Icon: Brush,
   },
   {
     index: '04',
     title: 'One <canvas>',
-    color: '#A78BFA',
     Icon: AppWindow,
   },
 ];
@@ -117,10 +113,10 @@ export function UnderTheHood() {
       <ol className={pipelineClass} ref={ref}>
         <span className="pipeline__rail" aria-hidden="true" />
         <span className="pipeline__head" aria-hidden="true" />
-        {STEPS.map(({ index, title, color, Icon }, i) => (
-          <li key={index} className="step" style={{ '--c': color, '--i': i } as CSSProperties}>
+        {STEPS.map(({ index, title, Icon }, i) => (
+          <li key={index} className="step" style={{ '--i': i } as CSSProperties}>
             <span className="step__node">
-              <Icon size={24} strokeWidth={2} color={color} />
+              <Icon size={22} strokeWidth={1.75} />
             </span>
             <div className="step__text">
               <span className="step__index">{index}</span>

@@ -1,0 +1,28 @@
+/* Fixed WebGL backdrop (Backdrop.tsx): sits under main and the footer, never takes input. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1800ms ease;
+}
+.backdrop.is-on {
+  opacity: 1;
+}
+.has-backdrop main,
+.has-backdrop .footer {
+  position: relative;
+  z-index: 1;
+}
+/* Sections go see-through only once the backdrop is running; otherwise they keep the flat background. */
+.has-backdrop :is(.hero, .exploded, .pg, .uth, .cta, .footer) {
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .backdrop {
+    transition: none;
+  }
+}

@@ -1,13 +1,13 @@
 import { device } from 'ignite-demo';
 import { BatteryFull, Github, Signal, Wifi } from 'lucide-react';
-import { useCallback, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { EXTERNAL, LINKS } from '../brand';
 import { CopyCommand } from '../components/CopyCommand';
 import { useOnScreen } from '../components/useOnScreen';
 import { HeroDevice } from '../hero3d/HeroDevice';
 import type { Pose } from '../hero3d/math';
 import { HeroPhoneSlot } from '../live/HeroPhoneSlot';
-import { FILLS, ShaderCanvas, perspectiveTransform } from '../shaders';
+import { perspectiveTransform } from '../shaders';
 import { Nav } from './Nav';
 import './hero.css';
 
@@ -28,9 +28,9 @@ const REST: Pose = { lift: 0, rx: 0, ry: 0, rz: 0, scale: PHONE_POSE.scale };
 // in 8 files under app/ (see examples/ignite-app/NATIVE-SURFACE.md), so no
 // "0 lines changed" stat.
 const STATS = [
-  { value: 'Yoga', label: 'layout engine, in wasm' },
-  { value: 'Ignite', label: 'CLI-generated app, running live' },
+  { value: 'Yoga', label: 'layout, in wasm' },
   { value: 'Skia', label: 'paint, via CanvasKit' },
+  { value: 'Ignite', label: 'demo app, running live' },
 ];
 
 function IgniteLink() {
@@ -68,18 +68,11 @@ export function Hero() {
 
   return (
     <section className="hero" id="top">
-      <ShaderCanvas className="shader-fill" {...FILLS.hero} />
       <div className="hero__stage">
         <Nav />
-        <div className="hero__fade" aria-hidden="true" />
 
         <div className="hero__device" ref={deviceRef}>
-          <div className="hero__aura" aria-hidden="true" />
-          <span className="hero__trail" style={{ left: 158, height: 300, '--trail': '#22D3EE66' } as CSSProperties} />
-          <span className="hero__trail" style={{ left: 282, height: 220, '--trail': '#22D3EE44' } as CSSProperties} />
-          <span className="hero__trail" style={{ left: 396, height: 260, '--trail': '#22D3EE55' } as CSSProperties} />
-          <div className="hero__pad" aria-hidden="true" />
-          <div className="hero__pad-glow" aria-hidden="true" />
+          <div className="hero__shadow" aria-hidden="true" />
 
           <HeroDevice rest={REST} perspective={pose.perspective} ready={painted} onInteract={onInteract}>
             <div className="phone__app">
@@ -114,27 +107,21 @@ export function Hero() {
         </div>
 
         <div className="hero__copy">
-          <p className="chip-eyebrow">
-            <span className="chip-eyebrow__dot" />
-            {'REACT NATIVE  ON  WEBASSEMBLY'}
-          </p>
           <h1 className="hero__headline">
             <span>Run React Native</span>{' '}
-            <span className="hero__headline-grad">
-              in the browser<span className="hero__desk">,</span>
-              <span className="hero__mob">.</span>
-            </span>{' '}
-            {/* Phones: the headline stops at "in the browser." (3 lines max); the subhead carries the rest. */}
-            <span className="hero__desk">on the same layout</span>{' '}
-            <span className="hero__desk">engine as native.</span>
+            <span>
+              in the browser<span className="hero__stop">.</span>
+            </span>
           </h1>
+          {/* The rest of the old headline, as a dek; phones get the shorter subhead instead. */}
+          <p className="hero__dek">Same layout engine as native.</p>
           <p className="hero__sub hero__sub--mob">
             Same Yoga layout engine as React Native on iOS and Android, in WebAssembly.
           </p>
           <p className="hero__sub hero__sub--desk">
-            Your real React Native components, laid out by Yoga compiled to WebAssembly: the same layout engine
-            React Native uses on iOS and Android. Skia paints them into a single canvas. No simulator to boot.
-            No web rewrite.
+            Your React Native components, laid out with Yoga and painted with Skia in WebAssembly, so they render far
+            closer to iOS and Android than the DOM can. Put your real app UI on the web, and give cloud agents a native
+            surface to build and test against, no simulator required.
           </p>
           <div className="hero__ctas">
             <a className="btn-primary" href={LINKS.github} target="_blank" rel="noopener noreferrer">
@@ -145,7 +132,7 @@ export function Hero() {
           <dl className="hero__proof">
             {STATS.map((s) => (
               <div key={s.value}>
-                <dt>{s.value === 'Ignite' ? <IgniteLink /> : s.value}</dt>
+                <dt>{s.value === 'Ignite' ? <IgniteLink /> : s.value}</dt>{' '}
                 <dd>{s.label}</dd>
               </div>
             ))}

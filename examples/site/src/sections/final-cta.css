@@ -2,49 +2,46 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  height: 620px;
+  height: 520px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 28px;
-  padding: 0 20px 120px;
+  gap: 22px;
+  padding: 0 20px;
   text-align: center;
+  /* Flat, like the hero: a hairline above, no horizon grid or nebula. */
   background: var(--bg);
-}
-.cta > :not(canvas) {
-  position: relative;
-  z-index: 1;
+  border-top: 1px solid var(--line);
 }
 .cta__title {
-  font-size: 60px;
-  letter-spacing: -2px;
-  line-height: normal;
-  text-shadow: 0 0 40px #22d3ee40;
+  font-size: 64px;
+  letter-spacing: -0.045em;
+  line-height: 1;
 }
 .cta__body {
   margin: 0;
-  font: 400 18px var(--font-body);
+  font: 400 18px/1.5 var(--font-body);
   color: var(--text-muted);
 }
 .cta__buttons {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-top: 12px;
+  gap: 12px;
+  padding-top: 14px;
 }
 
 @media (max-width: 899px) {
   .cta {
     height: auto;
-    min-height: 540px;
-    padding: 96px 20px 150px;
-    gap: 20px;
+    min-height: 0;
+    padding: 96px 20px 104px;
+    gap: 18px;
   }
   .cta__title {
-    font-size: clamp(34px, 10vw, 48px);
-    letter-spacing: -1.2px;
-    line-height: 1.1;
+    font-size: clamp(40px, 11vw, 56px);
+    letter-spacing: -0.04em;
+    line-height: 1.02;
   }
   .cta__body {
     font-size: 16px;
