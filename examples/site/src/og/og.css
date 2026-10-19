@@ -1,7 +1,7 @@
 html,
 body {
   margin: 0;
-  background: #06070a;
+  background: var(--bg);
 }
 .og {
   position: relative;
@@ -9,20 +9,25 @@ body {
   height: 630px;
   overflow: hidden;
   isolation: isolate;
-  background: #06070a;
+  background: var(--bg);
 }
-.og > :not(canvas) {
+.og > * {
   position: absolute;
-  z-index: 1;
 }
+.og__bg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Same look as the nav brand, scaled up. */
 .og__brand {
-  left: 64px;
-  top: 56px;
+  left: 72px;
+  top: 60px;
   display: flex;
   align-items: center;
   gap: 14px;
-  font: 600 30px var(--font-display);
-  letter-spacing: -0.5px;
+  font: 600 28px var(--font-body);
+  letter-spacing: -0.03em;
   color: var(--text);
 }
 .og__brand .mark {
@@ -31,46 +36,69 @@ body {
   border-radius: 14px;
 }
 .og__brand .mark svg {
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
 }
+.og__copy {
+  left: 72px;
+  top: 190px;
+  width: 640px;
+}
+/* .hero__headline: Inter 600, tight tracking, one line per span. */
 .og__headline {
-  left: 64px;
-  top: 160px;
   margin: 0;
   display: flex;
   flex-direction: column;
-  font: 600 72px/1.06 var(--font-display);
-  letter-spacing: -2.4px;
+  font: 600 88px/0.98 var(--font-body);
+  letter-spacing: -0.045em;
   color: var(--text);
 }
 .og__headline > span {
   white-space: nowrap;
 }
-/* Same treatment as .hero__headline-grad. */
-.og__grad {
-  align-self: flex-start;
-  background: linear-gradient(90deg, #67e8f9 0%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 15px #22d3ee55);
+.og__stop {
+  color: var(--app-accent);
 }
-/* Glow ring under the phone, after .hero__pad. */
-.og__pad {
-  left: 840px;
-  top: 560px;
-  width: 300px;
-  height: 56px;
+.og__sub {
+  margin: 30px 0 0;
+  max-width: 560px;
+  font: 400 28px/1.35 var(--font-body);
+  letter-spacing: -0.015em;
+  color: #c4cad4;
+}
+.og__url {
+  left: 72px;
+  bottom: 56px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 400 18px var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.og__url::before {
+  content: '';
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, #22d3ee55 0%, #22d3ee22 60%, #22d3ee00 100%);
-  box-shadow: 0 0 40px #22d3ee44;
+  background: var(--app-accent);
 }
-/* The captured phone (2× pixels), drawn 580 tall. */
+/* Neutral contact shadow, after .hero__shadow. */
+.og__shadow {
+  left: 860px;
+  top: 586px;
+  width: 260px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #000000d9 0%, #00000080 45%, #00000000 100%);
+  filter: blur(6px);
+}
+/* The captured phone (2× pixels), drawn 590 tall. */
 .og__phone {
   left: 990px;
-  top: 22px;
-  height: 580px;
+  top: 14px;
+  height: 590px;
   translate: -50% 0;
-  filter: drop-shadow(0 20px 40px #000a);
+  filter: drop-shadow(0 24px 40px #000a);
 }

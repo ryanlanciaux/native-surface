@@ -1,4 +1,4 @@
-// Regenerates public/og-image.png (1200×630), the social preview card.
+// Regenerates public/og-v2.png (1200×630), the social preview card.
 //
 //   1. Captures the real hero phone (live Ignite app, face-on, reduced motion
 //      so it is at rest) from a production build served at PHONE_URL.
@@ -8,8 +8,9 @@
 // Usage (from examples/site, with the built site served, e.g. `vite preview
 // --base /native-surface/ --port 4870`):
 //   node og/capture.mjs [PHONE_URL]
-// One browser, one page at a time. CHROMIUM overrides the browser binary.
-// If ImageMagick is installed the PNG is recompressed losslessly (~470 KB).
+// One browser, one page at a time. CHROMIUM overrides the browser binary;
+// OG_PORT the card's dev-server port (default 4871).
+// If ImageMagick is installed the PNG is recompressed losslessly.
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -19,7 +20,8 @@ import { createServer } from 'vite';
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PHONE_URL = process.argv[2] ?? 'http://localhost:4870/native-surface/';
-const OUT = resolve(site, 'public/og-image.png');
+const OUT = resolve(site, 'public/og-v2.png');
+const CARD_PORT = Number(process.env.OG_PORT ?? 4871);
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/usr/bin/chromium',
@@ -33,8 +35,8 @@ await page.waitForFunction(() => window.__siteReady && document.querySelector('[
 await page.waitForTimeout(3000); // remote artwork in the Ignite list
 await page.addStyleTag({
   content: `html, body, main, .hero { background: transparent !important; }
-    .hero > .shader-fill, .nav, .hero__copy, .hero__fade, .hero__caption, .hero__hint, .hero__trail,
-    .hero__aura, .hero__pad, .hero__pad-glow, main > :not(.hero), footer { visibility: hidden !important; }`,
+    .backdrop, .nav, .hero__copy, .hero__shadow, .hero__caption, .hero__hint,
+    main > :not(.hero), footer { visibility: hidden !important; }`,
 });
 const box = await page.evaluate(() => {
   const r = document.querySelector('.hero__device .phone').getBoundingClientRect();
@@ -48,14 +50,14 @@ await page.close();
 const server = await createServer({
   root: site,
   logLevel: 'warn',
-  server: { port: 4871, strictPort: true, host: '127.0.0.1' },
+  server: { port: CARD_PORT, strictPort: true, host: '127.0.0.1' },
   optimizeDeps: { entries: ['og/index.html'] },
 });
 await server.listen();
 try {
   const card = await browser.newPage({ viewport: { width: 1200, height: 630 } });
   await card.addInitScript((src) => (window.__ogPhone = src), `data:image/png;base64,${phone.toString('base64')}`);
-  await card.goto('http://127.0.0.1:4871/og/', { waitUntil: 'load' });
+  await card.goto(`http://127.0.0.1:${CARD_PORT}/og/`, { waitUntil: 'load' });
   await card.waitForFunction(() => window.__ogReady && document.querySelector('.og canvas[data-ready]'), null, { timeout: 60000 });
   await writeFile(OUT, await card.screenshot({ type: 'png' }));
   try {
