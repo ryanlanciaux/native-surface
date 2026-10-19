@@ -17,10 +17,9 @@ const ORDER = new Map(LAYERS.map((l, i) => [l.id, LAYERS.length - 1 - i]));
 const LAYER_BY_ID = new Map(LAYERS.map((l) => [l.id, l]));
 
 export function Exploded() {
-  const trackRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const stackRef = useRef<HTMLDivElement>(null);
-  useExplodeScroll(stackRef, viewportRef, trackRef, (p) => paint(stackRef.current, p));
+  useExplodeScroll(stackRef, viewportRef, (p) => paint(stackRef.current, p));
 
   return (
     <section className="exploded" aria-labelledby="exploded-title">
@@ -35,16 +34,14 @@ export function Exploded() {
         </p>
       </header>
 
-      <div className="stack-track" ref={trackRef}>
-        <div className="stack-viewport" ref={viewportRef}>
-          <div className="stack" ref={stackRef}>
-            {LAYERS.map((layer) => (
-              <Layer key={layer.id} layer={layer} />
-            ))}
-            {CALLOUTS.map((c) => (
-              <CalloutGroup key={c.component} callout={c} />
-            ))}
-          </div>
+      <div className="stack-viewport" ref={viewportRef}>
+        <div className="stack" ref={stackRef}>
+          {LAYERS.map((layer) => (
+            <Layer key={layer.id} layer={layer} />
+          ))}
+          {CALLOUTS.map((c) => (
+            <CalloutGroup key={c.component} callout={c} />
+          ))}
         </div>
       </div>
 
