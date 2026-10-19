@@ -1,6 +1,7 @@
 .exploded {
   position: relative;
-  overflow: hidden;
+  /* clip, not hidden: a scroll container would stop the stack's sticky hold. */
+  overflow: clip;
   isolation: isolate;
   /* Flat, like the hero: no shader, no dot field. */
   background: var(--bg);
@@ -33,8 +34,16 @@
 }
 
 /* ---------- 1440×1120 layer stack ---------- */
-.stack-viewport {
+/* The track is the stack's height plus the scroll hold (height set by
+   useExplodeScroll); the stack pins at a measured top while the layers part. */
+.stack-track {
   position: relative;
+  z-index: 1;
+  width: 100%;
+}
+.stack-viewport {
+  position: sticky;
+  top: 0;
   z-index: 1;
   width: 100%;
   height: calc(1120px * var(--stage-scale));

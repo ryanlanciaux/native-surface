@@ -3,7 +3,7 @@
 //
 //   tilt     0 → .38   face-on → perspective3d pose, the layers still fused
 //   explode  .14 → .82 layers part along the plane normal, top first,
-//                      each on its own eased window, the windows overlapping
+//                      each on its own sine-eased window, the windows overlapping
 //   callouts .44 → 1   each callout draws in as its layer settles
 //                      (dot pops, leader draws out of it, label slides in)
 //
@@ -23,7 +23,6 @@ const CALLOUT_LEN = 0.2;
 
 export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const span = (p: number, a: number, b: number) => clamp01((p - a) / (b - a));
-const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 const easeOutBack = (t: number) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
@@ -38,7 +37,7 @@ function explodeWindow(order: number): [number, number] {
 }
 
 /** How far the `order`-th layer has travelled from the fused stack (0 → 1). */
-export const explodeAt = (p: number, order: number) => easeInOutCubic(span(p, ...explodeWindow(order)));
+export const explodeAt = (p: number, order: number) => easeInOutSine(span(p, ...explodeWindow(order)));
 
 /** Local progress of the callout of the `order`-th layer. */
 export function calloutAt(p: number, order: number) {
