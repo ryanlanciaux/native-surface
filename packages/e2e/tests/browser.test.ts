@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { PNG } from 'pngjs';
 import { surface } from '../src/index';
+import { browserArgs, browserHost } from './video/host';
 import type { EngineHandle, EngineInitInfo, OperationContext, SemanticNode } from 'e2e/engine';
 
 const signal = new AbortController().signal;
@@ -18,6 +19,7 @@ const operation = (): OperationContext => ({ signal, timeoutMs: 10000, runId: 't
 const query = (testId: string) => ({ kind: 'query' as const, query: {
   kind: 'testId' as const, value: { kind: 'string' as const, value: testId, exact: true },
 } });
+const host = process.env.SURFACE_E2E_HOST ?? '127.0.0.1';
 let server: ViteDevServer, url: string, artifactDir: string;
 let engine: EngineHandle;
 async function locate(id: string): Promise<SemanticNode> {
@@ -33,12 +35,12 @@ beforeAll(async () => {
   server = await createServer({ configFile: false,
     root: fileURLToPath(new URL('./fixture', import.meta.url)),
     plugins: viteSurface() as import('vite').PluginOption[],
-    server: { host: '127.0.0.1', port: 0, fs: { allow: [fileURLToPath(new URL('../../../..', import.meta.url))] } },
+    server: { host, port: 0, fs: { allow: [fileURLToPath(new URL('../../../..', import.meta.url))] } },
     logLevel: 'error',
   });
   await server.listen();
   const address = server.httpServer!.address() as { port: number };
-  url = `http://127.0.0.1:${address.port}`;
+  url = `http://${host}:${address.port}`;
   const executablePath = process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
   engine = surface({ launch: { executablePath }, viewport: { width: 760, height: 720 } });
   await engine.init!({ signal, env: process.env, headed: false } as EngineInitInfo);
@@ -177,9 +179,9 @@ describe('browser engine with real native-surface', () => {
       await writeFile(join(project, 'e2e.config.ts'), `
         import { surface } from '../dist/index.js';
         export default { targets: [{ name: 'surface', engine: surface({
-          launch: { executablePath: ${JSON.stringify(process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined))} },
+          launch: { executablePath: ${JSON.stringify(process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined))}, args: ${JSON.stringify(browserArgs)} },
           viewport: { width: 760, height: 720 }
-        }), app: { url: ${JSON.stringify(url)} } }], tests: '*.e2e.ts', workers: 1, retries: 0, trace: 'off' };
+        }), app: { url: ${JSON.stringify(url.replace(host, browserHost))} } }], tests: '*.e2e.ts', workers: 1, retries: 0, trace: 'off' };
       `);
       await writeFile(join(project, 'smoke.e2e.ts'), `
         import { test, expect } from 'e2e';

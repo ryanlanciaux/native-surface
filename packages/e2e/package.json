@@ -1,6 +1,6 @@
 {
   "name": "@native-surface/e2e",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "TesterArmy e2e engine and reusable browser automation bridge for canvas React Native surfaces.",
   "license": "MIT",
   "type": "module",

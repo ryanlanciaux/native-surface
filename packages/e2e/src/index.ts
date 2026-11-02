@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type LaunchOptions, type Page } from 'playwright';
@@ -6,7 +6,7 @@ import { PNG } from 'pngjs';
 import packageInfo from '../package.json';
 import { ConfigurationError, defineEngine, EngineError, parseKey, raceAbort, resolveExpression,
   type EngineHandle, type EngineSnapshot, type LocatorAction, type OperationContext,
-  type PointerAction, type ViewportPoint } from 'e2e/engine';
+  type PointerAction, type VideoSegment, type ViewportPoint } from 'e2e/engine';
 import { BRIDGE_KEY, BRIDGE_VERSION, type BridgeObservation, type BridgeRegistry,
   type FocusInfo, type Rect, type SurfaceNode } from './protocol.js';
 import { clientRect, nodeForRef, semanticTree } from './semantics.js';
@@ -23,6 +23,16 @@ export interface SurfaceEngineOptions {
 }
 const failure = (code: ConstructorParameters<typeof EngineError>[0], message: string) =>
   new EngineError(code, message, { retryable: code === 'NODE_STALE' });
+
+const videoFailure = (error: unknown) => new EngineError('ENGINE_FAILURE',
+  `Surface video recording failed: ${(error instanceof Error ? error.message : String(error)).split('\n')[0]}`,
+  { retryable: false, cause: error });
+
+interface VideoRecording {
+  segments: VideoSegment[];
+  current?: { page: Page; file: string; startedAt: string; path: string; starting: Promise<void> };
+  failure?: unknown;
+}
 
 async function budget<T>(context: { signal: AbortSignal; timeoutMs: number }, work: (signal: AbortSignal) => Promise<T>) {
   const signal = AbortSignal.any([context.signal, AbortSignal.timeout(Math.max(1, Math.ceil(context.timeoutMs)))]);
@@ -46,22 +56,59 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
   let page: Page | undefined;
   let artifactsDir = '';
   let generation = 0;
+  const viewport = options.viewport ?? { width: 800, height: 800 };
+  let recording: VideoRecording | undefined;
+  let videoCounter = 0;
+  let openedPage: Page | undefined;
   const requirePage = () => {
     if (!page || page.isClosed()) throw failure('INVALID_STATE', 'Surface app is not open');
     return page;
   };
-  async function cleanup() {
+  function startSegment(active: VideoRecording, target: Page) {
+    const file = `segment-${String(++videoCounter).padStart(3, '0')}.webm`;
+    const directory = join(artifactsDir, 'video'), path = join(directory, file);
+    const startedAt = new Date().toISOString();
+    const starting = (async () => {
+      await mkdir(directory, { recursive: true });
+      await target.screencast.start({ path, size: viewport });
+    })();
+    active.current = { page: target, file, startedAt, path, starting };
+    return starting;
+  }
+  async function finishSegment(active: VideoRecording | undefined, signal?: AbortSignal) {
+    const current = active?.current;
+    if (!active || !current) return;
+    active.current = undefined;
+    const stop = async () => {
+      await current.starting;
+      await current.page.screencast.stop();
+    };
+    try {
+      await (signal ? raceAbort(stop, signal, 'surface video') : stop());
+      const size = await stat(current.path).then(info => info.size, () => 0);
+      if (size > 0) active.segments.push({ path: `video/${current.file}`, startedAt: current.startedAt });
+      else await rm(current.path, { force: true });
+    } catch (error) { active.failure ??= error; }
+  }
+  async function cleanup(signal?: AbortSignal) {
     generation++;
     const previous = browserContext;
-    page = undefined; browserContext = undefined;
+    const stopping = finishSegment(recording, signal);
+    page = undefined; browserContext = undefined; openedPage = undefined;
+    await stopping;
     await previous?.close();
+  }
+  function closeAttempt(context: { signal: AbortSignal; timeoutMs: number }) {
+    const closing = cleanup(AbortSignal.any([context.signal, AbortSignal.timeout(Math.max(1, Math.ceil(context.timeoutMs)))]));
+    recording = undefined;
+    return closing;
   }
   async function newPage(signal?: AbortSignal) {
     if (signal?.aborted) throw failure('CANCELLED', 'Surface attempt cancelled');
-    await cleanup();
+    await cleanup(signal);
     if (!browser) throw failure('INVALID_STATE', 'Surface browser is not initialized');
     const token = generation;
-    const created = await browser.newContext({ viewport: options.viewport ?? { width: 800, height: 800 } });
+    const created = await browser.newContext({ viewport });
     if (token !== generation || signal?.aborted) {
       await created.close(); throw failure('CANCELLED', 'Surface attempt ended during setup');
     }
@@ -297,6 +344,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         `target ${info.targetName} needs app.url for a browser-hosted surface`);
     },
     async init(info) {
+      recording = undefined;
       await cleanup(); await browser?.close(); browser = undefined;
       const environment = Object.fromEntries(Object.entries(info.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
       browser = await raceAbort(async () => {
@@ -307,14 +355,20 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         return launched;
       }, info.signal, 'surface browser launch');
     },
-    async startAttempt(context) { artifactsDir = context.artifactsDir; await newPage(context.signal); },
+    async startAttempt(context) {
+      const stale = recording;
+      recording = undefined;
+      await finishSegment(stale, context.signal);
+      artifactsDir = context.artifactsDir; videoCounter = 0;
+      await newPage(context.signal);
+    },
     async endAttempt(context) {
-      const closing = cleanup(); void closing.catch(() => {});
+      const closing = closeAttempt(context); void closing.catch(() => {});
       await budget(context, () => closing);
     },
     async dispose(context) {
       const previous = browser; browser = undefined;
-      const closing = (async () => { await cleanup(); await previous?.close(); })();
+      const closing = (async () => { await closeAttempt(context); await previous?.close(); })();
       void closing.catch(() => {}); await budget(context, () => closing);
     },
     async observe(context, observeOptions): Promise<EngineSnapshot> {
@@ -347,6 +401,13 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
     session: {
       open: (url, context) => guard(context, async current => {
         await current.goto(url, { waitUntil: 'domcontentloaded', timeout: context.timeoutMs });
+        if (current.url() !== 'about:blank') {
+          openedPage = current;
+          if (recording && !recording.current) {
+            const active = recording;
+            await startSegment(active, current).catch(error => { active.failure ??= error; });
+          }
+        }
         await current.waitForFunction(({ key, id, version }) => {
           const bridge = ((window as unknown as Record<string, unknown>)[key] as BridgeRegistry | undefined)?.[id];
           return bridge?.version === version;
@@ -358,7 +419,9 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         const previous = page, token = generation;
         const tab = await browserContext.newPage();
         if (signal.aborted || token !== generation) { await tab.close(); throw failure('CANCELLED', 'Surface restart ended'); }
-        generation++; page = tab; await previous?.close();
+        generation++; page = tab;
+        await finishSegment(recording, signal);
+        await previous?.close();
       }),
       reset: context => budget(context, signal => newPage(signal)),
     },
@@ -373,6 +436,26 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         checkpoint();
         const file = join(attemptDir, filename);
         await writeFile(file, shot.data); return filename;
+      }),
+      startVideo: context => budget(context, async () => {
+        if (recording) throw failure('INVALID_STATE', 'Surface video is already recording');
+        if (!artifactsDir) throw failure('INVALID_STATE', 'Surface attempt has no artifact directory');
+        const active: VideoRecording = { segments: [] };
+        recording = active;
+        if (!page || page !== openedPage || page.isClosed()) return;
+        try { await startSegment(active, page); }
+        catch (error) {
+          active.current = undefined;
+          if (recording === active) recording = undefined;
+          throw videoFailure(error);
+        }
+      }),
+      stopVideo: context => budget(context, async signal => {
+        const active = recording;
+        recording = undefined;
+        await finishSegment(active, signal);
+        if (active?.failure !== undefined && active.segments.length === 0) throw videoFailure(active.failure);
+        return active?.segments ?? [];
       }),
     },
   });

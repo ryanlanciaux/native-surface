@@ -142,9 +142,54 @@ runner. The browser entry contains no Node, Playwright, renderer, or e2e imports
 - Screenshots are available as artifacts and as observation pixels, so e2e's
   `expect(screen).toHaveScreenshot()` and `expect(locator).toHaveScreenshot()`
   work. There is no `scrollIntoView` action; element screenshots need the node
-  on screen already. State export, trace, video, uploads,
-  and native modules are not declared. Keep device targets for Hermes/Fabric and
+  on screen already. State export, trace, uploads, and native modules are not
+  declared. Keep device targets for Hermes/Fabric and
   native behavior; a surface pass does not prove a device pass.
+
+## Video
+
+Pass `--video` to `e2e run`, or set the `video` key in the config, on a target,
+or on a single test. Each takes `off`, `on`, `retain-on-failure`,
+`on-first-retry`, or `on-all-retries`.
+
+```sh
+pnpm exec e2e run --video=retain-on-failure
+```
+
+```ts
+export default {
+  video: 'retain-on-failure',
+  targets: [{ name: 'surface', engine: nativeSurface(), app: { url }, video: 'on' }],
+} satisfies E2EConfig;
+```
+
+```ts
+test('checkout', { video: 'on' }, async ({ app }) => { await app.open('/'); });
+```
+
+A test's own `video` wins over `--video`, which wins over the target's, which
+wins over the config's. With e2e 0.22 and later, a test can also call
+`app.startRecording()` and `app.stopRecording()`; set `video: 'off'` on that
+test, because e2e allows one recording at a time.
+
+Recordings are WebM files at the engine viewport size, under the attempt's
+artifact directory as `video/segment-001.webm`, `video/segment-002.webm`, and so
+on. The JSON report lists them as `video` artifacts of each attempt.
+
+- Recording follows the page. `app.clearState()` and `app.restart()` replace the
+  page, so each produces a new segment once the app reopens.
+- A page that was never opened records nothing, and `about:blank` is never
+  recorded. An attempt that opens no page has no video.
+- Recording needs Playwright's ffmpeg. `pnpm exec playwright install chromium`
+  includes it. If you launch your own browser through `executablePath`, run
+  `pnpm exec playwright install ffmpeg`. Without it the attempt writes no video
+  and reports a cleanup failure naming the missing binary; the test keeps its
+  status.
+
+**Security: videos are not masked.** Secure fields are masked in screenshots, but
+a recording masks nothing, as the e2e docs state, and e2e labels it
+`redaction: 'incomplete'`. A video can show anything the page showed, including
+passwords and tokens. Treat video files as secrets when you store or share them.
 
 ## Visual regression
 
@@ -191,4 +236,9 @@ pnpm --filter @native-surface/e2e test
 Tests build the package, start an isolated Vite fixture, run real
 Chromium/CanvasKit, and invoke the e2e CLI. Set `SURFACE_E2E_CHROMIUM`
 to choose an executable; tests otherwise use `/usr/bin/chromium` when available
-or Playwright's installed Chromium.
+or Playwright's installed Chromium. Video tests also need Playwright's ffmpeg and
+use `ffprobe` when it is at `/usr/bin/ffprobe`.
+
+Test and visual servers bind to `SURFACE_E2E_HOST` (default `127.0.0.1`). e2e
+accepts plain HTTP only on loopback hosts, so for any other host the e2e configs
+open `surface.localhost`, and test Chromium maps that name to `SURFACE_E2E_HOST`.

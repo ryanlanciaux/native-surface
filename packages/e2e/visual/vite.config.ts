@@ -9,7 +9,7 @@ export default defineConfig({
   appType: 'spa',
   clearScreen: false,
   server: {
-    host: '127.0.0.1',
+    host: process.env.SURFACE_E2E_HOST ?? '127.0.0.1',
     port: 5292,
     strictPort: true,
     hmr: false,
