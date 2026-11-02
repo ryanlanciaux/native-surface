@@ -84,6 +84,7 @@ capturing the complete screen; see the automation guide.
 | Package | What |
 |---|---|
 | `native-surface` | The engine, `<NativeSurface>`, and the `native-surface/vite` preset |
+| [`@native-surface/e2e`](packages/e2e/README.md) | TesterArmy e2e engine and reusable browser bridge for native surfaces; e2e `toHaveScreenshot` visual regression |
 | `@native-surface/compat` | Boundary-general shims for RN community packages that need engine wiring (installed automatically) |
 
 ## License

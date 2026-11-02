@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["vite/client", "node"],
+    "paths": { "react-native": ["../../native-surface/src/index.ts"] }
+  },
+  "include": ["."]
+}

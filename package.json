@@ -9,7 +9,9 @@
     "demo": "pnpm --filter embed-demo dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test:visual": "pnpm --filter @native-surface/e2e test:visual",
+    "test:visual:update": "pnpm --filter @native-surface/e2e test:visual:update"
   },
   "devDependencies": {
     "pixelmatch": "^8.0.0",
