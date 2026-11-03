@@ -14,6 +14,11 @@ function Screen() {
   const [value, setValue] = React.useState('');
   const [count, setCount] = React.useState(0);
   const [show, setShow] = React.useState(true);
+  React.useEffect(() => {
+    if (!location.search.includes('churn')) return;
+    const timer = setInterval(() => setCount(n => n + 1), 5);
+    return () => clearInterval(timer);
+  }, []);
   return <View style={{ width: 320, height: 640, padding: 10, backgroundColor: '#fff' }}>
     <TextInput ref={inputRef} testID="input" accessibilityLabel="Name" placeholder="Your name" value={value}
       editable={!location.search.includes('disableOnFirst') || value.length === 0}
@@ -51,6 +56,10 @@ function Screen() {
     <Pressable testID="cover" style={{ position: 'absolute', left: 220, top: 540, width: 80, height: 60, backgroundColor: 'rgba(0,0,0,0.3)' }}>
       <Text>Cover</Text>
     </Pressable>
+    {location.search.includes('detachBridge') && <Pressable testID="detach" accessibilityRole="button"
+      onPress={() => (window as unknown as { detachApp: () => void }).detachApp()} style={{ height: 40 }}>
+      <Text>Detach</Text>
+    </Pressable>}
     {location.search.includes('centerInput') && <TextInput testID="center-input"
       style={{ position: 'absolute', left: 0, top: 300, width: 300, height: 80 }} />}
   </View>;
@@ -60,7 +69,14 @@ function Host({ id, left, second = false }: { id: string; left: number; second?:
     transform: location.search.includes('scaled') ? 'scale(0.8)' : undefined, transformOrigin: 'top left' }}><NativeSurface width={320} height={640} dpr={2}
     onReady={root => {
       const controller = createAutomationController(root);
-      attachSurface({ id, controller, canvas: root.canvas as HTMLCanvasElement });
+      const attach = () => attachSurface({ id, controller, canvas: root.canvas as HTMLCanvasElement });
+      const detach = attach();
+      if (id !== 'app') return;
+      (window as unknown as { detachApp: () => void }).detachApp = () => setTimeout(() => { detach(); setTimeout(attach, 800); }, 50);
+      if (location.search.includes('navigateDuringObserve') && !sessionStorage.getItem('navigated')) {
+        const registry = (window as unknown as Record<string, Record<string, { observe: () => Promise<unknown> }>>)['__surfaceE2E']!;
+        registry[id]!.observe = () => { sessionStorage.setItem('navigated', 'yes'); location.reload(); return new Promise(() => {}); };
+      }
     }}>
     {second ? <View><TextInput testID="other" secureTextEntry autoFocus={location.search.includes('otherFocus')}
       defaultValue="other-secret" style={{ height: 40, width: 280 }} /></View> : <Screen />}

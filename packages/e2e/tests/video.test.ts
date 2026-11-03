@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -75,9 +75,9 @@ describe('engine video recording', { timeout: 60000 }, () => {
   });
   it('refuses a second start while recording', async () => {
     await start();
-    await expect(start()).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    await expect(start()).rejects.toMatchObject({ code: 'ENGINE_FAILURE', retryable: false });
     await open();
-    await expect(start()).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    await expect(start()).rejects.toMatchObject({ code: 'ENGINE_FAILURE', retryable: false });
     await pause(250);
     await expectSegments(await stop(), ['segment-001.webm']);
   });
@@ -148,6 +148,18 @@ describe('engine video recording', { timeout: 60000 }, () => {
     await start();
     await expect(open()).resolves.toBeUndefined();
     await expect(stop()).rejects.toMatchObject({ code: 'ENGINE_FAILURE' });
+  });
+  it('reports a failed later segment at stop and keeps the finished ones', async () => {
+    await start();
+    await open();
+    await pause(250);
+    await mkdir(join(artifactsDir, 'video/segment-002.webm'));
+    await engine.session!.reset!(operation());
+    await open();
+    await pause(250);
+    await expect(stop()).rejects.toMatchObject({ code: 'ENGINE_FAILURE', retryable: false });
+    await expectPlayable(join(artifactsDir, 'video/segment-001.webm'));
+    expect(await stop()).toEqual([]);
   });
   it('rejects a failed immediate start and stays able to run', async () => {
     const blocked = join(root, `blocked-${attempts}`);

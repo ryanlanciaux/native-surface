@@ -1,14 +1,24 @@
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { createServer, type PluginOption, type ViteDevServer } from 'vite';
 import { expect } from 'vitest';
 import { nativeSurface as viteSurface } from '../../../native-surface/src/vite';
-import { bindHost, browserHost } from './host';
+import { host } from './host';
 
 const FFPROBE = '/usr/bin/ffprobe';
 const run = promisify(execFile);
+
+const compat = process.env.SURFACE_E2E_COMPAT;
+export const runnerRoot = compat ?? fileURLToPath(new URL('../../', import.meta.url));
+const runnerEngine = createRequire(join(runnerRoot, 'package.json')).resolve('e2e/engine');
+export const e2eBinary = join(runnerEngine, '../../cli/bin.js');
+export const e2eVersion: string = JSON.parse(readFileSync(join(runnerEngine, '../../../package.json'), 'utf8')).version;
+export const engineModule = compat ? '@native-surface/e2e' : '../dist/index.js';
+export const videoProject = compat ? join(compat, 'video') : fileURLToPath(new URL('./', import.meta.url));
 
 export const chromiumPath = process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 
@@ -16,12 +26,13 @@ export async function startFixture(): Promise<{ server: ViteDevServer; url: stri
   const server = await createServer({ configFile: false,
     root: fileURLToPath(new URL('../fixture', import.meta.url)),
     plugins: viteSurface() as PluginOption[],
-    server: { host: bindHost, port: 0, fs: { allow: [fileURLToPath(new URL('../../../../..', import.meta.url))] } },
+    server: { host, port: 0, fs: { allow: [fileURLToPath(new URL('../../../../..', import.meta.url))] } },
     logLevel: 'error',
   });
   await server.listen();
   const address = server.httpServer!.address() as { port: number };
-  return { server, url: `http://${bindHost}:${address.port}`, appUrl: `http://${browserHost}:${address.port}` };
+  const url = `http://${host}:${address.port}`;
+  return { server, url, appUrl: url };
 }
 
 export async function expectPlayable(file: string) {

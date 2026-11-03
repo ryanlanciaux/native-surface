@@ -21,8 +21,12 @@ export interface SurfaceEngineOptions {
   launch?: LaunchOptions;
   maxNodes?: number;
 }
-const failure = (code: ConstructorParameters<typeof EngineError>[0], message: string) =>
-  new EngineError(code, message, { retryable: code === 'NODE_STALE' });
+const failure = (code: ConstructorParameters<typeof EngineError>[0], message: string, cause?: unknown) =>
+  new EngineError(code, message, { retryable: code === 'NODE_STALE', cause });
+const NAVIGATION_RACE = /execution context was destroyed|because of a navigation|navigating and changing the content|frame was detached|frame got detached|node is detached from document|target page, context or browser has been closed/i;
+const isTimeout = (error: unknown) => error instanceof Error && error.name === 'TimeoutError';
+const isNavigationRace = (error: unknown) => !(error instanceof EngineError) && !isTimeout(error)
+  && NAVIGATION_RACE.test(error instanceof Error ? error.message : String(error));
 
 const videoFailure = (error: unknown) => new EngineError('ENGINE_FAILURE',
   `Surface video recording failed: ${(error instanceof Error ? error.message : String(error)).split('\n')[0]}`,
@@ -39,7 +43,7 @@ async function budget<T>(context: { signal: AbortSignal; timeoutMs: number }, wo
   try { return await raceAbort(() => work(signal), signal, 'surface'); }
   catch (error) {
     if (context.signal.aborted) throw failure('CANCELLED', 'Surface operation cancelled');
-    if (signal.aborted) throw failure('OPERATION_TIMEOUT', 'Surface operation timed out');
+    if (signal.aborted || isTimeout(error)) throw failure('OPERATION_TIMEOUT', 'Surface operation timed out', error);
     throw error;
   }
 }
@@ -83,12 +87,15 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
       await current.starting;
       await current.page.screencast.stop();
     };
-    try {
-      await (signal ? raceAbort(stop, signal, 'surface video') : stop());
-      const size = await stat(current.path).then(info => info.size, () => 0);
-      if (size > 0) active.segments.push({ path: `video/${current.file}`, startedAt: current.startedAt });
-      else await rm(current.path, { force: true });
-    } catch (error) { active.failure ??= error; }
+    let failed: { error: unknown } | undefined;
+    try { await (signal ? raceAbort(stop, signal, 'surface video') : stop()); }
+    catch (error) { failed = { error }; }
+    const info = await stat(current.path).catch(() => undefined);
+    if (info?.isFile() && info.size > 0) active.segments.push({ path: `video/${current.file}`, startedAt: current.startedAt });
+    else {
+      if (info?.isFile()) await rm(current.path, { force: true });
+      if (failed) active.failure ??= failed.error;
+    }
   }
   async function cleanup(signal?: AbortSignal) {
     generation++;
@@ -106,7 +113,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
   async function newPage(signal?: AbortSignal) {
     if (signal?.aborted) throw failure('CANCELLED', 'Surface attempt cancelled');
     await cleanup(signal);
-    if (!browser) throw failure('INVALID_STATE', 'Surface browser is not initialized');
+    if (!browser) throw failure('ENGINE_FAILURE', 'Surface browser is not initialized');
     const token = generation;
     const created = await browser.newContext({ viewport });
     if (token !== generation || signal?.aborted) {
@@ -123,7 +130,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
       page = tab;
     } finally { signal?.removeEventListener('abort', abort); }
   }
-  async function guard<T>(context: OperationContext, work: (page: Page, checkpoint: () => void) => Promise<T>): Promise<T> {
+  async function guard<T>(context: OperationContext, work: (page: Page, checkpoint: () => void) => Promise<T>, read = false): Promise<T> {
     if (context.signal.aborted) throw failure('CANCELLED', 'Surface operation cancelled');
     const current = requirePage(), token = generation;
     try {
@@ -138,17 +145,27 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
       });
     } catch (error) {
       if (error instanceof EngineError) throw error;
+      if (generation !== token || current.isClosed()) throw failure('INVALID_STATE', 'Surface attempt ended', error);
+      if (read && isNavigationRace(error)) throw failure('NODE_STALE', 'Surface read raced a navigation', error);
       throw new EngineError('ENGINE_FAILURE', 'Surface browser operation failed', { retryable: false, cause: error });
     }
   }
+  const missingBridge = (current: Page) => current === openedPage
+    ? failure('NODE_STALE', `Surface bridge ${id} is not attached yet`)
+    : failure('INVALID_STATE', `Surface bridge ${id} is not attached; open the app first`);
   async function observeBridge(current: Page): Promise<BridgeObservation> {
     const result = await current.evaluate(async ({ key, id, version }) => {
       const registry = (window as unknown as Record<string, unknown>)[key] as BridgeRegistry | undefined;
       const bridge = registry?.[id];
-      if (!bridge || bridge.version !== version) return null;
+      if (!bridge) return 'missing' as const;
+      if (bridge.version !== version) return 'incompatible' as const;
       return bridge.observe();
-    }, { key: BRIDGE_KEY, id, version: BRIDGE_VERSION });
-    if (!result) throw failure('INVALID_STATE', `Surface bridge ${id} is not attached or has an incompatible version`);
+    }, { key: BRIDGE_KEY, id, version: BRIDGE_VERSION }).catch(error => {
+      if (isNavigationRace(error) && !current.isClosed()) throw failure('NODE_STALE', 'Surface read raced a navigation', error);
+      throw error;
+    });
+    if (result === 'missing') throw missingBridge(current);
+    if (result === 'incompatible') throw failure('INVALID_STATE', `Surface bridge ${id} has an incompatible version`);
     if (result.viewport.width <= 0 || result.viewport.height <= 0 || result.host.width <= 0 || result.host.height <= 0) {
       throw failure('NOT_ACTIONABLE', 'Surface has no displayed viewport');
     }
@@ -319,7 +336,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
       }, BRIDGE_KEY);
       const before = await read();
       const target = before.find(entry => entry.id === id)?.observation;
-      if (!target) throw failure('INVALID_STATE', `Surface bridge ${id} is not attached`);
+      if (!target) throw missingBridge(current);
       const passwordRects = await current.locator('input[type=password]').evaluateAll(elements => elements.map(element => {
         const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height };
       }));
@@ -334,14 +351,20 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
       for (const rect of [...masks, ...passwordRects]) maskRect(png, rect);
       return { observation: target, data: PNG.sync.write(png), maskedRegionCount: masks.length };
     }
-    throw failure('ENGINE_FAILURE', 'Surface kept changing during screenshot capture');
+    throw failure('NOT_ACTIONABLE', 'Surface kept changing during screenshot capture');
   }
   return defineEngine({
     name: 'native-surface', version: packageInfo.version, spiVersion: 1,
     platform: options.platform ?? 'native-surface',
     validateApp(app, info) {
-      if (!app.url || app.bundleId || app.appPath) throw new ConfigurationError('INVALID_CONFIG',
-        `target ${info.targetName} needs app.url for a browser-hosted surface`);
+      for (const key of ['bundleId', 'appPath', 'launchArguments'] as const) {
+        if (app[key] !== undefined) throw new ConfigurationError('INVALID_CONFIG',
+          `target "${info.targetName}" declares app.${key}, which describes an installed device app; a browser-hosted surface opens app.url`);
+      }
+      if (app.permissions !== undefined) throw new ConfigurationError('INVALID_CONFIG',
+        `target "${info.targetName}" declares app.permissions, but a browser-hosted surface cannot grant permissions; remove app.permissions`);
+      if (!app.url) throw new ConfigurationError('INVALID_CONFIG',
+        `target "${info.targetName}" needs app.url for a browser-hosted surface`);
     },
     async init(info) {
       recording = undefined;
@@ -384,12 +407,12 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
             maskedRegionCount: shot.maskedRegionCount };
         }
         return { ...tree, location: current.url(), viewport };
-      });
+      }, true);
     },
     locate: (expression, context) => guard(context, async current => {
       const tree = semanticTree(await observeBridge(current), id, current.viewportSize()!, Infinity);
       return resolveExpression(expression, tree.root.children ?? []);
-    }),
+    }, true),
     actions: ['tap', 'focus', 'fill', 'clear', 'press', 'swipe'],
     perform: (ref, action, context) => guard(context, (current, checkpoint) => perform(current, ref.id, action, checkpoint)),
     pointerActions: ['tap', 'swipe', 'dragTo', 'swipeTo'],
@@ -427,7 +450,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
     },
     artifacts: {
       screenshot: (label, context) => guard(context, async (current, checkpoint) => {
-        if (!artifactsDir) throw failure('INVALID_STATE', 'Surface attempt has no artifact directory');
+        if (!artifactsDir) throw failure('ENGINE_FAILURE', 'Surface attempt has no artifact directory');
         const attemptDir = artifactsDir;
         const shot = await capture(current);
         checkpoint();
@@ -438,8 +461,8 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         await writeFile(file, shot.data); return filename;
       }),
       startVideo: context => budget(context, async () => {
-        if (recording) throw failure('INVALID_STATE', 'Surface video is already recording');
-        if (!artifactsDir) throw failure('INVALID_STATE', 'Surface attempt has no artifact directory');
+        if (recording) throw failure('ENGINE_FAILURE', 'Surface video is already recording');
+        if (!artifactsDir) throw failure('ENGINE_FAILURE', 'Surface attempt has no artifact directory');
         const active: VideoRecording = { segments: [] };
         recording = active;
         if (!page || page !== openedPage || page.isClosed()) return;
@@ -454,7 +477,7 @@ export function surface(options: SurfaceEngineOptions = {}): EngineHandle {
         const active = recording;
         recording = undefined;
         await finishSegment(active, signal);
-        if (active?.failure !== undefined && active.segments.length === 0) throw videoFailure(active.failure);
+        if (active?.failure !== undefined) throw videoFailure(active.failure);
         return active?.segments ?? [];
       }),
     },

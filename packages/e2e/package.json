@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p visual",
     "test": "pnpm run build && vitest run",
     "test:visual": "e2e run --config visual/e2e.config.ts",
+    "test:compat": "node scripts/e2e-compat.mjs 0.21.3",
     "test:visual:update": "e2e run --config visual/e2e.config.ts --update-snapshots",
     "prepack": "pnpm run build"
   },
@@ -37,6 +38,6 @@
     "vite": "^6.4.3",
     "vitest": "^3.0.0"
   },
-  "engines": { "node": ">=22.12.0" },
+  "engines": { "node": "^22.22.3 || >=24.8.0" },
   "publishConfig": { "access": "public" }
 }

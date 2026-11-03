@@ -1,22 +1,21 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { chromiumPath, expectPlayable, startFixture } from './video/support';
+import { chromiumPath, e2eBinary, e2eVersion, expectPlayable, startFixture, videoProject } from './video/support';
 
 interface Artifact { kind: string; path?: string; size?: number; startedAt?: string; redaction?: string }
 interface Attempt { artifacts: Artifact[] }
 interface Result { titlePath: string[]; selected: boolean; status: string; attempts: Attempt[] }
 interface Report { run: { results: Result[] } }
 
-const project = fileURLToPath(new URL('./video/', import.meta.url));
+const project = videoProject;
 const outputs = join(project, '.e2e');
-const binary = join(createRequire(import.meta.url).resolve('e2e/engine'), '../../cli/bin.js');
+const binary = e2eBinary;
+const [major = 0, minor = 0] = e2eVersion.split('.').map(Number);
 let server: ViteDevServer, appUrl: string;
 
 async function e2e(args: readonly string[], env: Readonly<Record<string, string>> = {}) {
@@ -119,6 +118,14 @@ describe('e2e CLI video recording', { timeout: 180000 }, () => {
     expect(report.run.results.map(result => result.status), stdout).toEqual(['passed']);
     const [video] = videos(report.run.results[0]!);
     await expectPlayable(join(results, video!.path!));
+  });
+  it.runIf(major > 0 || minor >= 22)('writes a playable app.startRecording clip', async () => {
+    const { report, results, stdout } = await e2e(['recording.e2e.ts']);
+    expect(report.run.results.map(result => result.status), stdout).toEqual(['passed']);
+    const files = await webmFiles(results);
+    const clip = files.find(file => /(^|\/)recordings\/001-clip\.webm$/.test(file));
+    expect(clip, files.join('\n')).toBeDefined();
+    await expectPlayable(join(results, clip!));
   });
   it('lets a per-test video win over --video=off', async () => {
     const { report, results, stdout } = await e2e(['options.e2e.ts', '--video=off']);

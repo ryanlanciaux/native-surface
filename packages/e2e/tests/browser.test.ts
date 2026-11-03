@@ -6,20 +6,19 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { PNG } from 'pngjs';
 import { surface } from '../src/index';
-import { browserArgs, browserHost } from './video/host';
-import type { EngineHandle, EngineInitInfo, OperationContext, SemanticNode } from 'e2e/engine';
+import { host } from './video/host';
+import { e2eBinary, engineModule, runnerRoot } from './video/support';
+import type { EngineError, EngineHandle, EngineInitInfo, OperationContext, SemanticNode } from 'e2e/engine';
 
 const signal = new AbortController().signal;
 const operation = (): OperationContext => ({ signal, timeoutMs: 10000, runId: 'test', attemptId: 'test', origin: 'test' });
 const query = (testId: string) => ({ kind: 'query' as const, query: {
   kind: 'testId' as const, value: { kind: 'string' as const, value: testId, exact: true },
 } });
-const host = process.env.SURFACE_E2E_HOST ?? '127.0.0.1';
 let server: ViteDevServer, url: string, artifactDir: string;
 let engine: EngineHandle;
 async function locate(id: string): Promise<SemanticNode> {
@@ -29,6 +28,13 @@ async function action(id: string, action: Parameters<NonNullable<EngineHandle['p
   await engine.perform!((await locate(id)).ref, action, operation());
 }
 async function value(id: string) { return (await locate(id)).value; }
+async function settlesAfterStale() {
+  const codes = new Set<string>();
+  await expect.poll(() => engine.locate!(query('input'), operation()).then(nodes => nodes.length, (error: EngineError) => {
+    codes.add(`${error.code}:${error.retryable}`); return 0;
+  }), { timeout: 20000, interval: 100 }).toBe(1);
+  expect([...codes].filter(code => code !== 'NODE_STALE:true')).toEqual([]);
+}
 
 beforeAll(async () => {
   artifactDir = await mkdtemp(join(tmpdir(), 'surface-e2e-test-'));
@@ -174,14 +180,14 @@ describe('browser engine with real native-surface', () => {
     await expect(engine.artifacts!.screenshot('after-timeout', operation())).resolves.toMatch(/\.png$/);
   });
   it('runs the published engine through the real e2e CLI and locator assertions', async () => {
-    const project = await mkdtemp(join(fileURLToPath(new URL('../', import.meta.url)), '.runner-test-'));
+    const project = await mkdtemp(join(runnerRoot, '.runner-test-'));
     try {
       await writeFile(join(project, 'e2e.config.ts'), `
-        import { surface } from '../dist/index.js';
+        import { surface } from ${JSON.stringify(engineModule)};
         export default { targets: [{ name: 'surface', engine: surface({
-          launch: { executablePath: ${JSON.stringify(process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined))}, args: ${JSON.stringify(browserArgs)} },
+          launch: { executablePath: ${JSON.stringify(process.env.SURFACE_E2E_CHROMIUM ?? (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined))} },
           viewport: { width: 760, height: 720 }
-        }), app: { url: ${JSON.stringify(url.replace(host, browserHost))} } }], tests: '*.e2e.ts', workers: 1, retries: 0, trace: 'off' };
+        }), app: { url: ${JSON.stringify(url)} } }], tests: '*.e2e.ts', workers: 1, retries: 0, trace: 'off' };
       `);
       await writeFile(join(project, 'smoke.e2e.ts'), `
         import { test, expect } from 'e2e';
@@ -201,9 +207,7 @@ describe('browser engine with real native-surface', () => {
           await expect(screen.getByTestId('input')).toHaveValue('intentionally-wrong', { timeout: 200 });
         });
       `);
-      const require = createRequire(import.meta.url);
-      const binary = join(require.resolve('e2e/engine'), '../../cli/bin.js');
-      const result = await promisify(execFile)(process.execPath, [binary, 'run', '--config', join(project, 'e2e.config.ts')], {
+      const result = await promisify(execFile)(process.execPath, [e2eBinary, 'run', '--config', join(project, 'e2e.config.ts')], {
         cwd: project, env: { ...process.env, E2E_TELEMETRY_DISABLED: '1' }, timeout: 60000,
       }).catch(error => { if (error.code !== 1) throw error; return error as { stdout: string }; });
       expect(result.stdout).toContain('passed');
@@ -217,6 +221,34 @@ describe('browser engine with real native-surface', () => {
       expect(PNG.sync.read(await readFile(join(project, '.e2e/results', screenshot.path))).width).toBe(760);
     } finally { await rm(project, { recursive: true, force: true }); }
   }, 90000);
+  it('reports a read that races a navigation as retryable NODE_STALE', async () => {
+    await engine.session!.open!(`${url}?navigateDuringObserve`, operation());
+    await expect(engine.locate!(query('input'), operation())).rejects.toMatchObject({ code: 'NODE_STALE', retryable: true });
+    await settlesAfterStale();
+  });
+  it('reports a bridge that is briefly missing after open as retryable NODE_STALE', async () => {
+    await engine.session!.open!(`${url}?detachBridge`, operation());
+    await action('detach', { kind: 'tap' });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    await expect(engine.observe!(operation())).rejects.toMatchObject({ code: 'NODE_STALE', retryable: true });
+    await settlesAfterStale();
+  });
+  it('keeps INVALID_STATE for a page that was never opened', async () => {
+    await engine.session!.reset!(operation());
+    await expect(engine.locate!(query('input'), operation())).rejects.toMatchObject({ code: 'INVALID_STATE', retryable: false });
+  });
+  it('maps a timed out browser wait to OPERATION_TIMEOUT and an aborted caller to CANCELLED', async () => {
+    await expect(engine.session!.open!('about:blank', { ...operation(), timeoutMs: 300 })).rejects.toMatchObject({ code: 'OPERATION_TIMEOUT' });
+    const cancelled = new AbortController();
+    const opening = engine.session!.open!('about:blank', { ...operation(), signal: cancelled.signal });
+    const timer = setTimeout(() => cancelled.abort(), 100);
+    try { await expect(opening).rejects.toMatchObject({ code: 'CANCELLED' }); }
+    finally { clearTimeout(timer); }
+  });
+  it('reports a surface that keeps changing during capture as NOT_ACTIONABLE', async () => {
+    await engine.session!.open!(`${url}?churn`, operation());
+    await expect(engine.observe!(operation(), { pixels: true })).rejects.toMatchObject({ code: 'NOT_ACTIONABLE', retryable: false });
+  });
   it('starts teardown even when the cleanup signal is already aborted', async () => {
     const cancelled = new AbortController(); cancelled.abort();
     await expect(engine.endAttempt!({ signal: cancelled.signal, timeoutMs: 10000 })).rejects.toMatchObject({ code: 'CANCELLED' });

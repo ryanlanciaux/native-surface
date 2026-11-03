@@ -13,7 +13,7 @@ pnpm add -D @native-surface/e2e e2e
 
 Add `native-surface` too if the project doesn't already have it. Requirements:
 
-- Node `>=22.12.0`
+- Node `^22.22.3 || >=24.8.0`
 - e2e `>=0.19.0 <0.23.0`
 - Playwright `^1.63` comes bundled as a dependency of this package; you don't
   install it yourself.
@@ -260,6 +260,20 @@ to choose an executable; tests otherwise use `/usr/bin/chromium` when available
 or Playwright's installed Chromium. Video tests also need Playwright's ffmpeg and
 use `ffprobe` when it is at `/usr/bin/ffprobe`.
 
-Test and visual servers bind to `SURFACE_E2E_HOST` (default `127.0.0.1`). e2e
-accepts plain HTTP only on loopback hosts, so for any other host the e2e configs
-open `surface.localhost`, and test Chromium maps that name to `SURFACE_E2E_HOST`.
+Test and visual servers bind to `127.0.0.1`, and the e2e configs open
+`http://127.0.0.1`, because e2e accepts plain HTTP only on loopback hosts.
+`SURFACE_E2E_HOST` may name another `127.x.x.x` address; any other value fails
+with an error.
+
+The dev dependency pins e2e to the peer range floor. To run the vitest and
+visual suites against a newer e2e in the peer range, run:
+
+```sh
+pnpm --filter @native-surface/e2e test:compat
+```
+
+It packs this package, installs the tarball and the e2e version named in the
+`test:compat` script into a temporary consumer project, runs both suites against
+that copy, and deletes the project. It refuses an e2e release published less
+than 7 days ago. `node scripts/e2e-compat.mjs <version>...` takes other
+versions.
