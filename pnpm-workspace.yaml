@@ -6,5 +6,8 @@ onlyBuiltDependencies:
   - esbuild
 
 minimumReleaseAgeExclude:
+  # Temporary: lets e2e install its latest release before it is 7 days old.
+  # Remove on 2026-11-06, when e2e 0.22.0 turns 7 days old.
+  - e2e
   - e2e@0.19.0
   - pixelmatch@8.0.0

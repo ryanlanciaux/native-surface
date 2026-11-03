@@ -275,5 +275,6 @@ pnpm --filter @native-surface/e2e test:compat
 It packs this package, installs the tarball and the e2e version named in the
 `test:compat` script into a temporary consumer project, runs both suites against
 that copy, and deletes the project. It refuses an e2e release published less
-than 7 days ago. `node scripts/e2e-compat.mjs <version>...` takes other
+than 7 days ago unless `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`
+lists it. `node scripts/e2e-compat.mjs <version>...` takes other
 versions.

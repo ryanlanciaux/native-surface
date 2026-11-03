@@ -4,8 +4,11 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MIN_AGE_MINUTES = 10080;
 const pkg = fileURLToPath(new URL('../', import.meta.url));
+const workspace = readFileSync(join(pkg, '../../pnpm-workspace.yaml'), 'utf8');
+const excluded = (workspace.match(/^minimumReleaseAgeExclude:\n((?:[ \t]+(?:#.*|- .*)\n?)*)/m)?.[1] ?? '')
+  .split('\n').map(line => line.trim()).filter(line => line.startsWith('- ')).map(line => line.slice(2).trim());
 const versions = process.argv.slice(2);
 if (versions.length === 0) {
   console.error('usage: node scripts/e2e-compat.mjs <e2e version>...');
@@ -15,8 +18,9 @@ const published = JSON.parse(execFileSync('npm', ['view', 'e2e', 'time', '--json
 for (const version of versions) {
   const at = Date.parse(published[version] ?? '');
   if (Number.isNaN(at)) throw new Error(`e2e@${version} is not published`);
-  if (Date.now() - at < MIN_AGE_MS) {
-    throw new Error(`e2e@${version} was published ${published[version]}, less than 7 days ago; wait until ${new Date(at + MIN_AGE_MS).toISOString()}`);
+  if (excluded.includes('e2e') || excluded.includes(`e2e@${version}`)) continue;
+  if (Date.now() - at < MIN_AGE_MINUTES * 60000) {
+    throw new Error(`e2e@${version} was published ${published[version]}, less than 7 days ago; wait until ${new Date(at + MIN_AGE_MINUTES * 60000).toISOString()}`);
   }
 }
 
@@ -30,8 +34,9 @@ for (const version of versions) {
     run('pnpm', ['pack', '--pack-destination', consumer], pkg);
     const tarball = readdirSync(consumer).find(name => name.endsWith('.tgz'));
     writeFileSync(join(consumer, 'package.json'), JSON.stringify({ name: 'surface-e2e-compat', private: true, type: 'module' }));
-    writeFileSync(join(consumer, '.npmrc'), 'minimum-release-age=10080\n');
-    run('pnpm', ['add', '--ignore-workspace', `e2e@${version}`, `./${tarball}`], consumer);
+    writeFileSync(join(consumer, 'pnpm-workspace.yaml'), [`minimumReleaseAge: ${MIN_AGE_MINUTES}`, 'minimumReleaseAgeExclude:',
+      ...excluded.map(entry => `  - ${JSON.stringify(entry)}`), ''].join('\n'));
+    run('pnpm', ['add', '--workspace-root', `e2e@${version}`, `./${tarball}`], consumer);
     const installed = JSON.parse(readFileSync(join(consumer, 'node_modules/e2e/package.json'), 'utf8')).version;
     if (installed !== version) throw new Error(`installed e2e@${installed}, expected ${version}`);
 
