@@ -5,11 +5,36 @@ browser-hosted React Native canvas surfaces, with a separate reusable browser
 bridge. Supports e2e `>=0.19.0 <0.23.0`, including e2e's own `toHaveScreenshot`
 visual comparison.
 
-## Attach the test host
+## Install
 
-Install `@native-surface/e2e` and `e2e` as dev dependencies. Install the browser
-with `pnpm exec playwright install chromium`; on Linux CI use
-`pnpm exec playwright install --with-deps chromium`.
+```sh
+pnpm add -D @native-surface/e2e e2e
+```
+
+Add `native-surface` too if the project doesn't already have it. Requirements:
+
+- Node `>=22.12.0`
+- e2e `>=0.19.0 <0.23.0`
+- Playwright `^1.63` comes bundled as a dependency of this package; you don't
+  install it yourself.
+
+pnpm doesn't link a dependency's binaries into your project, so
+`pnpm exec playwright` isn't available. Install the browser with the Playwright
+version this package resolved, which `pnpm why playwright` prints:
+
+```sh
+pnpm dlx playwright@<version> install chromium
+```
+
+On Linux CI use `pnpm dlx playwright@<version> install --with-deps chromium`.
+
+`install chromium` includes the ffmpeg build that video recording needs. If you
+launch your own browser through `executablePath`, also run
+`pnpm dlx playwright@<version> install ffmpeg`. Without it the attempt writes no
+video and reports a cleanup failure naming the missing binary; the test keeps
+its status.
+
+## Attach the test host
 
 ```tsx
 import { NativeSurface } from 'native-surface';
@@ -180,11 +205,7 @@ on. The JSON report lists them as `video` artifacts of each attempt.
   page, so each produces a new segment once the app reopens.
 - A page that was never opened records nothing, and `about:blank` is never
   recorded. An attempt that opens no page has no video.
-- Recording needs Playwright's ffmpeg. `pnpm exec playwright install chromium`
-  includes it. If you launch your own browser through `executablePath`, run
-  `pnpm exec playwright install ffmpeg`. Without it the attempt writes no video
-  and reports a cleanup failure naming the missing binary; the test keeps its
-  status.
+- Recording needs Playwright's ffmpeg; see [Install](#install).
 
 **Security: videos are not masked.** Secure fields are masked in screenshots, but
 a recording masks nothing, as the e2e docs state, and e2e labels it
